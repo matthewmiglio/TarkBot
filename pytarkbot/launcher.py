@@ -58,7 +58,7 @@ def close_launcher(logger,tark_launcher):
     tark_launcher=tark_launcher[0]
     tark_launcher.close()
         
-def restart_tarkov(logger,launcher_path):
+def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path):
     #specify tark launcher path
     #launcher_path=r"B:\BsgLauncher\BsgLauncher.exe"
     
@@ -77,11 +77,12 @@ def restart_tarkov(logger,launcher_path):
         
         
     #get current graphics settings and save them to database location
-    save_default_settings_to_file(logger)
+    
+    save_default_settings_to_file(logger,src=tarkov_graphics_settings_path,dst=saved_user_settings_path)
     time.sleep(0.33)
     
     #set current graphics settings to bot config
-    set_tarkov_settings_to_bot_config(logger)
+    set_tarkov_settings_to_bot_config(logger,src=preset_graphics_for_bot_path,dst=tarkov_graphics_settings_path)
     time.sleep(1)
     
         
