@@ -2,6 +2,7 @@
 import time
 import pyautogui
 from client import exit_printout, intro_printout
+from configuration import load_user_settings
 
 
 
@@ -41,7 +42,6 @@ def main():
         exit_printout(logger)
         
     
-
 def state_remove_flee_offers():
     logger.log("STATE=remove_flee_offers")
       
