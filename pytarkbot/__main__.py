@@ -1,6 +1,4 @@
 
-
-
 import time
 import pyautogui
 from client import exit_printout, intro_printout
@@ -115,6 +113,8 @@ def state_restart():
 
 def state_hideout_management():
     pass
+
+
 
 
 if __name__ == "__main__":

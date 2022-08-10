@@ -1,0 +1,9 @@
+pyautogui
+numpy
+pygetwindow
+Pillow
+opencv-python
+joblib
+pytesseract
+keyboard
+matplotlib

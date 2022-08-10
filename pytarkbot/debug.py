@@ -1,31 +1,4 @@
-
-
-from asyncio import wait_for
-from audioop import avg
-from datetime import datetime
-from pyexpat.model import XML_CQUANT_OPT
-import random
-import subprocess
-from threading import currentThread
 import time
-from os.path import join
-from tokenize import blank_re
-from unittest.mock import sentinel
-
-import numpy
-
-from PIL import Image
-
-import os
-import time
-from tkinter import image_names
-from turtle import color, numinput
-
-import numpy
-import pygetwindow
-import pyautogui
-import shutil
-
 
 
 from matplotlib import pyplot as plt
@@ -48,7 +21,7 @@ logger=Logger()
 image_path = r"C:\Users\Matt\Desktop\inc_pics"
 index=time.gmtime()
 default_settings_path= f"{image_path}"
-default_settings_path=f"{default_settings_path}\{index}.png"
+default_settings_path=f"{default_settings_path}\\{index}.png"
 
 
 # plt.imshow(numpy.asarray(screenshot()))
