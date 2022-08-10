@@ -1,4 +1,3 @@
-from asyncore import loop
 from client import check_quit_key_press, click, orientate_client, screenshot
 from graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
 from image_rec import check_for_location, find_references, pixel_is_equal

@@ -1,8 +1,5 @@
 
-
-from tabnanny import check
 import time
-from tkinter import image_names
 import pyautogui
 from client import exit_printout, intro_printout
 
