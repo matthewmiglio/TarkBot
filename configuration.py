@@ -26,9 +26,10 @@ def create_config_file():
     if not exists(config_file):
         with open(config_file, "w") as f:
             default_config = {
-                "launcher_path": join(expandvars(f"%appdata%"), "Microsoft", "Windows", "Start Menu", "Programs", "Chrome Apps", "Twitter.lnk")} # twitter launcher path
+                "launcher_path": join("B:\BsgLauncher\BsgLauncher.exe"), # launcher path
+                "graphics_setting_path": join(expandvars(f"%appdata%"), "Battlestate Games", "Escape from Tarkov", "Settings", "Graphics.ini")} # graphics settings path
             f.write(json.dumps(default_config, indent=4))
-        print(f"Created config file @ .../appdata/py-TarkBot/")
+    print(f"Created config file @ .../appdata/py-TarkBot/")
 
 
 create_config_file()
