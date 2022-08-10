@@ -1,10 +1,10 @@
 
 
-from tabnanny import check
+
 import time
-from tkinter import image_names
 import pyautogui
 from client import exit_printout, intro_printout
+from configuration import load_user_settings
 
 
 
@@ -16,7 +16,8 @@ from graphics_config import set_tarkov_settings_to_default_config
 from launcher import restart_tarkov, wait_for_tarkov_to_close, wait_for_tarkov_to_open
 from logger import Logger
 
-
+user_settings = load_user_settings()
+launcher_path = user_settings["launcher_path"]
 
 logger=Logger()
 
@@ -44,7 +45,6 @@ def main():
         exit_printout(logger)
         
     
-
 def state_remove_flee_offers():
     logger.log("STATE=remove_flee_offers")
       
@@ -104,14 +104,12 @@ def state_restart():
     
     #if tark open close it
     logger.log("STATE=RESTART")
-    restart_tarkov(logger)
+    restart_tarkov(logger,launcher_path)
     return "flee_mode"
 
 
 def state_hideout_management():
     pass
-
-
 
 
 if __name__ == "__main__":
