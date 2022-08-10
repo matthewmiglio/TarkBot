@@ -132,7 +132,7 @@ def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user
         restart_tarkov(logger,launcher_path)
         
     #set graphics settings back to user defaults
-    set_tarkov_settings_to_default_config(logger)
+    set_tarkov_settings_to_default_config(logger,src=saved_user_settings_path,dst=tarkov_graphics_settings_path)
  
     
 def wait_for_tarkov_to_open(logger):

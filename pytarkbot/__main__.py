@@ -1,8 +1,11 @@
 
+
+
 import time
 import pyautogui
 from client import exit_printout, intro_printout
 from configuration import load_user_settings
+from os.path import join
 
 
 
@@ -18,9 +21,8 @@ user_settings = load_user_settings()
 launcher_path = user_settings["launcher_path"]
 
 tarkov_graphics_settings_path = user_settings["graphics_setting_path"]
-
-
-
+saved_user_settings_path = join(".\config","user_default_config","Graphics.ini") 
+preset_graphics_for_bot_path = join(".\config","user_default_config","Graphics.ini") 
 
 logger=Logger()
 
@@ -42,7 +44,7 @@ def main():
         wait_for_tarkov_to_close(logger)
 
         #revert settings to user default
-        set_tarkov_settings_to_default_config(logger)
+        set_tarkov_settings_to_default_config(logger,src=saved_user_settings_path,dst=tarkov_graphics_settings_path)
         
         #program tag
         exit_printout(logger)
@@ -107,12 +109,9 @@ def state_restart():
     
     #if tark open close it
     logger.log("STATE=RESTART")
-    restart_tarkov(logger,launcher_path)
+    restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path, saved_user_settings_path,preset_graphics_for_bot_path)
+    
     return "flee_mode"
-
-
-def state_hideout_management():
-    pass
 
 
 
