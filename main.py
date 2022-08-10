@@ -18,7 +18,10 @@ from logger import Logger
 
 user_settings = load_user_settings()
 launcher_path = user_settings["launcher_path"]
-graphics_settings_path = user_settings["graphics_setting_path"]
+
+tarkov_graphics_settings_path = user_settings["graphics_setting_path"]
+
+
 
 
 logger=Logger()
