@@ -34,4 +34,3 @@ def create_config_file():
     print("Created config file for the bot @ appdata/py-TarkBot/")
 
 
-create_config_file()

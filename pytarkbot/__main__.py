@@ -76,7 +76,7 @@ def state_flee_mode():
     if get_to_flee_tab(logger)=="restart":
         return "restart"
     time.sleep(0.33)
-    
+              
     while True:
         pyautogui.press('n')
         
@@ -100,7 +100,7 @@ def state_flee_mode():
         post_price=check_first_price(logger)
         if post_price is not False:
             logger.log("Post price passed all checks. Posting this item.")
-            post_item(logger,post_price)
+            post_item(logger,post_price)                   
         
 
 def state_restart():
