@@ -2,20 +2,16 @@
 
 
 import time
-import pyautogui
-from client import exit_printout, intro_printout
-from configuration import load_user_settings
 from os.path import join
 
+import pyautogui
+
+from pytarkbot.configuration import load_user_settings
+from pytarkbot.flee import check_first_price, get_to_flee_tab, get_to_flee_tab_from_my_offers_tab, get_to_my_offers_tab, open_add_offer_tab, post_item, remove_offers, select_random_item_to_flee, set_flea_filters, wait_till_can_add_another_offer
+from pytarkbot.launcher import restart_tarkov
+from pytarkbot.logger import Logger
 
 
-from flee import check_first_price, get_to_flee_tab, get_to_flee_tab_from_my_offers_tab, get_to_my_offers_tab, open_add_offer_tab, post_item, remove_offers, select_random_item_to_flee, set_flea_filters, wait_till_can_add_another_offer
-from graphics_config import set_tarkov_settings_to_default_config
-
-               
-
-from launcher import restart_tarkov, wait_for_tarkov_to_close, wait_for_tarkov_to_open
-from logger import Logger
 
 user_settings = load_user_settings()
 launcher_path = user_settings["launcher_path"]

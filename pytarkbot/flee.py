@@ -1,10 +1,13 @@
-from client import  calculate_avg_pixel, check_quit_key_press, click, find_all_pixel_coords, find_all_pixels, find_all_pixels_not_equal_to, img_to_txt, screenshot
-import numpy
 import random
 import time
-import pyautogui
 
-from image_rec import check_for_location, find_references, get_first_location, pixel_is_equal
+import numpy
+import pyautogui
+from pytarkbot.client import calculate_avg_pixel, check_quit_key_press, click, find_all_pixel_coords, find_all_pixels, find_all_pixels_not_equal_to, img_to_txt, screenshot
+
+from pytarkbot.image_rec import check_for_location, find_references, get_first_location, pixel_is_equal
+
+
 
 def get_color_list_of_current_price(image):
     #loop returns a list of colors

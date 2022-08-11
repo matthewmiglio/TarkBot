@@ -1,18 +1,19 @@
 
 import random
 import subprocess
-import pytesseract
-import pygetwindow
-import pyautogui
-import time
-import keyboard
 import sys
-from matplotlib import pyplot as plt
-import numpy
+import time
 from os.path import dirname, join
+
+import keyboard
+import numpy
+import pyautogui
+import pygetwindow
+import pytesseract
+from matplotlib import pyplot as plt
 from PIL import Image
 
-from image_rec import check_for_location, coords_is_equal, find_references, get_first_location, pixel_is_equal
+from pytarkbot.image_rec import coords_is_equal, pixel_is_equal
 
 
 

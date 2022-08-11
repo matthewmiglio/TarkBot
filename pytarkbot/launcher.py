@@ -1,10 +1,13 @@
-from client import check_quit_key_press, click, orientate_client, screenshot
-from graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
-from image_rec import check_for_location, find_references, pixel_is_equal
-import time
-import pygetwindow
 import subprocess
-import numpy 
+import time
+
+import numpy
+import pygetwindow
+
+from pytarkbot.client import check_quit_key_press, click, orientate_client, screenshot
+from pytarkbot.graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
+from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
+
 
 
 def check_if_on_tark_main(logger):

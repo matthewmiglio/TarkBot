@@ -1,12 +1,13 @@
-from client import click, screenshot
-import pyautogui
 import time
+
 import numpy
+import pyautogui
 
-from image_rec import pixel_is_equal
-from image_rec import find_references, get_first_location
+from pytarkbot.client import check_quit_key_press, click, screenshot
+from pytarkbot.image_rec import check_for_location, find_references, get_first_location, pixel_is_equal
 
-#movement
+
+#navigation
 def get_to_hideout(logger):
     logger.log("Getting to hideout")
     at_hideout=check_if_in_hideout()
@@ -16,9 +17,9 @@ def get_to_hideout(logger):
         time.sleep(3.33)
         at_hideout=check_if_in_hideout()
     logger.log("At hideout.")
-    pyautogui.keyDown('a')
-    logger.log("Moving to the left side of hideout to help image recognition.")
-    pyautogui.keyUp('a')
+    time.sleep(0.33)
+    logger.log("Opening hideout interface at bottom of screen.")
+    open_hideout_interface()
     
 def open_hideout_interface():
     pyautogui.click(800,934)
@@ -31,8 +32,9 @@ def scroll_right_in_hideout():
     
 
     
-#checks and looks
+##checks and looks
 
+#general hideout
 def check_if_in_hideout():
     iar=numpy.asarray(screenshot())
     pix1=iar[986][114]
@@ -52,18 +54,16 @@ def check_if_in_hideout():
     return True
 
 
-
-def look_for_booze_generator_symbol():
+#checking if currently at the right station
+def check_if_at_booze_generator():
     current_image = screenshot()
-    reference_folder = "look_for_booze_generator_symbol"
+    reference_folder = "check_if_at_booze_generator"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -73,22 +73,17 @@ def look_for_booze_generator_symbol():
         tolerance=0.99
     )
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
+    return check_for_location(locations)
 
-def look_for_water_collector_symbol():
+def check_if_at_water_collector():
     current_image = screenshot()
-    reference_folder = "look_for_water_collector_symbol"
+    reference_folder = "check_if_at_water_collector"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -97,23 +92,17 @@ def look_for_water_collector_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-def look_for_lavatory_symbol():
+def check_if_at_lavatory():
     current_image = screenshot()
-    reference_folder = "look_for_lavatory_symbol"
+    reference_folder = "check_if_at_lavatory"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -122,23 +111,17 @@ def look_for_lavatory_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-def look_for_nutrition_unit_symbol():
+def check_if_at_nutrition_unit():
     current_image = screenshot()
-    reference_folder = "look_for_nutrition_unit_symbol"
+    reference_folder = "check_if_at_nutrition_unit"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "5.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -147,23 +130,17 @@ def look_for_nutrition_unit_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-def look_for_workbench_symbol():
+def check_if_at_workbench():
     current_image = screenshot()
-    reference_folder = "look_for_workbench_symbol"
+    reference_folder = "check_if_at_workbench"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -172,23 +149,17 @@ def look_for_workbench_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-def look_for_intelligence_center_symbol():
+def check_if_at_intelligence_center():
     current_image = screenshot()
-    reference_folder = "look_for_intelligence_center_symbol"
+    reference_folder = "check_if_at_intelligence_center"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -197,23 +168,17 @@ def look_for_intelligence_center_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-def look_for_medstation_symbol():
+def check_if_at_medstation():
     current_image = screenshot()
-    reference_folder = "look_for_medstation_symbol"
+    reference_folder = "check_if_at_medstation"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -222,23 +187,17 @@ def look_for_medstation_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-def look_for_scav_case_symbol():
+def check_if_at_scav_case():
     current_image = screenshot()
-    reference_folder = "look_for_scav_case_symbol"
+    reference_folder = "check_if_at_scav_case"
     references = [
         "1.png",
         "2.png",
         "3.png",
         "4.png",
-        "4.png",
-        
-        
+        "5.png", 
     ]
 
     locations = find_references(
@@ -247,48 +206,113 @@ def look_for_scav_case_symbol():
         names=references,
         tolerance=0.99
     )
+    return check_for_location(locations)
 
-    coords= get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1],coords[0]]
-
-
-
-
-
-#expanded movement
-
-def get_to_water_collector():
-    pass
-
-def get_to_lavatory():
-    pass
-
-def get_to_nutrition_unit():
-    pass
-
-def get_to_workbench():
-    pass
-
-def get_to_intelligence_center():
-    pass
-
-def get_to_booze_generator():
-    pass
-
-def get_to_medstation():
-    pass
-
-def get_to_scav_case():
+#checking the state of stations
+def check_booze_generator():
     pass
 
 
 
+#move to each station
+def get_to_water_collector(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_water_collector()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_water_collector()
+    logger.log("Made it to water collector.")
+
+def get_to_lavatory(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_lavatory()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_lavatory()
+    logger.log("Made it to lavatory")
+
+def get_to_booze_generator(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_booze_generator()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_booze_generator()
+    logger.log("Made it to booze_generator.")
+
+def get_to_nutrition_unit(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_nutrition_unit()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_nutrition_unit()
+    logger.log("Made it to nutrition_unit")
+
+def get_to_workbench(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_workbench()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_workbench()
+    logger.log("Made it to workbench")
+
+def get_to_intelligence_center(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_intelligence_center()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_intelligence_center()
+    logger.log("Made it to intelligence_center")
+
+def get_to_medstation(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_medstation()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_medstation()
+    logger.log("Made it to medstation")
+
+def get_to_scav_case(logger):
+    open_hideout_interface()
+    
+    at_location=check_if_at_scav_case()
+    while not(at_location):
+        scroll_left_in_hideout()
+        time.sleep(2)
+        at_location=check_if_at_scav_case()
+    logger.log("Made it to scav_case.")
 
 
+#aux definitions
+def find_start_symbol_in_booze_generator():
+    current_image = screenshot()
+    reference_folder = "booze_generator_start_icon"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+    ]
 
-
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return get_first_location(locations)
 
 
 
