@@ -1,4 +1,5 @@
 import time
+from turtle import color
 
 import numpy
 import pyautogui
@@ -44,7 +45,6 @@ def scroll_right_in_hideout():
     pyautogui.click(1255,934)
     
 
-    
 
 
 #general hideout
@@ -647,12 +647,19 @@ def check_water_collector():
         return "collect"
     
 def check_if_water_collector_has_filter():
-    region=[818,768,50,50]
-    color=[125,209,254]
-    coords=find_all_pixel_coords(region,color,image=None,tol=30)
-    if coords is not None:
+    iar=numpy.asarray(screenshot())
+    pix=iar[795][844]
+    
+    color_black=[22,22,23]
+    color_blue=[122,214,254]
+    
+    if pixel_is_equal(pix,color_black,tol=50):
+        return False
+    if pixel_is_equal(pix,color_blue,tol=50):
         return True
-    return False
+
+
+
     
 def check_for_water_collector_producing_icon():
     current_image = screenshot()

@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from logger import Logger
 from pytarkbot.__main__ import state_intro
 from pytarkbot.client import check_quit_key_press, click, find_all_pixel_coords, img_to_txt, orientate_client, screenshot
-from pytarkbot.hideout import check_booze_generator, check_for_water_collector_collect_icon, check_for_workbench_producing_icon, check_if_at_booze_generator, check_workbench, find_green_gunpowerder_icon_in_workbench, find_start_symbol_in_booze_generator, get_image_of_green_gunpowder_surroundings, get_to_booze_generator, get_to_green_gunpowder_craft, get_to_hideout, get_to_intelligence_center, get_to_lavatory, get_to_medstation, get_to_nutrition_unit, get_to_scav_case,  get_to_water_collector, get_to_workbench, manage_booze_generator, manage_scav_case, manage_water_collector, manage_workbench, reset_station, start_green_gunpowder_craft_in_workbench
+from pytarkbot.hideout import check_booze_generator, check_for_water_collector_collect_icon, check_for_workbench_producing_icon, check_if_at_booze_generator, check_if_water_collector_has_filter, check_water_collector, check_workbench, find_green_gunpowerder_icon_in_workbench, find_start_symbol_in_booze_generator, get_image_of_green_gunpowder_surroundings, get_to_booze_generator, get_to_green_gunpowder_craft, get_to_hideout, get_to_intelligence_center, get_to_lavatory, get_to_medstation, get_to_nutrition_unit, get_to_scav_case,  get_to_water_collector, get_to_workbench, manage_booze_generator, manage_scav_case, manage_water_collector, manage_workbench, reset_station, start_green_gunpowder_craft_in_workbench
 from pytarkbot.image_rec import check_for_location, find_references, get_first_location, pixel_is_equal
 
 logger=Logger()
@@ -32,9 +32,8 @@ logger=Logger()
 # orientate_client("EscapeFromTarkov",[1280,960])
 # time.sleep(1)
 
-plt.imshow(numpy.asarray(screenshot()))
-plt.show()
+# plt.imshow(numpy.asarray(screenshot()))
+# plt.show()
 
 
 
-# manage_water_collector(logger)

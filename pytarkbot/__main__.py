@@ -1,6 +1,3 @@
-
-
-
 import time
 import keyboard
 from os.path import join
@@ -44,7 +41,7 @@ def main():
             if state=="remove_flee_offers":
                 state=state_remove_flee_offers()
             if state=="manage_hideout_mode":
-                state=state_hideout_management()
+                state=state_hideout_management()             
             if state=="help":
                 state=state_user_help_printout()
             
@@ -68,7 +65,7 @@ def state_user_help_printout():
     logger.log("")
     logger.log("lol good luck.")
     return "restart"
-    2
+    
     
 def state_intro():
     blank_line="////////////////////////////////////////////////////"
@@ -195,6 +192,7 @@ def state_hideout_management():
     if manage_hideout(logger)=="restart":
         return "restart"
     return "restart"
+
 
 if __name__ == "__main__":
     main() 
