@@ -207,6 +207,7 @@ def check_quit_key_press():
             time.sleep(0.05)
             if keyboard.is_pressed("pause"):
                 print("Pause held again. Resuming program.")
+                time.sleep(3)
                 pressed = True
 
 
