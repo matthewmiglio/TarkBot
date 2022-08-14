@@ -18,6 +18,6 @@ For developers, to install the source code with the following:
 ``` bash
 git clone https://github.com/matthewmiglio/py-TarkBot.git
 cd py-TarkBot
-python -m venv .venv; .\venv\scripts\Activate.ps1
+python -m venv .venv; .\.venv\scripts\Activate.ps1
 pip install -e .
 ```
