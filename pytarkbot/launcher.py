@@ -6,7 +6,7 @@ import pygetwindow
 from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot
 from pytarkbot.graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
 from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
-
+import pyautogui
 
 
 def check_if_on_tark_main(logger):
@@ -37,12 +37,21 @@ def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main(logger)
     loops = 0
     while not (on_main):
+        #top
+        pyautogui.moveTo(250,250,duration=0.22)
+        #left
+        pyautogui.moveTo(125,330,duration=0.22)
+        #bottom
+        pyautogui.moveTo(250,500,duration=0.22)
+        #right
+        pyautogui.moveTo(330,330,duration=0.22)
+        
         check_quit_key_press()
         logger.log(f"Waiting for tark main {loops}")
         loops = loops + 2
-        time.sleep(2)
+        
         on_main = check_if_on_tark_main(logger)
-        if loops > 50:
+        if loops > 120:
             return "restart"
     logger.log("Made it to tarkov main.")
 
