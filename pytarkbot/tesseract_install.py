@@ -1,10 +1,10 @@
-import winreg
 from os import environ, makedirs, system
 from os.path import dirname, exists, expandvars, join, normpath
 from socket import gaierror
 from urllib.request import urlretrieve
+from winreg import HKEY_LOCAL_MACHINE, ConnectRegistry, OpenKey, QueryValueEx
 
-import pandas
+from pandas import read_html
 from requests.exceptions import ConnectionError
 from tqdm import tqdm
 from urllib3.exceptions import MaxRetryError, NewConnectionError
@@ -52,7 +52,7 @@ def make_cache() -> str:
 
 def get_tsrct_link() -> list[str] | None:
     url = r"http://digi.bib.uni-mannheim.de/tesseract/"
-    ver_df = pandas.read_html(url)[0]
+    ver_df = read_html(url)[0]
     latest_ver = ver_df[
         ver_df['Description'].str.contains("latest", na=False)
     ]['Name'].values[0]
@@ -82,13 +82,13 @@ def install_dependencies(dependencies: dict[str, list[str] | None]) -> None:
 def get_tsrct_path() -> str:
     try:
         akey = r"SOFTWARE\Tesseract-OCR"
-        areg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-        akey = winreg.OpenKey(areg, akey)
+        areg = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
+        akey = OpenKey(areg, akey)
     except FileNotFoundError:
         akey = r"SOFTWARE\WOW6432Node\Tesseract-OCR"
-        areg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-        akey = winreg.OpenKey(areg, akey)
-    return str(normpath(winreg.QueryValueEx(akey, "path")[0]))
+        areg = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
+        akey = OpenKey(areg, akey)
+    return str(normpath(QueryValueEx(akey, "path")[0]))
 
 
 def install_tesseract() -> None:
