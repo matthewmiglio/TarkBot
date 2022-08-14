@@ -44,7 +44,7 @@ class Logger:
         hideout_rotations_str=str(self.hideout_rotations)+" hideout rotations"
         
         gap_str = "|"
-        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + "  -  " + gap_str + crafts_completed_str + hideout_rotations_str + gap_str
+        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + "  -  " + gap_str + crafts_completed_str + gap_str + hideout_rotations_str + gap_str
 
     def convert_int_to_time(self, seconds):
         """convert epoch to time
