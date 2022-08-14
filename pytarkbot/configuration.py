@@ -7,7 +7,6 @@ top_level = join(expandvars(f'%appdata%'), "py-TarkBot")
 config_file = join(top_level, 'config.json')
 
 
-
 def load_user_settings():
     try:
         return json.load(open(config_file, 'r'))
@@ -26,11 +25,9 @@ def create_config_file():
     if not exists(config_file):
         with open(config_file, "w") as f:
             default_config = {
-                #"launcher_path": ("Microsoft", "Windows", "Start Menu", "Programs", "Chrome Apps", "Twitter.lnk"), 
-                "launcher_path": ("B:\BsgLauncher\BsgLauncher.exe"), # tarko launcher path
-                "graphics_setting_path": join(expandvars(f"%appdata%"), "Battlestate", "Escape from Tarkov", "Settings", "Graphics.ini") #tark graphics settings file path 
-                } 
+                # "launcher_path": ("Microsoft", "Windows", "Start Menu", "Programs", "Chrome Apps", "Twitter.lnk"),
+                "launcher_path": (r"B:\BsgLauncher\BsgLauncher.exe"),  # tarko launcher path
+                "graphics_setting_path": join(expandvars(f"%appdata%"), "Battlestate", "Escape from Tarkov", "Settings", "Graphics.ini")  # tark graphics settings file path
+            }
             f.write(json.dumps(default_config, indent=4))
     print("Created config file for the bot @ appdata/py-TarkBot/")
-
-
