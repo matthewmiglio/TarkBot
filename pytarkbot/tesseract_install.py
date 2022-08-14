@@ -1,9 +1,7 @@
 import winreg
-from json import JSONDecodeError, dumps, load
 from os import environ, makedirs, system
-from os.path import dirname, exists, expandvars, isdir, join, normpath
+from os.path import dirname, exists, expandvars, join, normpath
 from socket import gaierror
-from typing import Literal
 from urllib.request import urlretrieve
 
 import pandas

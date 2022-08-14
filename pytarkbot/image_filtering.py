@@ -1,10 +1,4 @@
-from PIL import Image, ImageFilter
-
-
-from client import get_image, screenshot
 from image_rec import find_references, get_first_location
-
-
 
 
 def look_for_ruble_symbol(ss):
@@ -25,6 +19,6 @@ def look_for_ruble_symbol(ss):
         tolerance=0.97
     )
     coords = get_first_location(locations)
-    if coords is None: return None
-    return [coords[1],coords[0]]
-    
+    if coords is None:
+        return None
+    return [coords[1], coords[0]]

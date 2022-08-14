@@ -44,8 +44,6 @@ setup(
         "urllib3",
         "requests",
         "lxml",
-        
-        
     ],
     packages=['pytarkbot'],
     include_package_data=True,

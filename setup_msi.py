@@ -33,8 +33,6 @@ dependencies = [
     "urllib3",
     "requests",
     "lxml",
-    
-    
 ]
 
 build_exe_options = {

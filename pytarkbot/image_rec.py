@@ -9,16 +9,15 @@ from joblib import Parallel, delayed
 from PIL import Image
 
 
-
-def coords_is_equal(coords_A,coords_B,tol=30):
-    if (coords_A is None)or(coords_B is None):
+def coords_is_equal(coords_a, coords_b, tol=30):
+    if (coords_a is None) or (coords_b is None):
         return
-    coords_1_diff=abs(coords_A[0]-coords_B[0])
-    coords_2_diff=abs(coords_A[1]-coords_B[1])
-    if (coords_1_diff<tol)and(coords_2_diff<tol):
+    coords_1_diff = abs(coords_a[0] - coords_b[0])
+    coords_2_diff = abs(coords_a[1] - coords_b[1])
+    if (coords_1_diff < tol) and (coords_2_diff < tol):
         return True
     return False
-    
+
 
 def get_first_location(locations: list[Union[list[int], None]], flip=False):
     """get the first location from a list of locations
