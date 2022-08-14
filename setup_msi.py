@@ -39,7 +39,8 @@ build_exe_options = {
     'includes': dependencies,
     'include_files': [
         'README.md',
-    ]}
+    ],
+    }
 
 
 # GUI applications require a different base on Windows
@@ -57,7 +58,7 @@ exe = Executable(
 setup(
     name=product_name,
     version=version.replace('v', ''),
-    description='Tarkov Flea Automated',
+    description='Tarkov Automated',
     executables=[exe],
     options={
         'bdist_msi': bdist_msi_options,
