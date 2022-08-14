@@ -8,3 +8,4 @@ pytesseract
 keyboard
 matplotlib
 cx_freeze
+PySimpleGUI
