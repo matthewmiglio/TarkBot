@@ -181,7 +181,7 @@ def find_all_pixel_colors(region,color,image=None):
 
 def img_to_txt(image):
     #specify location of pytesseract
-    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     #set config
     config = ('-l eng --oem 1 --psm 3')
     return pytesseract.image_to_string(image, config=config)

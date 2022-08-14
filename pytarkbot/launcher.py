@@ -32,7 +32,6 @@ def check_if_on_tark_main(logger):
     if truth==True: logger.log("On Tark main.")
     return truth
 
-
 def wait_for_tark_main(logger):
     on_main=check_if_on_tark_main(logger)
     loops=0
@@ -45,8 +44,7 @@ def wait_for_tark_main(logger):
         if loops>50:
             return "restart"
     logger.log("Made it to tarkov main.")
-       
-        
+           
 def close_tarkov_client(logger,tark_window):
     try:
         logger.log("Tark found open. Closing it.")
@@ -54,7 +52,6 @@ def close_tarkov_client(logger,tark_window):
         tark_window.close()
     except:
         logger.log("error closing tarkov client.")
-        
         
 def close_launcher(logger,tark_launcher):
     logger.log("Tark launcher found open. Closing it.")
@@ -77,18 +74,7 @@ def restart_tarkov(logger,launcher_path):
     #if launcher open
     if len(tark_launcher)!=0:
         close_launcher(logger,tark_launcher)
-        
-        
-    # #get current graphics settings and save them to database location
-    
-    # save_default_settings_to_file(logger,src=tarkov_graphics_settings_path,dst=saved_user_settings_path)
-    # time.sleep(0.33)
-    
-    # #set current graphics settings to bot config
-    # set_tarkov_settings_to_bot_config(logger,src=preset_graphics_for_bot_path,dst=tarkov_graphics_settings_path)
-    # time.sleep(1)
-    
-        
+
     #open tark launcher
     check_quit_key_press()
     logger.log("Opening launcher.")
@@ -99,7 +85,7 @@ def restart_tarkov(logger,launcher_path):
     #orientate launcher
     check_quit_key_press()
     logger.log("Orientating launcher then clicking start")
-    region=[1200,1200]
+    region=[1100,600]
     orientate_client("BsgLauncher", logger, resize=region)
     time.sleep(2)
     
@@ -110,7 +96,7 @@ def restart_tarkov(logger,launcher_path):
     
     #click play
     check_quit_key_press()
-    click(985,926)
+    click(942,558)
     
 
     #wait for client opening
