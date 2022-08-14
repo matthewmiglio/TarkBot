@@ -9,3 +9,7 @@ keyboard
 matplotlib
 cx_freeze
 PySimpleGUI
+pandas
+tqdm
+urllib3
+requests

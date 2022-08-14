@@ -1,6 +1,5 @@
 
-import random
-import subprocess
+from os import environ
 import sys
 import time
 from os.path import dirname, join
@@ -76,33 +75,33 @@ def orientate_terminal():
 
 def combine_duplicate_coords(coords_list,tolerance=5):
     #method will take an array of coords ([x,y]) and combine duplicates according to a certain tolerance.
-    
+
     new_coords_list=[]
-    
+
     #loop vars
     total_coords_in_list=len(coords_list)
     index=0
-    
+
     #loop through every coord in coords_list
     while index<total_coords_in_list:
         #get current coord
         current_coord=coords_list[index]
-        
+
         #if current_coord doesnt exist in new_coords_list make new coord in new coords list
         if not(check_if_coord_in_coord_list(current_coord,new_coords_list,tolerance=tolerance)):
             new_coords_list.append(current_coord)
-        
+
         #increment
         index=index+1
-        
+
     return new_coords_list
-    
+
 
 def check_if_coord_in_coord_list(coord,coord_list,tolerance=50):
     #loop vars
     index=0
     total_coords_in_coords_list=len(coord_list)
-    
+
     while index<total_coords_in_coords_list:
         #get curent coord
         current_coord=coord_list[index]
@@ -110,26 +109,26 @@ def check_if_coord_in_coord_list(coord,coord_list,tolerance=50):
         #compare current coord with coord in question
         if coords_is_equal(current_coord,coord,tol=tolerance):
             return True
-        
+
         #increment
         index=index+1
-    
+
     #if we make it out of the loop without ever returning True then that means the coord is unique
     return False
 
 
 def find_all_pixel_coords(region,color,image=None,tol=15):
     #searches entire region for pixel and returns a list of the coords of every positive pixel.
-    
+
     #make list of coords
     coords_list = []
-    
+
     #make image-as-array
     if image is None:
         iar=numpy.asarray(screenshot())
     else:
         iar=numpy.asarray(image)
-    
+
     x_coord=region[0]
     while x_coord<(region[0]+region[2]):
         y_coord=region[1]
@@ -138,29 +137,29 @@ def find_all_pixel_coords(region,color,image=None,tol=15):
             iar_pix=iar[y_coord][x_coord]
             current_pix=[iar_pix[0],iar_pix[1],iar_pix[2]]
             current_coord=[x_coord,y_coord]
-        
+
             #add all postiive pixels to return list
             if pixel_is_equal(color,current_pix,tol=tol):
                 coords_list.append(current_coord)
-                
+
             y_coord=y_coord+1
         x_coord=x_coord+1
-        
+
     return coords_list
 
 
 def find_all_pixel_colors(region,color,image=None):
     #searches entire region for pixel and returns a list of the coords of every positive pixel.
-    
+
     #make list of coords
     colors_list = []
-    
+
     #make image-as-array
     if image is None:
         iar=numpy.asarray(screenshot())
     else:
         iar=numpy.asarray(image)
-    
+
     x_coord=region[0]
     while x_coord<(region[0]+region[2]):
         y_coord=region[1]
@@ -169,20 +168,20 @@ def find_all_pixel_colors(region,color,image=None):
             iar_pix=iar[y_coord][x_coord]
             current_pix=[iar_pix[0],iar_pix[1],iar_pix[2]]
             #current_coord=[x_coord,y_coord]
-        
+
             #add all postiive pixels to return list
             if pixel_is_equal(color,current_pix,tol=15):
                 colors_list.append(current_pix)
-                
+
             y_coord=y_coord+1
         x_coord=x_coord+1
-        
+
     return colors_list
 
 
 def img_to_txt(image):
     #specify location of pytesseract
-    pytesseract.pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract.exe'
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     #set config
     config = ('-l eng --oem 1 --psm 3')
     return pytesseract.image_to_string(image, config=config)
@@ -198,7 +197,7 @@ def screenshot(region=(0, 0, 1400, 1400)):
 def click(x, y, clicks=1, interval=0.0,duration=0.1,button="left"):
     #move the mouse to the spot
     pyautogui.moveTo(x,y,duration=duration)
-    
+
     #click it as many times as ur suppsoed to
     loops = 0
     while loops < clicks:
@@ -236,10 +235,10 @@ def find_all_pixels_not_equal_to(region,color,image=None):
         iar=numpy.asarray(screenshot(region))
     else:
         iar=numpy.asarray(image)
-    
+
     #make return list
     coords_list=[]
-    
+
     #loop through iar
     sentinel=[color[0],color[1],color[2]]
     width=iar.shape[1]
@@ -252,20 +251,20 @@ def find_all_pixels_not_equal_to(region,color,image=None):
             current_coord=[x_coord,y_coord]
             if not(pixel_is_equal(current_pixel,sentinel,tol=15)):
                 coords_list.append(current_coord)
-            
+
             y_coord=y_coord+1
         x_coord=x_coord+1
-    
+
     return coords_list
-    
-    
+
+
 def find_all_pixels(region):
     #make iar
     iar=numpy.asarray(screenshot(region))
-    
+
     #return var
     pix_list=[]
-    
+
     #loop vars
     x_coord=0
     while x_coord<region[2]:
@@ -274,10 +273,10 @@ def find_all_pixels(region):
             current_pix=iar[y_coord][x_coord]
             current_pix=[current_pix[0],current_pix[1],current_pix[2]]
             pix_list.append(current_pix)
-            
+
             y_coord=y_coord+1
         x_coord=x_coord+1
-            
+
     return pix_list
 
 
@@ -287,25 +286,25 @@ def calculate_avg_pixel(pix_list):
     g_total=0
     b_total=0
     total_pixels=len(pix_list)
-   
-    
+
+
     index=0
     while index<total_pixels:
         current_pix=pix_list[index]
         r_total=r_total+current_pix[0]
         g_total=g_total+current_pix[1]
         b_total=b_total+current_pix[2]
-        
+
         index=index+1
-    
+
     #make return pixel
     r_avg=int(r_total/total_pixels)
     g_avg=int(g_total/total_pixels)
     b_avg=int(b_total/total_pixels)
     return_pix=[r_avg,g_avg,b_avg]
-    
+
     return return_pix
-    
+
 
 
 

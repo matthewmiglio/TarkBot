@@ -28,6 +28,10 @@ dependencies = [
     "keyboard",
     "matplotlib",
     "PySimpleGUI",
+    "pandas",
+    "tqdm",
+    "urllib3",
+    "requests",
 ]
 
 build_exe_options = {

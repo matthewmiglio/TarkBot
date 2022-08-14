@@ -39,7 +39,10 @@ setup(
         "keyboard",
         "matplotlib",
         "PySimpleGUI",
-        
+        "pandas",
+        "tqdm",
+        "urllib3",
+        "requests",
     ],
     packages=['pytarkbot'],
     include_package_data=True,
