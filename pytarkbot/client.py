@@ -51,8 +51,6 @@ def orientate_client(title, logger, resize=None):
         client_window.minimize()
         client_window.restore()
         client_window.moveTo(0, 0)
-        if resize is not None:
-            client_window.resizeTo(resize[0], resize[1])
     except BaseException:
         print("Could not find client.")
 
@@ -63,7 +61,7 @@ def orientate_terminal():
             "py-tarkbot v")[0]
         client_window.minimize()
         client_window.restore()
-        client_window.resizeTo(200, 200)
+        client_window.resizeTo(600, 350)
         client_window.moveTo(1285, 5)
     except BaseException:
         print("Couldn't orientate terminal.")

@@ -97,7 +97,9 @@ def restart_tarkov(logger, launcher_path):
 
     # click play
     check_quit_key_press()
-    click(942, 558)
+    click(942,558)
+    time.sleep(20)
+
 
     # wait for client opening
     check_quit_key_press()
@@ -112,7 +114,7 @@ def restart_tarkov(logger, launcher_path):
 
     # orientate tark client
     check_quit_key_press()
-    orientate_client("EscapeFromTarkov", [1280, 960])
+    orientate_client("EscapeFromTarkov",logger)
     time.sleep(1)
 
     # wait for us to reach main menu
