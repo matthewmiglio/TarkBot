@@ -65,7 +65,7 @@ def orientate_terminal():
             "py-tarkbot v")[0]
         client_window.minimize()
         client_window.restore()
-        client_window.resizeTo(200, 200)
+        client_window.resizeTo(600, 350)
         client_window.moveTo(1285, 5)
     except BaseException:
         pass
