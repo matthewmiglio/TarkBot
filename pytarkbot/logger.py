@@ -12,6 +12,8 @@ class Logger:
         self.restarts = 0
         self.roubles_made = 0
         self.item_sold=0
+        self.crafts_completed=0
+        self.hideout_rotations=0
 
     def make_timestamp(self):
         """creates a time stamp for log output
@@ -38,9 +40,11 @@ class Logger:
         restart_str = str(self.restarts) + " restarts"
         roubles_made_str=str(self.roubles_made)+" profit"
         items_sold_str=str(self.item_sold)+ " items sold"
+        crafts_completed_str=str(self.crafts_completed)+" crafts completed"
+        hideout_rotations_str=str(self.hideout_rotations)+" hideout rotations"
         
         gap_str = "|"
-        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str
+        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + "  -  " + gap_str + crafts_completed_str + hideout_rotations_str + gap_str
 
     def convert_int_to_time(self, seconds):
         """convert epoch to time
@@ -76,6 +80,12 @@ class Logger:
         
     def add_item_sold(self):
         self.item_sold = self.item_sold + 1
-        
+    
+    def add_craft_completed(self):
+        self.crafts_completed = self.crafts_completed + 1
+    
+    def add_hideout_rotation(self):
+        self.hideout_rotations = self.hideout_rotations + 1
+    
         
     

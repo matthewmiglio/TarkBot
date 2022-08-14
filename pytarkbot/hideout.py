@@ -62,6 +62,11 @@ def manage_hideout(logger):
     
     while True:
         check_quit_key_press()
+        
+        logger.log("Starting medstation management")
+        manage_medstation(logger)
+        time.sleep(1)
+        
         logger.log("Starting booze generator management")
         manage_booze_generator(logger)
         time.sleep(1)
@@ -78,9 +83,9 @@ def manage_hideout(logger):
         manage_scav_case(logger)
         time.sleep(1)
         
-        logger.log("Starting medstation management")
-        manage_medstation(logger)
-        time.sleep(1)
+        logger.add_hideout_rotation()
+        
+        
         
 def check_if_in_hideout():
     check_quit_key_press()
@@ -390,6 +395,7 @@ def manage_booze_generator(logger):
         logger.log("Starting moonshine craft.")
         start_moonshine_craft(logger)
     if state=="get items":
+        logger.add_craft_completed()
         logger.log("Collecting items.")
         click(1070,795)
 
@@ -475,6 +481,7 @@ def manage_workbench(logger):
     if state=="start":
         start_green_gunpowder_craft_in_workbench(logger)
     if state=="Get items":
+        logger.add_craft_completed()
         get_items_from_workbench()
         
     reset_station(logger)
@@ -639,6 +646,7 @@ def manage_water_collector(logger):
     if state=="collect":
         click(1060,790)
         time.sleep(1)
+        logger.add_craft_completed()
     
     reset_station(logger)
     
@@ -749,6 +757,7 @@ def manage_scav_case(logger):
     
     if state=="get items":
         collect_scav_case()
+        logger.add_craft_completed()
     if state=="start":
         start_scav_case()
     
@@ -844,6 +853,7 @@ def manage_medstation(logger):
     if state=="get items":
         logger.log("Getting pile of meds craft from medstation.")
         collect_pile_of_meds_craft_from_medstation()
+        logger.add_craft_completed()
     
 def collect_pile_of_meds_craft_from_medstation():
     #click first start button
@@ -907,6 +917,10 @@ def find_pile_of_meds_icon():
         "3.png",
         "4.png",
         "5.png", 
+        "6.png",
+        "7.png",
+        "8.png", 
+        
     ]
 
     locations = find_references(
@@ -920,11 +934,12 @@ def find_pile_of_meds_icon():
     return [coord[1]+972,coord[0]+387]
 
 def check_state_of_medstation():
-    image=get_image_of_pile_of_meds_craft_in_medstation()
-    if image is None:return
-    
     if check_if_medstation_is_producing():
         return "producing"
+    
+    get_to_pile_of_meds_craft_in_medstation()
+    image=get_image_of_pile_of_meds_craft_in_medstation()
+    if image is None:return
     
     if img_to_txt(image).startswith("STAR"):
         return "start"
