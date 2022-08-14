@@ -38,6 +38,8 @@ setup(
         "pytesseract",
         "keyboard",
         "matplotlib",
+        "PySimpleGUI",
+        
     ],
     packages=['pytarkbot'],
     include_package_data=True,

@@ -27,6 +27,7 @@ dependencies = [
     "pytesseract",
     "keyboard",
     "matplotlib",
+    "PySimpleGUI",
 ]
 
 build_exe_options = {
