@@ -322,4 +322,8 @@ def end_loop():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        end_loop()
