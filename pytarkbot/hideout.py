@@ -890,6 +890,7 @@ def find_pile_of_meds_icon():
 
 def check_state_of_medstation():
     image=get_image_of_pile_of_meds_craft_in_medstation()
+    if image is None:return
     
     if check_if_medstation_is_producing():
         return "producing"
