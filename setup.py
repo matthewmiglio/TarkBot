@@ -44,6 +44,7 @@ setup(
         "urllib3",
         "requests",
         "lxml",
+        "cx_freeze"
     ],
     packages=['pytarkbot'],
     include_package_data=True,
