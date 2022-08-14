@@ -77,7 +77,10 @@ def manage_hideout(logger):
         manage_scav_case(logger)
         time.sleep(1)
         
-    
+        logger.log("Starting medstation management")
+        manage_medstation(logger)
+        time.sleep(1)
+        
 def check_if_in_hideout():
     check_quit_key_press()
     iar=numpy.asarray(screenshot())
@@ -792,4 +795,117 @@ def check_for_scav_case_progress():
     return check_for_location(locations)
     
     
+#medstation
+def manage_medstation(logger):
+    logger.log("Managing medstation")
     
+    get_to_hideout(logger)
+    get_to_medstation(logger)
+    
+    state=check_state_of_medstation()
+    
+    logger.log(f"State of medstation is: {state}")
+    
+    if state=="start":
+        logger.log("Starting the craft for pile of meds in the medstation.")
+        start_pile_of_meds_craft_in_medstation()
+    
+    if state=="get items":
+        logger.log("Getting pile of meds craft from medstation.")
+        collect_pile_of_meds_craft_from_medstation()
+    
+def collect_pile_of_meds_craft_from_medstation():
+    #click first start button
+    coords=find_pile_of_meds_icon()
+    get_items_coord=[coords[0]+75,coords[1]+20]
+    click(get_items_coord[0],get_items_coord[1])
+    time.sleep(1.0)
+     
+def start_pile_of_meds_craft_in_medstation():
+    #click first start button
+    coords=find_pile_of_meds_icon()
+    start_button_coord=[coords[0]+75,coords[1]+20]
+    click(start_button_coord[0],start_button_coord[1])
+    time.sleep(1.0)
+    
+    #click handover button
+    click(644,674)
+    time.sleep(0.33)
+
+def check_if_medstation_is_producing():
+    check_quit_key_press()
+    current_image = screenshot()
+    reference_folder = "check_if_medstation_is_producing"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png", 
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+def get_to_pile_of_meds_craft_in_medstation():
+    at_pile_of_meds=False
+    if find_pile_of_meds_icon() is not None:at_pile_of_meds=True
+    
+    while not(at_pile_of_meds):
+        pyautogui.click(700,700)
+        pyautogui.scroll(-400)
+        if find_pile_of_meds_icon() is not None:at_pile_of_meds=True
+
+    for _ in range(4):
+        pyautogui.click(700,700)
+        pyautogui.scroll(-400)
+
+def find_pile_of_meds_icon():
+    region=[972,387,75,557]
+    check_quit_key_press()
+    current_image = screenshot(region)
+    reference_folder = "find_pile_of_meds_icon"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png", 
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    coord= get_first_location(locations)
+    if coord is None:return None
+    return [coord[1]+972,coord[0]+387]
+
+def check_state_of_medstation():
+    image=get_image_of_pile_of_meds_craft_in_medstation()
+    
+    if check_if_medstation_is_producing():
+        return "producing"
+    
+    if img_to_txt(image).startswith("STAR"):
+        return "start"
+    
+    if img_to_txt(image).startswith("GET"):
+        return "get items"
+    
+def get_image_of_pile_of_meds_craft_in_medstation():
+    pile_of_meds_coords=find_pile_of_meds_icon()
+    if pile_of_meds_coords is None: return
+    region=[pile_of_meds_coords[0]+40,pile_of_meds_coords[1]-20,140,70]
+
+    return screenshot(region)
+
+
+

@@ -6,9 +6,11 @@ import time
 from http.client import PROXY_AUTHENTICATION_REQUIRED
 from ntpath import join
 from posixpath import expandvars
+
 from unittest.mock import NonCallableMagicMock
 
 import numpy
+import PySimpleGUI as sg
 import pyautogui
 from matplotlib import pyplot as plt
 
@@ -34,6 +36,7 @@ logger=Logger()
 
 # plt.imshow(numpy.asarray(screenshot()))
 # plt.show()
+
 
 
 

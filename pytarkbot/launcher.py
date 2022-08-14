@@ -79,14 +79,14 @@ def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user
         close_launcher(logger,tark_launcher)
         
         
-    #get current graphics settings and save them to database location
+    # #get current graphics settings and save them to database location
     
-    save_default_settings_to_file(logger,src=tarkov_graphics_settings_path,dst=saved_user_settings_path)
-    time.sleep(0.33)
+    # save_default_settings_to_file(logger,src=tarkov_graphics_settings_path,dst=saved_user_settings_path)
+    # time.sleep(0.33)
     
-    #set current graphics settings to bot config
-    set_tarkov_settings_to_bot_config(logger,src=preset_graphics_for_bot_path,dst=tarkov_graphics_settings_path)
-    time.sleep(1)
+    # #set current graphics settings to bot config
+    # set_tarkov_settings_to_bot_config(logger,src=preset_graphics_for_bot_path,dst=tarkov_graphics_settings_path)
+    # time.sleep(1)
     
         
     #open tark launcher

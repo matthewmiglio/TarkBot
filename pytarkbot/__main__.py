@@ -1,18 +1,22 @@
 import time
-import keyboard
 from os.path import join
 
+import keyboard
 import pyautogui
-from pytarkbot.client import exit_printout, intro_printout
+import PySimpleGUI as sg
 
+from pytarkbot.client import exit_printout, intro_printout
 from pytarkbot.configuration import load_user_settings
-from pytarkbot.flee import check_first_price, get_to_flee_tab, get_to_flee_tab_from_my_offers_tab, get_to_my_offers_tab, open_add_offer_tab, post_item, remove_offers, select_random_item_to_flee, set_flea_filters, wait_till_can_add_another_offer
+from pytarkbot.flee import (check_first_price, get_to_flee_tab,
+                            get_to_flee_tab_from_my_offers_tab,
+                            get_to_my_offers_tab, open_add_offer_tab,
+                            post_item, remove_offers,
+                            select_random_item_to_flee, set_flea_filters,
+                            wait_till_can_add_another_offer)
+from pytarkbot.graphics_config import set_tarkov_settings_to_default_config
 from pytarkbot.hideout import manage_hideout
 from pytarkbot.launcher import restart_tarkov, wait_for_tarkov_to_close
 from pytarkbot.logger import Logger
-from pytarkbot.graphics_config import set_tarkov_settings_to_default_config
-
-
 
 user_settings = load_user_settings()
 launcher_path = user_settings["launcher_path"]
@@ -25,35 +29,43 @@ preset_graphics_for_bot_path = join(".\config","config_for_bot","Graphics.ini")
 
 logger=Logger()
 
-def main():
+
+
+           
+def flea_items_main():
     intro_printout(logger)
-    
     state="intro"
     
-    try:
-        while True:
-            if state=="intro":
-                state=state_intro()
-            if state=="restart":
-                state=state_restart()
-            if state=="flee_mode":
-                state=state_flee_mode()
-            if state=="remove_flee_offers":
-                state=state_remove_flee_offers()
-            if state=="manage_hideout_mode":
-                state=state_hideout_management()             
-            if state=="help":
-                state=state_user_help_printout()
-            
-    finally:
-        #wait for clean close
-        wait_for_tarkov_to_close(logger)
-
-        #revert settings to user default
-        set_tarkov_settings_to_default_config(logger,src=saved_user_settings_path,dst=tarkov_graphics_settings_path)
+    while True:
+        if state=="intro":
+            state_intro()
+            state="flee_mode"
         
-        #program tag
-        exit_printout(logger)
+        if state=="restart":
+            state_restart()
+            state="flee_mode"
+        
+        if state=="flee_mode":
+            state=state_flee_mode()
+        
+        if state=="remove_flee_offers":
+            state=state_remove_flee_offers()
+
+
+def hideout_management_main():
+    intro_printout(logger)
+    state="intro"
+    while True:
+        if state=="intro":
+            state_intro()
+            state="manage_hideout_mode"
+        
+        if state=="manage_hideout_mode":
+            state=state_hideout_management()  
+        
+        if state=="restart":
+            state_restart()
+            state="manage_hideout_mode"
         
     
 def state_user_help_printout():
@@ -77,20 +89,6 @@ def state_intro():
     
     restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path)
     
-    logger.log("Select a mode for the TarkBot")
-    logger.log("[1] flee items")
-    logger.log("[2] hideout management")
-    logger.log("[3] help")
-    
-    waiting_for_key=True
-    while waiting_for_key:
-        if keyboard.is_pressed('1'):  # if key 'q' is pressed 
-            return "flee_mode"
-        if keyboard.is_pressed('2'):  # if key 'q' is pressed 
-            return "manage_hideout_mode"
-        if keyboard.is_pressed('3'):  # if key 'q' is pressed 
-            return "help"
-
     
 def state_remove_flee_offers():
     blank_line="////////////////////////////////////////////////////"
@@ -194,5 +192,56 @@ def state_hideout_management():
     return "restart"
 
 
+def main():
+    sg.theme('BluePurple')
+    #defining various things that r gonna be in the gui.
+    layout = [
+            #text output var
+            [sg.Text('Python Tarkov bot - Matthew Miglio ~Aug 2022\n\nREMINDER: Set tarkov graphics settings BEFORE starting the bot\n(windowed/1280x960/4:3)'), sg.Text(size=(15,1), key='-OUTPUT-')],
+            #text input var
+            #[sg.Input(key='-IN-')],
+            #bot config checkboxes
+            [sg.Text('Select ONLY ONE of the following modes:'), sg.Text(size=(15,1), key='-OUTPUT-')],
+            [sg.Checkbox('Manage Hideout', default=True, key="-hideout_management_in-")],
+            [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
+            #buttons
+            [sg.Button('Start'), sg.Button('Stop'), sg.Button('Exit')]
+            ]
+    #window layout
+    window = sg.Window('PY-TarkBot', layout)
+    #run the gui
+    while True:
+        #get gui vars
+        event, values = window.read()
+        #if gui sees close then close
+        if event == sg.WIN_CLOSED or event == 'Exit':
+            break
+        #if gui sees start press then start bot
+        if event == 'Start':
+            print("starting")
+            #if both are checked blow the program up
+            if (values["-hideout_management_in-"] == True)and(values["-flea_items_in-"] == True):
+                logger.log("Select ONLY ONE of the mode checkboxes")
+                break
+            
+            #if hideout management checkbox is checked, run the hideout management main
+            if values["-hideout_management_in-"] == True:
+                window.close()
+                hideout_management_main()
+
+            #if flea items checkbox is checked, run the flea items main
+            if values["-flea_items_in-"] == True:
+                window.close()
+                flea_items_main()
+                
+                
+        #if gui sees stop then stop.   
+        if event == "Stop":
+            print("Stopping")
+            window.close()
+    window.close()
+
+
 if __name__ == "__main__":
     main() 
+
