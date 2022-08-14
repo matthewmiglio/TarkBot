@@ -1,6 +1,7 @@
-from os import environ, makedirs, system
+from os import environ, makedirs
 from os.path import dirname, exists, expandvars, join, normpath
 from socket import gaierror
+from subprocess import call
 from urllib.request import urlretrieve
 from winreg import HKEY_LOCAL_MACHINE, ConnectRegistry, OpenKey, QueryValueEx
 
@@ -21,6 +22,8 @@ class DownloadProgressBar(tqdm):
 
 
 def download_from_url(url: str, output_dir: str, file_name: str) -> str | None:
+    if not url.lower().startswith('http'):
+        raise ValueError from None
     if not exists(join(output_dir, file_name)):
         # remove_previous_downloads(cache_dir)
         try:
@@ -33,7 +36,7 @@ def download_from_url(url: str, output_dir: str, file_name: str) -> str | None:
                     url,
                     filename=join(output_dir, file_name),
                     reporthook=t.update_to
-                )
+                )  # nosec
             return join(output_dir, file_name)
         except (ConnectionError, MaxRetryError, NewConnectionError, gaierror):
             print(
@@ -61,7 +64,7 @@ def get_tsrct_link() -> list[str] | None:
 
 
 def run_installer(path: str) -> bool:
-    return 0 == system(path)
+    return 0 == call(path, shell=False)
 
 
 def install_dependencies(dependencies: dict[str, list[str] | None]) -> None:
