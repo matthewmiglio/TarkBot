@@ -152,7 +152,6 @@ def wait_for_tarkov_to_open(logger):
     
     logger.log("Tarkov client detected. Done waiting")
 
-
 def wait_for_tarkov_to_close(logger):
     loops=0
     
@@ -173,14 +172,25 @@ def wait_for_tarkov_to_close(logger):
     logger.log("Done waiting for tarkov client to close.")
 
 def check_if_play_button_exists_in_launcher():
-    iar=numpy.asarray(screenshot())
-    pixel=iar[916][1053]
-    sentinel=[244,241,219]
-    if pixel_is_equal(pixel,sentinel,tol=15):
-        return True
-    return False
+    check_quit_key_press()
+    current_image = screenshot()
+    reference_folder = "check_if_play_button_exists_in_launcher2"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png", 
+    ]
 
-
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+    
 def wait_for_play_button_in_launcher(logger):
     if len(pygetwindow.getWindowsWithTitle("BsgLauncher"))==0:
         logger.log("Launcher not detected while waiting for play button in launcher.")
