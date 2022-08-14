@@ -49,7 +49,7 @@ def scroll_right_in_hideout():
 
 
 #general hideout
-def manage_hideout(logger):
+def manage_hideout(logger,crafts_to_farm):
     check_quit_key_press()
     logger.log(blank_line)
     logger.log(blank_line)
@@ -63,25 +63,32 @@ def manage_hideout(logger):
     while True:
         check_quit_key_press()
         
-        logger.log("Starting medstation management")
-        manage_medstation(logger)
-        time.sleep(1)
+        print(crafts_to_farm)
         
-        logger.log("Starting booze generator management")
-        manage_booze_generator(logger)
-        time.sleep(1)
+        if "medstation" in crafts_to_farm:
+            logger.log("Starting medstation management")
+            manage_medstation(logger)
+            time.sleep(1)
         
-        logger.log("Starting workbench management")
-        manage_workbench(logger)
-        time.sleep(1)
+        if "booze_generator" in crafts_to_farm:
+            logger.log("Starting booze generator management")
+            manage_booze_generator(logger)
+            time.sleep(1)
         
-        logger.log("Starting water collector management")
-        manage_water_collector(logger)
-        time.sleep(1)
+        if "workbench" in crafts_to_farm:
+            logger.log("Starting workbench management")
+            manage_workbench(logger)
+            time.sleep(1)
         
-        logger.log("Starting scav case management")
-        manage_scav_case(logger)
-        time.sleep(1)
+        if "water_collector" in crafts_to_farm:
+            logger.log("Starting water collector management")
+            manage_water_collector(logger)
+            time.sleep(1)
+        
+        if "scav_case" in crafts_to_farm:
+            logger.log("Starting scav case management")
+            manage_scav_case(logger)
+            time.sleep(1)
         
         logger.add_hideout_rotation()
         

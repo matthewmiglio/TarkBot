@@ -37,4 +37,12 @@ logger=Logger()
 # plt.imshow(numpy.asarray(screenshot()))
 # plt.show()
 
-show_donate_gui()
+ar=[]
+ar.append("test")
+ar.append("fas")
+ar.append("bat")
+ar.append("car")
+ar.append("dumb")
+
+if "ffff5" in ar:
+    print ("True")

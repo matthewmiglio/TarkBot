@@ -61,6 +61,19 @@ def orientate_client(title, logger, resize=None):
         print("Could not find client.")
 
 
+def orientate_terminal():
+    try:
+        client_window = pygetwindow.getWindowsWithTitle(
+            "py-tarkbot v")[0]
+        client_window.minimize()
+        client_window.restore()
+        client_window.resizeTo(200, 200)
+        client_window.moveTo(1285, 5)
+    except BaseException:
+        pass
+        print("Couldn't orientate terminal.")
+
+
 def combine_duplicate_coords(coords_list,tolerance=5):
     #method will take an array of coords ([x,y]) and combine duplicates according to a certain tolerance.
     

@@ -7,7 +7,7 @@ import pyautogui
 import pyperclip
 import PySimpleGUI as sg
 
-from pytarkbot.client import exit_printout, intro_printout
+from pytarkbot.client import exit_printout, intro_printout, orientate_terminal
 from pytarkbot.configuration import load_user_settings
 from pytarkbot.flee import (check_first_price, get_to_flee_tab,
                             get_to_flee_tab_from_my_offers_tab,
@@ -55,7 +55,7 @@ def flea_items_main():
             state=state_remove_flee_offers()
 
 
-def hideout_management_main():
+def hideout_management_main(crafts_to_farm):
     #intro_printout(logger)
     state="intro"
     while True:
@@ -64,7 +64,7 @@ def hideout_management_main():
             state="manage_hideout_mode"
         
         if state=="manage_hideout_mode":
-            state=state_hideout_management()  
+            state=state_hideout_management(crafts_to_farm)  
         
         if state=="restart":
             state_restart()
@@ -181,7 +181,7 @@ def state_restart():
     return "flee_mode"
 
 
-def state_hideout_management():
+def state_hideout_management(crafts_to_farm):
     blank_line="////////////////////////////////////////////////////"
     logger.log("")
     logger.log(blank_line)
@@ -190,7 +190,7 @@ def state_hideout_management():
     logger.log("")
     
     
-    if manage_hideout(logger)=="restart":
+    if manage_hideout(logger,crafts_to_farm)=="restart":
         return "restart"
     return "restart"
 
@@ -234,6 +234,7 @@ def show_help_gui():
 
 
 def main():
+    orientate_terminal()
     intro_printout(logger)
     sg.theme('Material2')
     #defining various things that r gonna be in the gui.
@@ -246,6 +247,13 @@ def main():
             [sg.Text('Select ONLY ONE of the following modes:'), sg.Text(size=(15,1), key='-OUTPUT-')],
             [sg.Checkbox('Manage Hideout', default=True, key="-hideout_management_in-")],
             [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
+            [sg.Text('Select which stations to farm:'), sg.Text(size=(15,1), key='-OUTPUT-')],
+            [sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),
+             sg.Checkbox('Medstation crafts', default=True, key="-medstation_crafts_in-"),
+             sg.Checkbox('Water collector crafts', default=True, key="-water_collector_crafts_in-"),
+             sg.Checkbox('Scav case crafts', default=True, key="-scav_case_crafts_in-"),
+             sg.Checkbox('Booze generator crafts', default=True, key="-booze_generator_crafts_in-")],
+            
             #buttons
             [sg.Button('Start'),sg.Button('Help'),sg.Button('Donate')]
             #https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD
@@ -270,7 +278,22 @@ def main():
             #if hideout management checkbox is checked, run the hideout management main
             if values["-hideout_management_in-"] == True:
                 window.close()
-                hideout_management_main()
+                
+                crafts_to_farm=[]
+                if values["-workbench_crafts_in-"]:
+                    crafts_to_farm.append("workbench")
+                if values["-scav_case_crafts_in-"]:
+                    crafts_to_farm.append("scav_case")
+                if values["-medstation_crafts_in-"]:
+                    crafts_to_farm.append("medstation")
+                if values["-water_collector_crafts_in-"]:
+                    crafts_to_farm.append("water_collector")
+                if values["-booze_generator_crafts_in-"]:
+                    crafts_to_farm.append("booze_generator")
+                    
+                print(crafts_to_farm)
+                
+                hideout_management_main(crafts_to_farm)
 
             #if flea items checkbox is checked, run the flea items main
             if values["-flea_items_in-"] == True:
