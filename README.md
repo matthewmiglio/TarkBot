@@ -12,7 +12,7 @@ Report bugs in the [Github issues tab](https://github.com/matthewmiglio/py-TarkB
 
 ## Contributing
 
-All contributions are welcome, open a pull request to contirbute.
+All contributions are welcome, open a pull request to contribute.
 For developers, to install the source code with the following:
 
 ``` bash
