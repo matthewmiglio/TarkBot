@@ -13,3 +13,4 @@ pandas
 tqdm
 urllib3
 requests
+lxml
