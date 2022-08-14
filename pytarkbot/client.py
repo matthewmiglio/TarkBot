@@ -1,7 +1,7 @@
 
-from os import environ
 import sys
 import time
+from os import environ
 from os.path import dirname, join
 
 import keyboard
@@ -9,11 +9,14 @@ import numpy
 import pyautogui
 import pygetwindow
 import pytesseract
+import win32com.client as win32
+import win32gui
 from matplotlib import pyplot as plt
 from PIL import Image
+from pywinauto.findwindows import find_window
+
 
 from pytarkbot.image_rec import coords_is_equal, pixel_is_equal
-
 
 
 def intro_printout(logger):
@@ -46,15 +49,27 @@ def show_entire_screen():
     show_screenshot(screenshot())
 
 
-def orientate_client(title, logger, resize=None):
-    try:
-        client_window = pygetwindow.getWindowsWithTitle(
-            title)[0]
-        client_window.minimize()
-        client_window.restore()
-        client_window.moveTo(0, 0)
-    except BaseException:
-        print("Could not find client.")
+def orientate_tarkov_client(title, logger):
+    logger.log("Orientating tarkov client.")
+    title='EscapeFromTarkov'
+    #if res is bad change res
+    if get_window_size(window_name = title) != [1280, 960]:
+        logger.log("Resolution is incorrect. Changing it.") 
+        resize=[1296,999]
+        resize_window(window_name=title,resize=resize)
+        time.sleep(1)
+    #move window to top left
+    move_window(window_name=title,coord=[0,0])
+    time.sleep(1)
+
+
+def orientate_launcher():
+    resize=[1100,600]
+    title="BsgLauncher"
+    resize_window(window_name=title,resize=resize)
+    time.sleep(1)
+    move_window(window_name=title,coord=[0,0])
+    time.sleep(1)
 
 
 def orientate_terminal():
@@ -303,6 +318,79 @@ def calculate_avg_pixel(pix_list):
     return return_pix
 
 
+def windowEnumerationHandler(hwnd, top_windows):
+    top_windows.append((hwnd, win32gui.GetWindowText(hwnd)))
+   
+   
+def get_window_size(window_name):
+    title = window_name  # find first window with this title
+    top_windows = []  # all open windows
+    win32gui.EnumWindows(windowEnumerationHandler, top_windows)
+
+    winlst = []  # windows to cycle through
+    for i in top_windows:  # all open windows
+        if i[1] == title:
+            winlst.append(i)
+
+    hwnd = winlst[0][0]  # first window with title, get hwnd id
+    shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
+    shell.SendKeys('%')  # Alt key,  send key
+    rect = win32gui.GetWindowRect(hwnd) 
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd) 
+    w = x1 - x0 
+    h = y1 - y0 
 
 
+    return [w,h]
+    
+    
+def resize_window(window_name,resize):
+    #windown name gotta be a string
+    #resize gotta be a 1x2 ar like [width,height]
+    title = window_name  # find first window with this title
+    top_windows = []  # all open windows
+    win32gui.EnumWindows(windowEnumerationHandler, top_windows)
+
+    winlst = []  # windows to cycle through
+    for i in top_windows:  # all open windows
+        if i[1] == title:
+            winlst.append(i)
+
+    hwnd = winlst[0][0]  # first window with title, get hwnd id
+    shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
+    shell.SendKeys('%')  # Alt key,  send key
+    rect = win32gui.GetWindowRect(hwnd) 
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd) 
+    w = x1 - x0 
+    h = y1 - y0 
+
+
+    win32gui.MoveWindow(hwnd, x0, y0, resize[0], resize[1], True)
+    
+    
+def move_window(window_name,coord):
+    #window name gotta be a string of the name
+    #coord has to be the [x,y] destination coord of hte top left of ur window.
+    #windown name gotta be a string
+    #resize gotta be a 1x2 ar like [width,height]
+    title = window_name  # find first window with this title
+    top_windows = []  # all open windows
+    win32gui.EnumWindows(windowEnumerationHandler, top_windows)
+
+    winlst = []  # windows to cycle through
+    for i in top_windows:  # all open windows
+        if i[1] == title:
+            winlst.append(i)
+
+    hwnd = winlst[0][0]  # first window with title, get hwnd id
+    shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
+    shell.SendKeys('%')  # Alt key,  send key
+    rect = win32gui.GetWindowRect(hwnd) 
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd) 
+    w = x1 - x0 
+    h = y1 - y0 
+
+    win32gui.MoveWindow(hwnd, coord[0], coord[1], w, h, True)
+    
+    
 

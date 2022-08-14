@@ -4,7 +4,7 @@ import time
 import numpy
 import pygetwindow
 
-from pytarkbot.client import check_quit_key_press, click, orientate_client, screenshot
+from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot
 from pytarkbot.graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
 from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 
@@ -84,10 +84,8 @@ def restart_tarkov(logger,launcher_path):
     
     #orientate launcher
     check_quit_key_press()
-    logger.log("Orientating launcher then clicking start")
-    region=[1100,600]
-    orientate_client("BsgLauncher", logger, resize=region)
-    time.sleep(2)
+    logger.log("orientating launcher")
+    orientate_launcher()
     
     #wait for launcher play button to appear
     if wait_for_play_button_in_launcher(logger)== "restart":
@@ -113,17 +111,13 @@ def restart_tarkov(logger,launcher_path):
     
     #orientate tark client
     check_quit_key_press()
-    orientate_client("EscapeFromTarkov",logger)
+    orientate_tarkov_client("EscapeFromTarkov",logger)
     time.sleep(1)
 
     #wait for us to reach main menu
     check_quit_key_press()
     if wait_for_tark_main(logger)=="restart":
         restart_tarkov(logger,launcher_path)
-        
-    #set graphics settings back to user defaults
-    #set_tarkov_settings_to_default_config(logger,src=saved_user_settings_path,dst=tarkov_graphics_settings_path)
- 
     
 def wait_for_tarkov_to_open(logger):
     tark_window=pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
