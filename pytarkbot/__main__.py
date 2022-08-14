@@ -211,7 +211,7 @@ def show_donate_gui():
 
 def show_help_gui():
     sg.theme('Material2')
-    layout = [[sg.Text('Paypal donate link: \n\nif u lost rn then idk what to tell u there are only like 3 buttons.'), sg.Text(
+    layout = [[sg.Text('Hideout Information:\n  Workbench: Have M18 smokes and M67 nades for green gunpowder craft \n  Medstation: Have AI-2s, bandages(blue and white ones), and augmentin \n  Water collector: have extra water filters \n  Scav case: Have intelligence folders \n  Booze generator: Have sugar and super water (bot will use water collector super water btw)\n\nFlea Mode Information:\n  Bot will sell the items in the top ~40 rows of your inventory.\n  Make sure this area is composed of items only for the flea.\n  This bot does well to not flea the wrong items, or to waste your money- but it is not perfect.'), sg.Text(
         size=(15, 1), key='-OUTPUT-')], [sg.Button('Exit')]]
     window = sg.Window('PY-TarkBot', layout)
     while True:
@@ -322,7 +322,4 @@ def end_loop():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except:
-        end_loop()
+    main()
