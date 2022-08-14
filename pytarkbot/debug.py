@@ -31,10 +31,9 @@ logger=Logger()
 
 
 
-# orientate_client("EscapeFromTarkov",[1280,960])
-# time.sleep(1)
+orientate_client("EscapeFromTarkov",[1280,960])
+time.sleep(1)
 
 # plt.imshow(numpy.asarray(screenshot()))
 # plt.show()
 
-manage_medstation(logger)

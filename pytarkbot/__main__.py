@@ -1,3 +1,4 @@
+import sys
 import time
 from os.path import join
 
@@ -241,7 +242,19 @@ def main():
             window.close()
     window.close()
 
+def end_loop():
+    print("Press ctrl-c to close the program.")
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        sys.exit()
+
+
+
 
 if __name__ == "__main__":
-    main() 
-
+    try:
+        main() 
+    finally:
+        end_loop()
