@@ -97,6 +97,7 @@ def restart_tarkov(logger,launcher_path):
     #click play
     check_quit_key_press()
     click(942,558)
+    time.sleep(20)
     
 
     #wait for client opening

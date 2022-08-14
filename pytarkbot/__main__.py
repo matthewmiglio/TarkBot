@@ -323,7 +323,4 @@ def end_loop():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        end_loop()
+    main()
