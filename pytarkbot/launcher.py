@@ -113,7 +113,7 @@ def restart_tarkov(logger,launcher_path):
     
     #orientate tark client
     check_quit_key_press()
-    orientate_client("EscapeFromTarkov",[1280,960])
+    orientate_client("EscapeFromTarkov",resize=None)
     time.sleep(1)
 
     #wait for us to reach main menu

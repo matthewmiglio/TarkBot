@@ -56,7 +56,6 @@ def orientate_client(title, logger, resize=None):
         if resize is not None:
             client_window.resizeTo(resize[0], resize[1])
     except BaseException:
-        pass
         print("Could not find client.")
 
 
