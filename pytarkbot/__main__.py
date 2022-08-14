@@ -4,6 +4,7 @@ from os.path import join
 
 import keyboard
 import pyautogui
+import pyperclip
 import PySimpleGUI as sg
 
 from pytarkbot.client import exit_printout, intro_printout
@@ -89,7 +90,7 @@ def state_intro():
     logger.log(blank_line)
     logger.log("")
     
-    restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path)
+    restart_tarkov(logger,launcher_path)
     
     
 def state_remove_flee_offers():
@@ -175,7 +176,7 @@ def state_restart():
     
     #if tark open close it
     logger.log("STATE=RESTART")
-    restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path, saved_user_settings_path,preset_graphics_for_bot_path)
+    restart_tarkov(logger,launcher_path)
     
     return "flee_mode"
 
@@ -194,13 +195,51 @@ def state_hideout_management():
     return "restart"
 
 
+def show_donate_gui():
+    sg.theme('Material2')
+    layout = [
+            [sg.Text('Paypal donate link: \n\nhttps://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD'), sg.Text(size=(15,1), key='-OUTPUT-')],
+            
+            [sg.Button('Exit'),sg.Button('Copy link to clipboard')]
+            #https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD
+            ]
+    window = sg.Window('PY-TarkBot', layout)
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED or event == 'Exit':
+            break
+        
+        if event == "Copy link to clipboard":
+            pyperclip.copy('https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD')
+    
+    window.close()
+    
+
+def show_help_gui():
+    sg.theme('Material2')
+    layout = [
+            [sg.Text('Paypal donate link: \n\nif u lost rn then idk what to tell u there are only like 3 buttons.'), sg.Text(size=(15,1), key='-OUTPUT-')],
+            
+            [sg.Button('Exit')]
+            
+            ]
+    window = sg.Window('PY-TarkBot', layout)
+    while True:
+        event, values = window.read()
+        if event == sg.WIN_CLOSED or event == 'Exit':
+            break
+    window.close()
+
+
+
+
 def main():
     intro_printout(logger)
-    sg.theme('LightGrey4')
+    sg.theme('Material2')
     #defining various things that r gonna be in the gui.
     layout = [
             #text output var
-            [sg.Text('Python Tarkov bot - Matthew Miglio ~Aug 2022\n\nREMINDER: Set tarkov graphics settings BEFORE starting the bot\n(windowed/1280x960/4:3)'), sg.Text(size=(15,1), key='-OUTPUT-')],
+            [sg.Text('Python Tarkov bot - Matthew Miglio ~Aug 2022\n\nREMINDER: Set tarkov graphics settings BEFORE starting the bot\n(windowed/1280x960/4:3)\n'), sg.Text(size=(15,1), key='-OUTPUT-')],
             #text input var
             #[sg.Input(key='-IN-')],
             #bot config checkboxes
@@ -208,7 +247,8 @@ def main():
             [sg.Checkbox('Manage Hideout', default=True, key="-hideout_management_in-")],
             [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
             #buttons
-            [sg.Button('Start'), sg.Button('Stop'), sg.Button('Exit')]
+            [sg.Button('Start'),sg.Button('Help'),sg.Button('Donate')]
+            #https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD
             ]
     #window layout
     window = sg.Window('PY-TarkBot', layout)
@@ -237,11 +277,14 @@ def main():
                 window.close()
                 flea_items_main()
                 
+        if event == 'Help':
+            show_help_gui()
                 
-        #if gui sees stop then stop.   
-        if event == "Stop":
-            print("Stopping")
-            window.close()
+        if event == 'Donate':
+            show_donate_gui()
+                
+        
+        
     window.close()
 
 def end_loop():

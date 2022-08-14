@@ -61,7 +61,7 @@ def close_launcher(logger,tark_launcher):
     tark_launcher=tark_launcher[0]
     tark_launcher.close()
         
-def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path):
+def restart_tarkov(logger,launcher_path):
     #specify tark launcher path
     #launcher_path=r"B:\BsgLauncher\BsgLauncher.exe"
     
@@ -105,7 +105,7 @@ def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user
     
     #wait for launcher play button to appear
     if wait_for_play_button_in_launcher(logger)== "restart":
-        restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path)
+        restart_tarkov(logger,launcher_path)
     
     
     #click play
@@ -116,7 +116,7 @@ def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user
     #wait for client opening
     check_quit_key_press()
     if wait_for_tarkov_to_open(logger)=="restart":
-        restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path)
+        restart_tarkov(logger,launcher_path)
     index=0
     while index<10:
         check_quit_key_press()
@@ -132,7 +132,7 @@ def restart_tarkov(logger,launcher_path,tarkov_graphics_settings_path,saved_user
     #wait for us to reach main menu
     check_quit_key_press()
     if wait_for_tark_main(logger)=="restart":
-        logger,launcher_path,tarkov_graphics_settings_path,saved_user_settings_path,preset_graphics_for_bot_path
+        restart_tarkov(logger,launcher_path)
         
     #set graphics settings back to user defaults
     #set_tarkov_settings_to_default_config(logger,src=saved_user_settings_path,dst=tarkov_graphics_settings_path)
