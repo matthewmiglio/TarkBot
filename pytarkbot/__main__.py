@@ -22,9 +22,10 @@ from pytarkbot.logger import Logger
 user_settings = load_user_settings()
 launcher_path = user_settings["launcher_path"]
 
-tarkov_graphics_settings_path = user_settings["graphics_setting_path"]
-saved_user_settings_path = join(".\config","user_default_config","Graphics.ini") 
-preset_graphics_for_bot_path = join(".\config","config_for_bot","Graphics.ini") 
+#tarkov_graphics_settings_path = user_settings["graphics_setting_path"]
+
+#saved_user_settings_path = join(".\config","user_default_config","Graphics.ini") 
+#preset_graphics_for_bot_path = join(".\config","config_for_bot","Graphics.ini") 
 
 
 
