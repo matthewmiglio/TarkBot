@@ -33,6 +33,8 @@ dependencies = [
     "urllib3",
     "requests",
     "lxml",
+    "pywin32",
+    "pywinauto",
 ]
 
 build_exe_options = {

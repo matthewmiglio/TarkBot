@@ -44,7 +44,9 @@ setup(
         "urllib3",
         "requests",
         "lxml",
-        "cx_freeze"
+        "cx_freeze",
+        "pywin32",
+        "pywinauto",
     ],
     packages=['pytarkbot'],
     include_package_data=True,
