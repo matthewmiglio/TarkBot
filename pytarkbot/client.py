@@ -54,7 +54,7 @@ def orientate_tarkov_client(title, logger):
     title='EscapeFromTarkov'
     #if res is bad change res
     if get_window_size(window_name = title) != [1280, 960]:
-        logger.log("Resolution is incorrect. Changing it.") 
+        logger.log("Resolution is incorrect. Changing it.")
         resize=[1296,999]
         resize_window(window_name=title,resize=resize)
         time.sleep(1)
@@ -201,7 +201,7 @@ def find_all_pixel_colors(region, color, image=None):
 
 def img_to_txt(image):
     # specify location of pytesseract
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     # set config
     config = ('-l eng --oem 1 --psm 3')
     return pytesseract.image_to_string(image, config=config)
@@ -330,8 +330,8 @@ def calculate_avg_pixel(pix_list):
 
 def windowEnumerationHandler(hwnd, top_windows):
     top_windows.append((hwnd, win32gui.GetWindowText(hwnd)))
-   
-   
+
+
 def get_window_size(window_name):
     title = window_name  # find first window with this title
     top_windows = []  # all open windows
@@ -345,15 +345,15 @@ def get_window_size(window_name):
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys('%')  # Alt key,  send key
-    rect = win32gui.GetWindowRect(hwnd) 
-    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd) 
-    w = x1 - x0 
-    h = y1 - y0 
+    rect = win32gui.GetWindowRect(hwnd)
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
+    w = x1 - x0
+    h = y1 - y0
 
 
     return [w,h]
-    
-    
+
+
 def resize_window(window_name,resize):
     #windown name gotta be a string
     #resize gotta be a 1x2 ar like [width,height]
@@ -369,15 +369,15 @@ def resize_window(window_name,resize):
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys('%')  # Alt key,  send key
-    rect = win32gui.GetWindowRect(hwnd) 
-    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd) 
-    w = x1 - x0 
-    h = y1 - y0 
+    rect = win32gui.GetWindowRect(hwnd)
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
+    w = x1 - x0
+    h = y1 - y0
 
 
     win32gui.MoveWindow(hwnd, x0, y0, resize[0], resize[1], True)
-    
-    
+
+
 def move_window(window_name,coord):
     #window name gotta be a string of the name
     #coord has to be the [x,y] destination coord of hte top left of ur window.
@@ -395,12 +395,12 @@ def move_window(window_name,coord):
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys('%')  # Alt key,  send key
-    rect = win32gui.GetWindowRect(hwnd) 
-    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd) 
-    w = x1 - x0 
-    h = y1 - y0 
+    rect = win32gui.GetWindowRect(hwnd)
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
+    w = x1 - x0
+    h = y1 - y0
 
     win32gui.MoveWindow(hwnd, coord[0], coord[1], w, h, True)
-    
-    
+
+
 
