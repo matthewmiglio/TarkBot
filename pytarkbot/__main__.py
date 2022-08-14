@@ -35,7 +35,7 @@ logger=Logger()
 
            
 def flea_items_main():
-    intro_printout(logger)
+    
     state="intro"
     
     while True:
@@ -55,7 +55,7 @@ def flea_items_main():
 
 
 def hideout_management_main():
-    intro_printout(logger)
+    #intro_printout(logger)
     state="intro"
     while True:
         if state=="intro":
@@ -195,7 +195,8 @@ def state_hideout_management():
 
 
 def main():
-    sg.theme('BluePurple')
+    intro_printout(logger)
+    sg.theme('LightGrey4')
     #defining various things that r gonna be in the gui.
     layout = [
             #text output var
