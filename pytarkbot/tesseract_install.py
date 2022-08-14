@@ -93,33 +93,19 @@ def get_tsrct_path() -> str:
     return str(normpath(winreg.QueryValueEx(akey, "path")[0]))
 
 
-def save_install_info() -> None:
-    if not isdir(top_level):
-        makedirs(top_level)
-    if not exists(install_info_file):
-        with open(install_info_file, "w") as f:
-            f.write(dumps({
-                "tesseract_path": get_tsrct_path()}, indent=4))
-
-
-def read_install_info() -> str | Literal[False]:
-    try:
-        return str(load(open(install_info_file, 'r'))["tesseract_path"])
-    except (OSError, JSONDecodeError):
-        print("Tesseract is not installed or has not been configured properly.")
-        return False
-
-
 def install_tesseract() -> None:
     dependency_dict = {
         "tesseract": get_tsrct_link()
     }
     install_dependencies(dependency_dict)
-    save_install_info()
+
 
 def setup_tesseract() -> None:
-    tesseract_path = read_install_info()
-    if not tesseract_path:
+    try:
+        tesseract_path = get_tsrct_path()
+    except FileNotFoundError:
         install_tesseract()
-        tesseract_path = read_install_info()
-    environ["TESSERACT_PATH"] = str(tesseract_path)
+        tesseract_path = get_tsrct_path()
+    print(f"Saving tp as {tesseract_path}")
+    environ["TESSDATA_PREFIX"] = str(tesseract_path)
+    environ["TESSERACT_PATH"] = str(join(tesseract_path, "tesseract.exe"))
