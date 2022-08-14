@@ -1,2 +1,3 @@
 # py-TarkBot
-Python bot for Escape From Tarkov. Handles flee market and hideout interactions.
+
+Python bot for Escape From Tarkov for handling flee market and hideout interactions.
