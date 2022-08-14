@@ -1,3 +1,4 @@
+import random
 import time
 from turtle import color
 
@@ -661,9 +662,6 @@ def check_if_water_collector_has_filter():
     if pixel_is_equal(pix,color_blue,tol=50):
         return True
 
-
-
-    
 def check_for_water_collector_producing_icon():
     current_image = screenshot()
     reference_folder = "check_for_water_collector_producing_icon"
@@ -692,12 +690,45 @@ def check_for_water_collector_collect_icon():
 
 def add_filter_to_water_collector():
     #click dropdown for filters
-    click(870,790)
+    coord=find_add_filter_dropdown_arrow_in_water_collector()
+    click(coord[0],coord[1])
     time.sleep(1)
     
     #click next filter
-    click(910,800)
+    coord=find_water_filter_in_dropdown_in_water_collector()
+    click(coord[0],coord[1])
     time.sleep(1)
+
+def find_add_filter_dropdown_arrow_in_water_collector():
+    region=[910,773,35,50]
+    current_image = screenshot(region)
+    reference_folder = "find_add_filter_dropdown_arrow_in_water_collector"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png", 
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    coord= get_first_location(locations)
+    if coord is None:return None
+    return [coord[1]+910,coord[0]+773]
+
+def find_water_filter_in_dropdown_in_water_collector():
+    region=[825,734,328,197]
+    color_blue=[123,219,255]
+    
+    coords_list=find_all_pixel_coords(region=region,color=color_blue)
+    
+    if len(coords_list)==0: return None
+    return coords_list[0]
 
 
 #scav case
