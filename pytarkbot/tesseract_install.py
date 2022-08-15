@@ -159,5 +159,5 @@ def setup_tesseract() -> None:
         install_tesseract()
         tesseract_path = get_tsrct_path()
     print(f"Saving tp as {tesseract_path}")
-    environ["TESSDATA_PREFIX"] = str(tesseract_path)
+    environ["TESSDATA_PREFIX"] = str(join(tesseract_path,'tessdata'))
     environ["TESSERACT_PATH"] = str(join(tesseract_path, "tesseract.exe"))
