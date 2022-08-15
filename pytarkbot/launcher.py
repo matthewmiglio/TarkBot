@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import time
 
 import pygetwindow
@@ -45,11 +46,11 @@ def wait_for_tark_main(logger):
         pyautogui.moveTo(250,500,duration=0.22)
         #right
         pyautogui.moveTo(330,330,duration=0.22)
-        
+
         check_quit_key_press()
         logger.log(f"Waiting for tark main {loops}")
         loops = loops + 2
-        
+
         on_main = check_if_on_tark_main(logger)
         if loops > 120:
             return "restart"
@@ -91,19 +92,23 @@ def restart_tarkov(logger, launcher_path):
     # open tark launcher
     check_quit_key_press()
     logger.log("Opening launcher.")
-    subprocess.Popen(launcher_path)
+    try:
+        subprocess.Popen(launcher_path)
+    except FileNotFoundError:
+        print(r"Launcher path not found, edit config file: %appdata%\py-TarkBot\config.json")
+        sys.exit("Launcher path not found")
     time.sleep(10)
 
     # orientate launcher
     check_quit_key_press()
     logger.log("orientating launcher")
     orientate_launcher()
-    
+
     #wait for launcher play button to appear
     if wait_for_play_button_in_launcher(logger)== "restart":
         restart_tarkov(logger,launcher_path)
-    
-    
+
+
     #click play
     check_quit_key_press()
     click(942,558)
@@ -130,7 +135,7 @@ def restart_tarkov(logger, launcher_path):
     check_quit_key_press()
     if wait_for_tark_main(logger)=="restart":
         restart_tarkov(logger,launcher_path)
-    
+
 def wait_for_tarkov_to_open(logger):
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
     loops = 0
