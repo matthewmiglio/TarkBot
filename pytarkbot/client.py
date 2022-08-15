@@ -52,10 +52,11 @@ def show_entire_screen():
 def orientate_tarkov_client(title, logger):
     logger.log("Orientating tarkov client.")
     title='EscapeFromTarkov'
-    #if res is bad change res
-    if get_window_size(window_name = title) != [1280, 960]:
-        logger.log("Resolution is incorrect. Changing it.")
-        time.sleep(1)
+    
+    #change res
+    resize=[1280,960]
+    resize_window(window_name=title,resize=resize)
+
     #move window to top left
     move_tarkov_client_to_topleft()
     time.sleep(1)
@@ -392,6 +393,7 @@ def resize_window(window_name,resize):
 def move_window(window_name,coord):
     window=pygetwindow.getWindowsWithTitle(window_name)[0]
     window.moveTo(coord[0],coord[1])
+    
     
 def find_eft_window():
     check_quit_key_press()
