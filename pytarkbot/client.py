@@ -16,7 +16,7 @@ from PIL import Image
 from pywinauto.findwindows import find_window
 
 
-from pytarkbot.image_rec import coords_is_equal, pixel_is_equal
+from pytarkbot.image_rec import check_for_location, coords_is_equal, find_references, get_first_location, pixel_is_equal
 
 
 def intro_printout(logger):
@@ -59,8 +59,19 @@ def orientate_tarkov_client(title, logger):
         resize_window(window_name=title,resize=resize)
         time.sleep(1)
     #move window to top left
-    move_window(window_name=title,coord=[0,0])
+    move_tarkov_client_to_topleft()
     time.sleep(1)
+
+
+def move_tarkov_client_to_topleft():
+    for n in range(6):
+        if (n % 2) == 0: print("Moving tark window")
+        check_quit_key_press()
+        current_coord=find_eft_window()
+        pyautogui.moveTo(current_coord[0],current_coord[1],duration=0.33)
+        time.sleep(0.33)
+        pyautogui.dragTo(35,10,duration=1)
+    print("Done moving tark window.")
 
 
 def orientate_launcher():
@@ -382,3 +393,20 @@ def move_window(window_name,coord):
     window=pygetwindow.getWindowsWithTitle(window_name)[0]
     window.moveTo(coord[0],coord[1])
     
+def find_eft_window():
+    check_quit_key_press()
+    current_image = screenshot()
+    reference_folder = "find_eft_window"
+    references = [
+        "1.png",
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    coord= get_first_location(locations)
+    if coord is None: return None
+    return [coord[1],coord[0]]
