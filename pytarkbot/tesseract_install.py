@@ -158,6 +158,7 @@ def setup_tesseract() -> None:
     except FileNotFoundError:
         install_tesseract()
         tesseract_path = get_tsrct_path()
-    print(f"Saving tp as {tesseract_path}")
+    #print(f"Saving tp as {tesseract_path}")
     environ["TESSDATA_PREFIX"] = str(tesseract_path)
     environ["TESSERACT_PATH"] = str(join(tesseract_path, "tesseract.exe"))
+    
