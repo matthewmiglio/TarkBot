@@ -379,28 +379,6 @@ def resize_window(window_name,resize):
 
 
 def move_window(window_name,coord):
-    #window name gotta be a string of the name
-    #coord has to be the [x,y] destination coord of hte top left of ur window.
-    #windown name gotta be a string
-    #resize gotta be a 1x2 ar like [width,height]
-    title = window_name  # find first window with this title
-    top_windows = []  # all open windows
-    win32gui.EnumWindows(windowEnumerationHandler, top_windows)
-
-    winlst = []  # windows to cycle through
-    for i in top_windows:  # all open windows
-        if i[1] == title:
-            winlst.append(i)
-
-    hwnd = winlst[0][0]  # first window with title, get hwnd id
-    shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
-    shell.SendKeys('%')  # Alt key,  send key
-    rect = win32gui.GetWindowRect(hwnd)
-    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
-    w = x1 - x0
-    h = y1 - y0
-
-    win32gui.MoveWindow(hwnd, coord[0], coord[1], w, h, True)
-
-
-
+    window=pygetwindow.getWindowsWithTitle(window_name)[0]
+    window.moveTo(coord[0],coord[1])
+    
