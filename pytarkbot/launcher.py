@@ -120,9 +120,9 @@ def restart_tarkov(logger, launcher_path):
     if wait_for_tarkov_to_open(logger) == "restart":
         restart_tarkov(logger, launcher_path)
     index = 0
-    while index < 10:
+    while index < 60:
         check_quit_key_press()
-        logger.log(f"Waiting for client to open {index}")
+        logger.log(f"Giving tark time to load: {index}")
         time.sleep(2)
         index = index + 2
 
