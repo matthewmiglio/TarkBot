@@ -55,8 +55,6 @@ def orientate_tarkov_client(title, logger):
     #if res is bad change res
     if get_window_size(window_name = title) != [1280, 960]:
         logger.log("Resolution is incorrect. Changing it.")
-        resize=[1296,999]
-        resize_window(window_name=title,resize=resize)
         time.sleep(1)
     #move window to top left
     move_tarkov_client_to_topleft()
