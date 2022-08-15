@@ -66,9 +66,10 @@ def move_tarkov_client_to_topleft():
         if (n % 2) == 0: print("Moving tark window")
         check_quit_key_press()
         current_coord=find_eft_window()
+        current_coord=[current_coord[0]+18,current_coord[1]-2]
         pyautogui.moveTo(current_coord[0],current_coord[1],duration=0.33)
         time.sleep(0.33)
-        pyautogui.dragTo(35,10,duration=1)
+        pyautogui.dragTo(33,6,duration=1)
     print("Done moving tark window.")
 
 
@@ -397,7 +398,7 @@ def find_eft_window():
     current_image = screenshot()
     reference_folder = "find_eft_window"
     references = [
-        "1.png",
+        "5.png",
     ]
 
     locations = find_references(
