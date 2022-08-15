@@ -54,7 +54,7 @@ def orientate_tarkov_client(title, logger):
     title='EscapeFromTarkov'
     
     #change res
-    resize=[1280,960]
+    resize=[1299,999]
     resize_window(window_name=title,resize=resize)
 
     #move window to top left
