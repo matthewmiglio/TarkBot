@@ -19,14 +19,14 @@ def get_to_hideout(logger):
     at_hideout = check_if_in_hideout()
     loops = 0
     while not (at_hideout):
-        if loops > 15:
+        if loops > 7:
             logger.log("Bot had issues getting to hideout. Restarting.")
             return "restart"
         loops = loops + 1
 
         click(143, 979)
         pyautogui.moveTo(99, 99, duration=0.33)
-        time.sleep(3.33)
+        time.sleep(6.33)
         at_hideout = check_if_in_hideout()
     logger.log("At hideout.")
     time.sleep(0.33)
@@ -69,27 +69,27 @@ def manage_hideout(logger, crafts_to_farm):
         if "medstation" in crafts_to_farm:
             logger.log("Starting medstation management")
             manage_medstation(logger)
-            time.sleep(1)
+            time.sleep(4)
 
         if "booze_generator" in crafts_to_farm:
             logger.log("Starting booze generator management")
             manage_booze_generator(logger)
-            time.sleep(1)
+            time.sleep(4)
 
         if "workbench" in crafts_to_farm:
             logger.log("Starting workbench management")
             manage_workbench(logger)
-            time.sleep(1)
+            time.sleep(4)
 
         if "water_collector" in crafts_to_farm:
             logger.log("Starting water collector management")
             manage_water_collector(logger)
-            time.sleep(1)
+            time.sleep(4)
 
         if "scav_case" in crafts_to_farm:
             logger.log("Starting scav case management")
             manage_scav_case(logger)
-            time.sleep(1)
+            time.sleep(4)
 
         logger.add_hideout_rotation()
 
@@ -305,7 +305,7 @@ def get_to_water_collector(logger):
     at_location = check_if_at_water_collector()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_water_collector()
     logger.log("Made it to water collector.")
 
@@ -317,7 +317,7 @@ def get_to_lavatory(logger):
     at_location = check_if_at_lavatory()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_lavatory()
     logger.log("Made it to lavatory")
 
@@ -330,7 +330,7 @@ def get_to_booze_generator(logger):
     at_location = check_if_at_booze_generator()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(5)
         at_location = check_if_at_booze_generator()
     logger.log("Made it to booze_generator.")
 
@@ -342,7 +342,7 @@ def get_to_nutrition_unit(logger):
     at_location = check_if_at_nutrition_unit()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_nutrition_unit()
     logger.log("Made it to nutrition_unit")
 
@@ -354,7 +354,7 @@ def get_to_workbench(logger):
     at_location = check_if_at_workbench()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_workbench()
     logger.log("Made it to workbench")
 
@@ -366,7 +366,7 @@ def get_to_intelligence_center(logger):
     at_location = check_if_at_intelligence_center()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_intelligence_center()
     logger.log("Made it to intelligence_center")
 
@@ -378,7 +378,7 @@ def get_to_medstation(logger):
     at_location = check_if_at_medstation()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_medstation()
     logger.log("Made it to medstation")
 
@@ -390,7 +390,7 @@ def get_to_scav_case(logger):
     at_location = check_if_at_scav_case()
     while not (at_location):
         scroll_left_in_hideout()
-        time.sleep(2)
+        time.sleep(4)
         at_location = check_if_at_scav_case()
     logger.log("Made it to scav_case.")
 
@@ -416,11 +416,13 @@ def manage_booze_generator(logger):
     if state == "start":
         logger.log("Starting moonshine craft.")
         start_moonshine_craft(logger)
+        time.sleep(3)
     if state == "get items":
         logger.add_craft_completed()
         logger.log("Collecting items.")
         click(1070, 795)
-
+        time.sleep(3)
+        reset_station()
 
 def check_booze_generator():
     check_quit_key_press()
