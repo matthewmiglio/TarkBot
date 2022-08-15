@@ -136,6 +136,7 @@ def restart_tarkov(logger, launcher_path):
     if wait_for_tark_main(logger)=="restart":
         restart_tarkov(logger,launcher_path)
 
+
 def wait_for_tarkov_to_open(logger):
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
     loops = 0
