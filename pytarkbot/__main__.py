@@ -240,20 +240,14 @@ def main():
         [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
         [sg.Text('Select which stations to farm:'),
          sg.Text(size=(15, 1), key='-OUTPUT-')],
-        [sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),
-         sg.Checkbox(
-            'Medstation crafts',
-            default=True,
-            key="-medstation_crafts_in-"),
-            sg.Checkbox(
-            'Water collector crafts',
-            default=True,
-            key="-water_collector_crafts_in-"),
-            sg.Checkbox(
-            'Scav case crafts',
-            default=True,
-            key="-scav_case_crafts_in-"),
-            sg.Checkbox('Booze generator crafts', default=True, key="-booze_generator_crafts_in-")],
+        [
+        sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),
+        sg.Checkbox('Medstation crafts',default=True,key="-medstation_crafts_in-"),
+        sg.Checkbox('Water collector crafts',default=True,key="-water_collector_crafts_in-"),
+        sg.Checkbox('Scav case crafts',default=True,key="-scav_case_crafts_in-"),
+        sg.Checkbox('Booze generator crafts', default=True, key="-booze_generator_crafts_in-"),
+        sg.Checkbox('Lavatory crafts', default=True, key="-lavatory_crafts_in-")
+        ],
 
         # buttons
         [sg.Button('Start'), sg.Button('Help'), sg.Button('Donate')]
@@ -293,8 +287,10 @@ def main():
                     crafts_to_farm.append("water_collector")
                 if values["-booze_generator_crafts_in-"]:
                     crafts_to_farm.append("booze_generator")
+                if values["-lavatory_crafts_in-"]:
+                    crafts_to_farm.append("lavatory")
+                
 
-                print(crafts_to_farm)
 
                 hideout_management_main(crafts_to_farm)
 

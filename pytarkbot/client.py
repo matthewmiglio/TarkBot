@@ -211,7 +211,7 @@ def find_all_pixel_colors(region, color, image=None):
 
 
 def img_to_txt(image):
-    print(environ["TESSDATA_PREFIX"])
+    #print(environ["TESSDATA_PREFIX"])
     # specify location of pytesseract
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     # set config

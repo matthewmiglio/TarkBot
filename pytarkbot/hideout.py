@@ -1,7 +1,9 @@
+from distutils.command.install_egg_info import to_filename
 import time
 
 import numpy
 import pyautogui
+from matplotlib import pyplot as plt
 
 from pytarkbot.client import (check_quit_key_press, click,
                               find_all_pixel_coords, img_to_txt, screenshot)
@@ -91,6 +93,11 @@ def manage_hideout(logger, crafts_to_farm):
             manage_scav_case(logger)
             time.sleep(4)
 
+        if "lavatory" in crafts_to_farm:
+            logger.log("Starting lavatory management")
+            manage_lavatory(logger)
+            time.sleep(4)
+
         logger.add_hideout_rotation()
 
 
@@ -125,156 +132,65 @@ def reset_station(logger):
 
 # checking if currently at the right station
 def check_if_at_booze_generator():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_booze_generator"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-
-    return check_for_location(locations)
+    region=[700,516,200,30]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Boo'):
+        return True
+    return False
 
 
 def check_if_at_water_collector():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_water_collector"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
-
+    region=[698,494,189,26]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Wat'):
+        return True
+    return False
 
 def check_if_at_lavatory():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_lavatory"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
-
+    region=[698,338,117,31]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Lava'):
+        return True
+    return False
 
 def check_if_at_nutrition_unit():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_nutrition_unit"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
+    region=[698,340,170,26]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Nutr'):
+        return True
+    return False
 
 
 def check_if_at_workbench():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_workbench"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
+    region=[698,341,138,26]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Workb'):
+        return True
+    return False
 
 
 def check_if_at_intelligence_center():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_intelligence_center"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
-
+    region=[698,340,229,29]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Intell'):
+        return True
+    return False
 
 def check_if_at_medstation():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_medstation"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
-
+    region=[698,340,229,29]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith('Meds'):
+        return True
+    return False
+        
+    
 
 def check_if_at_scav_case():
     check_quit_key_press()
@@ -295,6 +211,14 @@ def check_if_at_scav_case():
         tolerance=0.99
     )
     return check_for_location(locations)
+
+
+def check_if_at_lavatory():
+    region=[698,341,120,30]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith("Lava"):
+        return True
 
 
 # move to each station
@@ -394,6 +318,17 @@ def get_to_scav_case(logger):
         at_location = check_if_at_scav_case()
     logger.log("Made it to scav_case.")
 
+
+def get_to_lavatory(logger):
+    check_quit_key_press()
+    open_hideout_interface()
+
+    at_location = check_if_at_lavatory()
+    while not (at_location):
+        scroll_left_in_hideout()
+        time.sleep(4)
+        at_location = check_if_at_lavatory()
+    logger.log("Made it to lavatory")
 
 # booze generator station
 def manage_booze_generator(logger):
@@ -737,16 +672,17 @@ def check_for_water_collector_collect_icon():
 
 
 def add_filter_to_water_collector():
-    # click dropdown for filters
-    coord = find_add_filter_dropdown_arrow_in_water_collector()
-    click(coord[0], coord[1])
+    #click dropdown coord to show filters on standby
+    dropdown_arrow_coord=[927,791]
+    pyautogui.moveTo(dropdown_arrow_coord[0],dropdown_arrow_coord[1],duration=0.2)
     time.sleep(1)
-
-    # click next filter
-    coord = find_water_filter_in_dropdown_in_water_collector()
-    click(coord[0], coord[1])
-    time.sleep(1)
-
+    
+    #click next filter
+    click(971,797)
+    
+    
+    
+    
 
 def find_add_filter_dropdown_arrow_in_water_collector():
     region = [910, 773, 35, 50]
@@ -954,18 +890,22 @@ def get_to_pile_of_meds_craft_in_medstation():
     while not (at_pile_of_meds):
         pyautogui.click(700, 700)
         pyautogui.scroll(-400)
+        time.sleep(0.22)
         if find_pile_of_meds_icon() is not None:
             at_pile_of_meds = True
 
-    for _ in range(4):
-        pyautogui.click(700, 700)
-        pyautogui.scroll(-400)
-
+    pyautogui.click(700, 700)
+    pyautogui.scroll(-400)
 
 def find_pile_of_meds_icon():
     region = [972, 387, 75, 557]
     check_quit_key_press()
     current_image = screenshot(region)
+    
+    # plt.imshow(numpy.asarray(current_image))
+    # plt.show()
+    
+    
     reference_folder = "find_pile_of_meds_icon"
     references = [
         "1.png",
@@ -976,6 +916,14 @@ def find_pile_of_meds_icon():
         "6.png",
         "7.png",
         "8.png",
+        "9.png",
+        "10.png",
+        "11.png",
+        "12.png",
+        "13.png",
+        "14.png",
+        
+        
 
     ]
 
@@ -1020,3 +968,235 @@ def get_image_of_pile_of_meds_craft_in_medstation():
         70]
 
     return screenshot(region)
+
+
+
+#lavatory
+def manage_lavatory(logger):
+    logger.log("Managing lavatory")
+
+    get_to_hideout(logger)
+    get_to_lavatory(logger)
+    
+    state=check_lavatory()
+    logger.log(f"Lavatory state: {state}")
+    
+    if state=="start":
+        buy_slings_for_cordura_craft(logger)
+        
+        start_cordura_craft_in_hideout()
+    if state=="get items":
+        coords=find_cordura_craft_in_lavatory()
+        click(coords[0],coords[1],clicks=3,interval=0.2)
+    reset_station(logger)
+    
+    
+def find_cordura_craft_in_lavatory():
+    region = [845,313,50,520]
+    check_quit_key_press()
+    current_image = screenshot(region)
+    reference_folder = "find_cordura_craft_in_lavatory"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    coord = get_first_location(locations)
+    if coord is None:
+        return None
+    return [coord[1]+1045, coord[0]+323]
+
+
+def get_to_cordura_craft_in_lavatory():
+    at_craft=False
+    if find_cordura_craft_in_lavatory() is not None: at_craft=True
+    
+    while not(at_craft):
+        pyautogui.click(700, 700)
+        pyautogui.scroll(-400)
+        time.sleep(0.33)
+        if find_cordura_craft_in_lavatory() is not None: at_craft=True
+        
+        
+def check_lavatory():
+    ###first check if lavatory is producing
+    if check_if_lavatory_is_producing():
+        return "producing"
+    
+    get_to_cordura_craft_in_lavatory()
+    time.sleep(0.33)
+    
+    craft_coords=find_cordura_craft_in_lavatory()
+    region=[craft_coords[0]-20,craft_coords[1]-100,60,30]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    
+    if (text.startswith("STA"))or(text.startswith("sta"))or(text.startswith("SO")):
+        return "start"
+    
+    if (text.startswith("GE"))or(text.startswith("ge"))or(text.startswith("Ge")):
+        return "get items"
+    
+    
+def check_if_lavatory_is_producing():
+    region=[831,345,80,16]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    
+    if (text.startswith("Pro"))or(text.startswith("pro")):
+        return True
+    return False
+
+    
+def start_cordura_craft_in_hideout():
+    #click start
+    coord=find_cordura_craft_in_lavatory()
+    pyautogui.moveTo(coord[0],coord[1],duration=0.2)
+    time.sleep(0.2)
+    pyautogui.click()
+    time.sleep(0.33)
+    
+    #click handover
+    click(640,674)
+    time.sleep(0.33)
+    
+        
+def buy_slings_for_cordura_craft(logger):
+    #start method when you can see the craft in the lavatory
+    logger.log("Buying 4 slings for cordura craft.")
+    
+    #right click sling
+    logger.log("Getting to filter by item of sling bags")
+    sling_coords=find_sling_in_lavatory_craft_menu()
+    pyautogui.moveTo(sling_coords[0],sling_coords[1],duration=0.2)
+    time.sleep(0.33)
+    pyautogui.click(button='right')
+    time.sleep(1)
+    
+    #click FBI button for sling
+    pyautogui.moveRel(20,22)
+    time.sleep(0.22)
+    pyautogui.click()
+    time.sleep(2)
+    
+    #set filters to ragman only 
+    set_filters_to_only_ragman()
+    time.sleep(2)
+    
+    #click purchase
+    click(1197,150)
+    time.sleep(0.33)    
+    
+    #set buy to 4 and buy 4
+    click(693,475)
+    time.sleep(0.33)
+    pyautogui.press('4')
+    time.sleep(0.33)
+    pyautogui.press('y')
+    time.sleep(1)
+    
+    #get back to lavatory
+    pyautogui.press('esc')
+    time.sleep(1)
+    
+    #get back to cordura
+    get_to_cordura_craft_in_lavatory()
+    time.sleep(1)
+    
+
+def find_sling_in_lavatory_craft_menu():
+    region = [845,313,50,520]
+    check_quit_key_press()
+    current_image = screenshot(region)
+    reference_folder = "find_cordura_craft_in_lavatory"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    coord = get_first_location(locations)
+    if coord is None:
+        return None
+    return [coord[1]+845, coord[0]+313]
+
+        
+def set_filters_to_only_ragman():
+    #open filter cog button
+    click(326,87)
+    time.sleep(1)
+    
+    #open+orientate filters window
+    coord=find_filters_window_for_sling_purchase()
+    pyautogui.moveTo(coord[0],coord[1],duration=0.2)
+    
+    #click 'Display offers from' dropdown
+    display_offers_from_coord=[coord[0]+120,coord[1]+150]
+    click(display_offers_from_coord[0],display_offers_from_coord[1],duration=0.2)
+    time.sleep(1)
+    
+    #click traders
+    traders_coord=[coord[0]+120,coord[1]+190]
+    click(traders_coord[0],traders_coord[1],duration=0.2)
+    time.sleep(1)
+    
+    #click OK
+    ok_coord=[coord[0]+60,coord[1]+237]
+    click(ok_coord[0],ok_coord[1],duration=0.2)
+    time.sleep(1)
+    
+   
+def find_filters_window_for_sling_purchase():
+    check_quit_key_press()
+    current_image = screenshot()
+    reference_folder = "find_filters_tab"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+        "10.png",
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+
+    coords = get_first_location(locations)
+    if coords is None:
+        return None
+    return [coords[1] + 3, coords[0] + 3]
+
