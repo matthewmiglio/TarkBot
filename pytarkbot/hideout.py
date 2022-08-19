@@ -526,6 +526,11 @@ def find_green_gunpowerder_icon_in_workbench():
         "10.png",
         "11.png",
         "12.png",
+        "13.png",
+        "14.png",
+        "15.png",
+        "16.png",
+        
 
 
     ]
@@ -845,7 +850,7 @@ def collect_pile_of_meds_craft_from_medstation():
     # click first start button
     coords = find_pile_of_meds_icon()
     get_items_coord = [coords[0] + 75, coords[1] + 20]
-    click(get_items_coord[0], get_items_coord[1])
+    click(get_items_coord[0], get_items_coord[1]-20)
     time.sleep(1.0)
 
 

@@ -334,10 +334,7 @@ def calculate_avg_pixel(pix_list):
     b_avg = int(b_total / total_pixels)
     return_pix = [r_avg, g_avg, b_avg]
 
-    winlst = []  # windows to cycle through
-    for i in top_windows:  # all open windows
-        if i[1] == title:
-            winlst.append(i)
+    return return_pix
 
 
 def windowEnumerationHandler(hwnd, top_windows):

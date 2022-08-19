@@ -58,36 +58,13 @@ def count_digits():
     image = screenshot(region)
 
     color_list = get_color_list_of_current_price(image)
-    condensed_color_list = ["black"]
-
-    # loop through entire coord_list
-    total_colors = len(color_list)
-    index = 0
-    while index < total_colors:
-        current_color = color_list[index]
-        if (current_color is None) or (current_color == "white"):
-            current_color = "black"
-        if (current_color == "tan"):
-            if condensed_color_list[-1] != "tan":
-                condensed_color_list.append(current_color)
-
-        if (current_color == "black"):
-            if condensed_color_list[-1] != "black":
-                condensed_color_list.append(current_color)
-
-        index = index + 1
-
-    # count occurences of tan
-    tan_pixel_count = 0
-    color_list_length = len(condensed_color_list)
-    index = 0
-    while index < color_list_length:
-        if condensed_color_list[index] == "tan":
-            tan_pixel_count = tan_pixel_count + 1
-
-        index = index + 1
-
-    return tan_pixel_count
+    print(color_list)
+    
+    
+def splice_color_list_for_count_digits(color_list):
+    
+    
+    
 
 
 def check_price_string(price_string):
@@ -209,7 +186,7 @@ def check_first_price(logger):
     image_rec_count = len(str(detected_price))
     if (post_price is None) or (image_rec_count != digit_counter_count):
         logger.log(
-            "Error with digit check. \n Tried to post at {post_price} but found {digit_counter_count} digits.")
+            f"Error with digit check. \n Tried to post at {post_price} but found {digit_counter_count} digits.")
         return False
 
     if post_price is None:
@@ -299,6 +276,14 @@ def find_fbi_button():
         "13.png",
         "14.png",
         "15.png",
+        "16.png",
+        "17.png",
+        "18.png",
+        "19.png",
+        "20.png",
+        
+  
+        
     ]
 
     locations = find_references(
@@ -312,7 +297,7 @@ def find_fbi_button():
 
 
 def get_to_flee_tab(logger):
-    on_flee = check_if_on_flee_page(logger)
+    on_flee = check_if_on_flee_page()
     loops = 0
     while not (on_flee):
         if loops > 10:
@@ -322,32 +307,26 @@ def get_to_flee_tab(logger):
         check_quit_key_press()
         click(829, 977)
         time.sleep(2)
-        on_flee = check_if_on_flee_page(logger)
+        on_flee = check_if_on_flee_page()
 
 
-def check_if_on_flee_page(logger):
-    current_image = screenshot()
-    reference_folder = "flee_page"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
+def check_if_on_flee_page():
+    iar=numpy.asarray(screenshot())
 
-    ]
+    pix1=iar[984][813]
+    pix2=iar[972][810]
+    pix3=iar[976][883]
+    pix4=iar[984][883]
+    
+    COLOR_TAN=[159,157,144]
+    
+    if not(pixel_is_equal(pix1,COLOR_TAN,tol=25)): return False
+    if not(pixel_is_equal(pix2,COLOR_TAN,tol=25)): return False
+    if not(pixel_is_equal(pix3,COLOR_TAN,tol=25)): return False
+    if not(pixel_is_equal(pix4,COLOR_TAN,tol=25)): return False
+    return True
 
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
 
-    truth = check_for_location(locations)
-    if truth:
-        logger.log("On flee page.")
-    return truth
 
 
 def check_if_can_add_offer(logger):
@@ -396,33 +375,19 @@ def find_add_offer_window():
 
 
 def wait_till_can_add_another_offer(logger):
-    logger.log("Checking if can add another offer.")
-    waiting = False
-    waiting = not (check_if_can_add_offer(logger))
-    if not (check_if_can_add_offer(logger)):
-        waiting = True
-
-    loops = 0
-    while waiting:
-        if ((loops & 3) == 0):
-            logger.log(f"Waiting for another flea slot. {loops}")
-
-        loops = loops + 1
-
+    logger.log("Starting wait for another offer")
+    has_another_offer=check_if_can_add_offer(logger)
+    loops=0
+    while not(has_another_offer):
+        loops=loops+1
+        if (loops % 2 == 0): print(f"Waiting for another offer: {loops}")
+        close_add_offer_window(logger)
         time.sleep(1)
-
-        waiting = not (check_if_can_add_offer(logger))
-        if not (check_if_can_add_offer(logger)):
-            waiting = True
-
         pyautogui.press('f5')
-
-        if loops > 120:
-            logger.log(
-                "Waited more than 120sec for any of the offers to sell. Passing to remove offers state.")
-            return "remove_flee_offers"
-
-    logger.log("Done waiting for another flea slot.")
+        time.sleep(1)
+        has_another_offer=check_if_can_add_offer(logger)
+    logger.log("Done waiting for another offer.")
+        
 
 
 def orientate_add_offer_window(logger):
@@ -460,35 +425,18 @@ def check_add_offer_window_orientation():
     pix7 = iar[490][48]
     pix8 = iar[487][61]
 
-    pix1_total = pix1[0] + pix1[1] + pix1[2]
-    pix2_total = pix2[0] + pix2[1] + pix2[2]
-    pix3_total = pix3[0] + pix3[1] + pix3[2]
-    pix4_total = pix4[0] + pix4[1] + pix4[2]
-
-    pix5_total = pix5[0] + pix5[1] + pix5[2]
-    pix6_total = pix6[0] + pix6[1] + pix6[2]
-    pix7_total = pix7[0] + pix7[1] + pix7[2]
-    pix8_total = pix8[0] + pix8[1] + pix8[2]
-
-    if pix1_total < 40:
-        return False
-    if pix2_total < 40:
-        return False
-    if pix3_total < 40:
-        return False
-    if pix4_total < 40:
-        return False
-
-    if pix5_total > 40:
-        return False
-    if pix6_total > 40:
-        return False
-    if pix7_total > 40:
-        return False
-    if pix8_total > 40:
-        return False
-
+    if not(pixel_is_equal(pix1,[143, 141,129],tol=25)): return False
+    if not(pixel_is_equal(pix2, [143 ,141 ,129],tol=25)): return False
+    if not(pixel_is_equal(pix3,[0 ,0, 0],tol=25)): return False
+    if not(pixel_is_equal(pix4,[137 ,136 ,124],tol=25)): return False
+    
+    if not(pixel_is_equal(pix5,[0, 0, 0],tol=25)): return False
+    if not(pixel_is_equal(pix6,[0 ,0, 0],tol=25)): return False
+    if not(pixel_is_equal(pix7,[0, 0, 0],tol=25)): return False
+    if not(pixel_is_equal(pix8,[0, 0 ,0],tol=25)): return False
+    
     return True
+    
 
 
 def find_add_requirement_window():
@@ -500,7 +448,9 @@ def find_add_requirement_window():
         "2.png",
         "3.png",
         "4.png",
-
+        "5.png",
+        "6.png",
+        "7.png",
     ]
 
     locations = find_references(
@@ -528,8 +478,11 @@ def orientate_add_requirement_window(logger):
                 "Trouble orientating add requirement window. Restarting.")
             return "restart"
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
+        pyautogui.mouseDown(button="left")
         time.sleep(0.33)
         pyautogui.dragTo(1400, 1400, duration=0.33)
+        time.sleep(0.33)
+        pyautogui.mouseUp(button="left")
         orientated = check_add_requirement_window_orientation()
     logger.log("Orientated add requirement window.")
     time.sleep(0.17)
@@ -539,7 +492,6 @@ def check_add_requirement_window_orientation():
     iar = numpy.asarray(screenshot())
 
     pix1 = iar[476][1009]
-
     pix3 = iar[473][1021]
     pix4 = iar[476][1030]
 
@@ -548,38 +500,15 @@ def check_add_requirement_window_orientation():
     pix7 = iar[475][1100]
     pix8 = iar[476][1126]
 
-    pix1_total = pix1[0] + pix1[1] + pix1[2]
-    pix3_total = pix3[0] + pix3[1] + pix3[2]
-    pix4_total = pix4[0] + pix4[1] + pix4[2]
-
-    pix5_total = pix5[0] + pix5[1] + pix5[2]
-    pix6_total = pix6[0] + pix6[1] + pix6[2]
-    pix7_total = pix7[0] + pix7[1] + pix7[2]
-    pix8_total = pix8[0] + pix8[1] + pix8[2]
-
-    if pix1_total < 90:
-        # print(1)
-        return False
-    if pix3_total < 90:
-        # print(2)
-        return False
-    if pix4_total < 90:
-        # print(3)
-        return False
-
-    if pix5_total > 90:
-        # print(5)
-        return False
-    if pix6_total > 90:
-        # print(6)
-        return False
-    if pix7_total > 90:
-        # print(8)
-        return False
-    if pix8_total > 90:
-        # print(9)
-        return False
-
+    if not(pixel_is_equal(pix1,[130 ,138 ,142],tol=15)): return False
+    if not(pixel_is_equal(pix3,[162 ,171 ,177],tol=15)): return False
+    if not(pixel_is_equal(pix4,[116 ,122, 125],tol=15)): return False
+    
+    if not(pixel_is_equal(pix5,[25 ,27 ,27],tol=15)): return False
+    if not(pixel_is_equal(pix6,[25 ,27, 27],tol=15)): return False
+    if not(pixel_is_equal(pix7,[25, 27 ,27],tol=15)): return False
+    if not(pixel_is_equal(pix8,[25, 27, 27],tol=15)): return False
+    
     return True
 
 
@@ -614,6 +543,12 @@ def open_add_offer_tab(logger):
 
     # orientate add offer window
     orientate_add_offer_window(logger)
+    
+    time.sleep(3)
+
+    # orientate add offer window
+    orientate_add_offer_window(logger)
+    
 
 
 def select_random_item_to_flee(logger):
@@ -728,32 +663,19 @@ def check_filters_window_orientation():
     pix7 = iar[36][70]
     pix8 = iar[189][230]
 
-    pix1_total = pix1[0] + pix1[1] + pix1[2]
-    pix2_total = pix2[0] + pix2[1] + pix2[2]
-    pix4_total = pix4[0] + pix4[1] + pix4[2]
-    pix5_total = pix5[0] + pix5[1] + pix5[2]
-    pix6_total = pix6[0] + pix6[1] + pix6[2]
-    pix7_total = pix7[0] + pix7[1] + pix7[2]
-    pix8_total = pix8[0] + pix8[1] + pix8[2]
-
-    if pix1_total < 120:
-        return False
-    if pix2_total < 120:
-        return False
-    if pix4_total < 120:
-        return False
-
-    if pix5_total > 120:
-        return False
-    if pix6_total > 120:
-        return False
-    if pix7_total > 120:
-        return False
-    if pix8_total > 120:
-        return False
-
+    
+    
+    if not(pixel_is_equal(pix1,[90, 96, 98],tol=20)): return False
+    if not(pixel_is_equal(pix2,[224, 223, 211],tol=20)): return False
+    if not(pixel_is_equal(pix4,[224, 223, 211],tol=20)): return False
+    
+    if not(pixel_is_equal(pix5,[26, 28, 28],tol=20)): return False
+    if not(pixel_is_equal(pix6,[1, 1, 1],tol=20)): return False
+    if not(pixel_is_equal(pix7,[27, 29, 29],tol=20)): return False
+    if not(pixel_is_equal(pix8,[3, 3 ,1],tol=20)): return False
+    
     return True
-
+    
 
 def orientate_filters_window(logger):
     is_orientated = check_filters_window_orientation()
