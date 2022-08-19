@@ -62,7 +62,7 @@ def count_digits():
     
     
 def splice_color_list_for_count_digits(color_list):
-    
+    pass
     
     
 
