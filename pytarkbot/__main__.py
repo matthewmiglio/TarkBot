@@ -131,6 +131,7 @@ def state_flee_mode():
     time.sleep(0.33)
 
     while True:
+        pyautogui.click(50,50)
         pyautogui.press('n')
 
         # wait for add offer

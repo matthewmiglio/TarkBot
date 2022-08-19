@@ -1,3 +1,5 @@
+
+
 import random
 import time
 
@@ -13,56 +15,62 @@ from pytarkbot.image_rec import (check_for_location, find_references,
 
 
 def get_color_list_of_current_price(image):
-    # loop returns a list of colors
-    color_list = []
-
     # make numpy iar
     iar = numpy.asarray(image)
 
-    # show screenshot of pixels the bot will look at
-    # plt.imshow(numpy.asarray(screenshot(region=[896,151,115,1])))
-    # plt.show()
+    #get pixel RGB list
+    rgb_pix_list=[]
+    y_coord=150
+    for x_coord in range(907,987):
+        current_pix=iar[y_coord][x_coord]
+        current_pix=[current_pix[0],current_pix[1],current_pix[2]]
+        rgb_pix_list.append(current_pix)
+    #print(rgb_pix_list)
+        
+        
+    #replace RGB list with english color list
+    english_color_list=[]
+    for rgb in rgb_pix_list:
+        red_content=rgb[0]
+        if (red_content>100):
+            english_color_list.append("tan")
+        else:
+            english_color_list.append(None)
+            
+    return english_color_list
+        
 
-    # color vars
-    color_tan = [171, 171, 150]
-    color_tan2 = [162, 161, 144]
-    color_black = [30, 30, 30]
-    color_white = [205, 205, 205]
-
-    # loop+loop vars
-    x_coord = 0
-    y_coord = 25
-    while x_coord < 115:
-        current_pix = iar[y_coord][x_coord]
-        current_pix = [current_pix[0], current_pix[1], current_pix[2]]
-
-        # assign color in english
-        current_color = None
-        if (pixel_is_equal(current_pix, color_tan, tol=5)) or (
-                pixel_is_equal(current_pix, color_tan2, tol=5)):
-            current_color = "tan"
-        elif pixel_is_equal(current_pix, color_black, tol=20):
-            current_color = "black"
-        elif pixel_is_equal(current_pix, color_white, tol=10):
-            current_color = "white"
-
-        # add english color to color list
-        color_list.append(current_color)
-        x_coord = x_coord + 1
-
-    return color_list
 
 
 def count_digits():
-    region = [896, 126, 115, 47]
-    image = screenshot(region)
+    # region = [896, 126, 115, 47]
+    image = screenshot()
 
     color_list = get_color_list_of_current_price(image)
-    print(color_list)
     
+
+
+    spliced_color_list=splice_color_list_for_count_digits(color_list=color_list)
+    
+    tan_count=0
+    for color in spliced_color_list:
+        if color=="tan":
+            tan_count=tan_count+1
+    
+    return tan_count-1
     
 def splice_color_list_for_count_digits(color_list):
-    pass
+    returnPixlist=[None]
+    
+    for pixel in color_list:
+        if (returnPixlist[-1] is not None)and(pixel is None):
+            returnPixlist.append(pixel)
+        if (returnPixlist[-1]!="tan")and(pixel=="tan"):
+            returnPixlist.append(pixel)
+            
+            
+    return returnPixlist
+        
     
     
 
@@ -125,7 +133,7 @@ def get_price_undercut(found_price):
         return None
     found_price = int(found_price)
 
-    undercut_option_1 = found_price - 4000
+    undercut_option_1 = found_price - 2700
     undercut_option_2 = int(found_price * 0.75)
     if undercut_option_2 < undercut_option_1:
         return undercut_option_1
@@ -138,7 +146,7 @@ def get_value_to_post_item():
 
 
 def find_coords_of_item_to_flee():
-    region = [11, 507, 410, 450]
+    region = [16,509,407,427]
 
     # plt.imshow(numpy.asarray(screenshot(region)))
     # plt.show()
@@ -379,6 +387,9 @@ def wait_till_can_add_another_offer(logger):
     has_another_offer=check_if_can_add_offer(logger)
     loops=0
     while not(has_another_offer):
+        if loops>120:
+            return "remove_flee_offers"
+        
         loops=loops+1
         if (loops % 2 == 0): print(f"Waiting for another offer: {loops}")
         close_add_offer_window(logger)
@@ -477,6 +488,7 @@ def orientate_add_requirement_window(logger):
             logger.log(
                 "Trouble orientating add requirement window. Restarting.")
             return "restart"
+        window_coords=[window_coords[0]+10,window_coords[1]]
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
         pyautogui.mouseDown(button="left")
         time.sleep(0.33)
@@ -529,6 +541,7 @@ def click_fbi_button():
 
 def open_add_offer_tab(logger):
     # handle popups
+    pyautogui.click(50,50)
     pyautogui.press('n')
 
     # closing add offer window if it exists
@@ -749,6 +762,8 @@ def check_for_post_confirmation_popup():
 def handle_post_confirmation_popup(logger):
     if check_for_post_confirmation_popup():
         logger.log("Handling post confirmation popup")
+        pyautogui.click(50,50)
+        pyautogui.click(50,50)
         pyautogui.press('n')
         time.sleep(0.33)
 
@@ -779,6 +794,7 @@ def handle_purchase_confirmation_popup(logger):
     if check_for_purchase_confirmation_popup():
         logger.log("Handling purchase confirmation popup")
         pyautogui.click(50, 50)
+        pyautogui.click(50,50)
         pyautogui.press('n')
         time.sleep(0.33)
 
