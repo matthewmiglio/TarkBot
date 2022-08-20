@@ -1045,9 +1045,15 @@ def check_lavatory():
     time.sleep(0.33)
     
     craft_coords=find_cordura_craft_in_lavatory()
-    region=[craft_coords[0]-20,craft_coords[1]-100,60,30]
+    region=[craft_coords[0]-20,craft_coords[1]-10,100,30]
     image=screenshot(region)
+    
+    plt.imshow(numpy.asarray(image))
+    plt.show()
+    
+    
     text=img_to_txt(image)
+    print(text)
     
     if (text.startswith("STA"))or(text.startswith("sta"))or(text.startswith("SO")):
         return "start"
