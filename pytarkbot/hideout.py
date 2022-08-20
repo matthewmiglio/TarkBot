@@ -193,24 +193,12 @@ def check_if_at_medstation():
     
 
 def check_if_at_scav_case():
-    check_quit_key_press()
-    current_image = screenshot()
-    reference_folder = "check_if_at_scav_case"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-    return check_for_location(locations)
+    region=[700,357,123,27]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    if text.startswith("Scav"):
+        return True
+    return False
 
 
 def check_if_at_lavatory():
@@ -530,9 +518,10 @@ def find_green_gunpowerder_icon_in_workbench():
         "14.png",
         "15.png",
         "16.png",
-        
-
-
+        "17.png",
+        "18.png",
+        "19.png",
+        "20.png",
     ]
 
     locations = find_references(
@@ -822,7 +811,16 @@ def check_for_scav_case_progress():
         names=references,
         tolerance=0.99
     )
-    return check_for_location(locations)
+    truth= check_for_location(locations)
+    
+    region=[1022,673,58,12]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    print(text)
+    if text.startswith("Coll"):
+        truth = True
+
+    return truth
 
 
 # medstation
@@ -950,13 +948,20 @@ def check_state_of_medstation():
 
     get_to_pile_of_meds_craft_in_medstation()
     image = get_image_of_pile_of_meds_craft_in_medstation()
+    text=img_to_txt(image)
+    
+    # print(text)
+    # plt.imshow(numpy.asanyarray(image))
+    # plt.show()
+    
+    
     if image is None:
         return
 
-    if img_to_txt(image).startswith("STAR"):
+    if text.startswith("STAR"):
         return "start"
 
-    if img_to_txt(image).startswith("GET"):
+    if text.startswith("GET"):
         return "get items"
 
 
@@ -1048,8 +1053,8 @@ def check_lavatory():
     region=[craft_coords[0]-20,craft_coords[1]-10,100,30]
     image=screenshot(region)
     
-    plt.imshow(numpy.asarray(image))
-    plt.show()
+    # plt.imshow(numpy.asarray(image))
+    # plt.show()
     
     
     text=img_to_txt(image)
