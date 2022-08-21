@@ -467,6 +467,11 @@ def check_workbench(logger):
 
     # if found start return start
     text = img_to_txt(green_gunpowder_image)
+    
+    print(text)
+    plt.imshow(numpy.asarray(green_gunpowder_image))
+    plt.show()
+    
     if text.startswith("START"):
         return "start"
     if text.startswith("GET"):
@@ -539,7 +544,7 @@ def find_green_gunpowerder_icon_in_workbench():
 
 def get_image_of_green_gunpowder_surroundings():
     coord = find_green_gunpowerder_icon_in_workbench()
-    region = [coord[0] - 20, coord[1] - 20, 190, 60]
+    region = [coord[0] + 55, coord[1] - 20, 75, 60]
 
     green_gunpowder_image = screenshot(region)
 
