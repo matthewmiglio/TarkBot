@@ -232,6 +232,15 @@ def screenshot(region=(0, 0, 1400, 1400)):
         return pyautogui.screenshot(region=region)
 
 
+def string_to_chars_only(string):
+    out_string=""
+    for element in string:
+        if element.isalpha():
+            out_string=out_string+element
+    return out_string
+            
+
+
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
     # move the mouse to the spot
     pyautogui.moveTo(x, y, duration=duration)
