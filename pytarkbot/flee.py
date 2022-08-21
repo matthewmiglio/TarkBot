@@ -4,11 +4,15 @@ import random
 import time
 
 import numpy
+from matplotlib import pyplot as plt
+
+
+import numpy
 import pyautogui
 
 from pytarkbot.client import (calculate_avg_pixel, check_quit_key_press, click,
                               find_all_pixel_coords, find_all_pixels,
-                              find_all_pixels_not_equal_to, img_to_txt,
+                              find_all_pixels_not_equal_to, img_to_txt, img_to_txt_numbers_only,
                               screenshot)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
@@ -40,8 +44,6 @@ def get_color_list_of_current_price(image):
     return english_color_list
         
 
-
-
 def count_digits():
     # region = [896, 126, 115, 47]
     image = screenshot()
@@ -59,6 +61,7 @@ def count_digits():
     
     return tan_count-1
     
+
 def splice_color_list_for_count_digits(color_list):
     returnPixlist=[None]
     
@@ -71,9 +74,6 @@ def splice_color_list_for_count_digits(color_list):
             
     return returnPixlist
         
-    
-    
-
 
 def check_price_string(price_string):
     index = 0
@@ -111,18 +111,33 @@ def adjust_price_string(price_string):
             output_string = output_string + element
         if (element == "s"):
             output_string = output_string + "8"
-        if (element == "@"):
-            output_string = output_string + "0"
+
+    #checks
+    if len(output_string)<3:
+        return None
+    
+    second_char_string=output_string[1]
+    second_char_int=int(second_char_string)
+
+    if second_char_string==5:
+        print("Treertet")
+
+
     return output_string
 
 
 def get_current_price():
     # get image
-    region = [896, 126, 115, 48]
+    region = [910,137,82,19]
+
     price_image = screenshot(region)
 
+    # plt.imshow(numpy.asarray(price_image))
+    # plt.show()
+
     # get text
-    text = img_to_txt(price_image)
+    text = img_to_txt_numbers_only(price_image)
+    #print(text)
 
     # give adjusted price
     return adjust_price_string(text)
@@ -142,6 +157,9 @@ def get_price_undercut(found_price):
 
 def get_value_to_post_item():
     price = get_current_price()
+
+    print(f"The price the bot read is: {price}")
+
     return [get_price_undercut(price), price]
 
 
@@ -335,8 +353,6 @@ def check_if_on_flee_page():
     return True
 
 
-
-
 def check_if_can_add_offer(logger):
     close_add_offer_window(logger)
     check_quit_key_press()
@@ -400,7 +416,6 @@ def wait_till_can_add_another_offer(logger):
     logger.log("Done waiting for another offer.")
         
 
-
 def orientate_add_offer_window(logger):
     check_quit_key_press()
     orientated = check_add_offer_window_orientation()
@@ -417,7 +432,7 @@ def orientate_add_offer_window(logger):
             return "restart"
         pyautogui.moveTo(coords[0], coords[1], duration=0.4)
         time.sleep(1)
-        pyautogui.dragTo(0, 1200, duration=0.33)
+        pyautogui.dragTo(0, 980, duration=0.33)
         orientated = check_add_offer_window_orientation()
     logger.log("Orientated add offer window.")
     time.sleep(0.17)
@@ -492,7 +507,7 @@ def orientate_add_requirement_window(logger):
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
         pyautogui.mouseDown(button="left")
         time.sleep(0.33)
-        pyautogui.dragTo(1400, 1400, duration=0.33)
+        pyautogui.dragTo(1300, 1000, duration=0.33)
         time.sleep(0.33)
         pyautogui.mouseUp(button="left")
         orientated = check_add_requirement_window_orientation()
@@ -562,7 +577,6 @@ def open_add_offer_tab(logger):
     # orientate add offer window
     orientate_add_offer_window(logger)
     
-
 
 def select_random_item_to_flee(logger):
     has_item_to_flee = False

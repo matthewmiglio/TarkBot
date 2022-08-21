@@ -19,6 +19,9 @@ from pywinauto.findwindows import find_window
 from pytarkbot.image_rec import check_for_location, coords_is_equal, find_references, get_first_location, pixel_is_equal
 
 
+
+
+
 def intro_printout(logger):
     blank_line = "////////////////////////////////////////////////////////////////////////////////////"
     name_line = "/////////////Python Tarkov flea sell bot // Matthew Miglio ~Aug 2022////////////////"
@@ -211,12 +214,15 @@ def find_all_pixel_colors(region, color, image=None):
 
 
 def img_to_txt(image):
-    #print(environ["TESSDATA_PREFIX"])
-    # specify location of pytesseract
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    # set config
     config = ('-l eng --oem 1 --psm 3')
     return pytesseract.image_to_string(image, config=config)
+
+
+def img_to_txt_numbers_only(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image, config="digits")
 
 
 def screenshot(region=(0, 0, 1400, 1400)):

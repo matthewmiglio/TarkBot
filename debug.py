@@ -1,16 +1,25 @@
 
-from pytarkbot.client import resize_window
+from pytarkbot.__main__ import state_flee_mode
+from pytarkbot.client import orientate_tarkov_client, resize_window, screenshot
+from pytarkbot.flee import get_current_price
 from pytarkbot.hideout import get_to_hideout
 from pytarkbot.launcher import check_if_on_tark_main
 from pytarkbot.logger import Logger
+import numpy
+from matplotlib import pyplot as plt
+
 
 logger=Logger()
 
-title="EscapeFromTarkov"
-resize=[1299,999]
 
-# resize_window(window_name=title,resize=resize)
+# orientate_tarkov_client("EscapeFromTarkov", logger)
 
-print(check_if_on_tark_main(logger))
+# state_flee_mode()
 
-get_to_hideout(logger)
+while True:
+    print(get_current_price())
+
+
+# plt.imshow(numpy.asarray(screenshot()))
+# plt.show()
+
