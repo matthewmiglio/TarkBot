@@ -6,7 +6,7 @@ import pyautogui
 from matplotlib import pyplot as plt
 
 from pytarkbot.client import (check_quit_key_press, click,
-                              find_all_pixel_coords, img_to_txt, screenshot)
+                              find_all_pixel_coords, img_to_txt, screenshot, string_to_chars_only)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
 
@@ -466,11 +466,11 @@ def check_workbench(logger):
     green_gunpowder_image = get_image_of_green_gunpowder_surroundings()
 
     # if found start return start
-    text = img_to_txt(green_gunpowder_image)
+    text = string_to_chars_only(img_to_txt(green_gunpowder_image))
     
-    print(text)
-    plt.imshow(numpy.asarray(green_gunpowder_image))
-    plt.show()
+    # print(text)
+    # plt.imshow(numpy.asarray(green_gunpowder_image))
+    # plt.show()
     
     if text.startswith("START"):
         return "start"
@@ -675,10 +675,12 @@ def add_filter_to_water_collector():
     dropdown_arrow_coord=[927,791]
     pyautogui.moveTo(dropdown_arrow_coord[0],dropdown_arrow_coord[1],duration=0.2)
     time.sleep(1)
+    pyautogui.click()
+    time.sleep(1)
     
     #click next filter
     click(971,797)
-    
+    time.sleep(1)
     
     
     
@@ -852,7 +854,7 @@ def manage_medstation(logger):
 def collect_pile_of_meds_craft_from_medstation():
     # click first start button
     coords = find_pile_of_meds_icon()
-    get_items_coord = [coords[0] + 75, coords[1] + 20]
+    get_items_coord = [coords[0] + 75, coords[1] + 30]
     click(get_items_coord[0], get_items_coord[1]-20)
     time.sleep(1.0)
 
