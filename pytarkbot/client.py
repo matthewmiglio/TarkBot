@@ -1,4 +1,5 @@
 
+from http import client
 import sys
 import time
 from os import environ
@@ -14,12 +15,11 @@ import win32gui
 from matplotlib import pyplot as plt
 from PIL import Image
 from pywinauto.findwindows import find_window
+from screeninfo import get_monitors
 
-
-from pytarkbot.image_rec import check_for_location, coords_is_equal, find_references, get_first_location, pixel_is_equal
-
-
-
+from pytarkbot.image_rec import (check_for_location, coords_is_equal,
+                                 find_references, get_first_location,
+                                 pixel_is_equal)
 
 
 def intro_printout(logger):
@@ -85,15 +85,32 @@ def orientate_launcher():
     move_window(window_name=title,coord=[0,0])
     time.sleep(1)
 
+def get_screen_resolution():
+    monitor_1=get_monitors()[0]
+    w=monitor_1.width
+    h=monitor_1.height
+    return [w,h]
+
 
 def orientate_terminal():
     try:
-        client_window = pygetwindow.getWindowsWithTitle(
+        terminal_window = pygetwindow.getWindowsWithTitle(
             "py-tarkbot v")[0]
-        client_window.minimize()
-        client_window.restore()
-        client_window.resizeTo(600, 350)
-        client_window.moveTo(1285, 5)
+        terminal_window.minimize()
+        terminal_window.restore()
+        
+        #resize according to monitor width
+        monitor_width=get_screen_resolution()[0]
+        terminal_width=monitor_width-1290
+        terminal_window.resizeTo(terminal_width, 350)
+        
+        #move window
+        terminal_window.moveTo(970,5)
+        
+        
+        
+        
+        terminal_window.moveTo(1285, 5)
     except BaseException:
         print("Couldn't orientate terminal.")
 
@@ -215,14 +232,24 @@ def find_all_pixel_colors(region, color, image=None):
 
 def img_to_txt(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    config = ('-l eng --oem 1 --psm 3')
+    config = ('-l eng --oem 1 --psm 9')
     return pytesseract.image_to_string(image, config=config)
 
 
 def img_to_txt_numbers_only(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
-    return pytesseract.image_to_string(image, config="digits")
+    return pytesseract.image_to_string(image, config="digits --psm 9")
+
+def img_to_txt_single_char(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image , config="--psm 10") 
+
+
+
+
+
 
 
 def screenshot(region=(0, 0, 1400, 1400)):

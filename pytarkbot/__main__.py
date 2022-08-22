@@ -31,6 +31,7 @@ logger = Logger()
 setup_tesseract()
 
 
+    
 def flea_items_main():
 
     state = "intro"

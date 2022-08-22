@@ -111,6 +111,10 @@ def adjust_price_string(price_string):
             output_string = output_string + element
         if (element == "s"):
             output_string = output_string + "8"
+        elif (element=="o"):
+            output_string = output_string + "0"
+        elif (element=="@"):
+            output_string = output_string + "0"
 
     #checks
     if len(output_string)<3:
@@ -137,7 +141,7 @@ def get_current_price():
 
     # get text
     text = img_to_txt_numbers_only(price_image)
-    #print(text)
+    print(text)
 
     # give adjusted price
     return adjust_price_string(text)
