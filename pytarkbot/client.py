@@ -232,7 +232,7 @@ def find_all_pixel_colors(region, color, image=None):
 
 def img_to_txt(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    config = ('-l eng --oem 1 --psm 9')
+    config = ('-l eng --oem 3 --psm 9')
     return pytesseract.image_to_string(image, config=config)
 
 

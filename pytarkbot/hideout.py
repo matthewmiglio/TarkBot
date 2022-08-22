@@ -462,20 +462,44 @@ def check_workbench(logger):
     # get to green gunpowder craft
     get_to_green_gunpowder_craft(logger)
 
-    # get image of green gunpowder icon
-    green_gunpowder_image = get_image_of_green_gunpowder_surroundings()
+    if check_for_get_items_in_workbench():
+        return "Get items"
+    if check_for_start_in_workbench():
+        return "start"
+   
 
-    # if found start return start
-    text = string_to_chars_only(img_to_txt(green_gunpowder_image))
+def check_for_start_in_workbench():
+    green_gunpowder_coords=find_green_gunpowerder_icon_in_workbench()
+    region=[green_gunpowder_coords[0]+76,green_gunpowder_coords[1]+14,40,15]
+    
+    image=screenshot(region)
+    text = img_to_txt(image)
     
     # print(text)
-    # plt.imshow(numpy.asarray(green_gunpowder_image))
+    # plt.imshow(numpy.asarray(image))
     # plt.show()
     
-    if text.startswith("START"):
-        return "start"
-    if text.startswith("GET"):
-        return "Get items"
+    if text.startswith("START"): return True
+    if text.startswith("start"): return True
+    return False
+
+
+def check_for_get_items_in_workbench():
+    green_gunpowder_coords=find_green_gunpowerder_icon_in_workbench()
+    region=[green_gunpowder_coords[0]+50,green_gunpowder_coords[1]+2,80,20]
+    
+    
+    image=screenshot(region)
+    text = img_to_txt(image)
+    
+    # print(text)
+    # plt.imshow(numpy.asarray(image))
+    # plt.show()
+    
+    if text.startswith("GET"): return True
+    if text.startswith("get"): return True
+    return False
+    
 
 
 def check_for_workbench_producing_icon():
@@ -514,19 +538,6 @@ def find_green_gunpowerder_icon_in_workbench():
         "5.png",
         "6.png",
         "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-        "12.png",
-        "13.png",
-        "14.png",
-        "15.png",
-        "16.png",
-        "17.png",
-        "18.png",
-        "19.png",
-        "20.png",
     ]
 
     locations = find_references(
@@ -662,9 +673,16 @@ def check_for_water_collector_producing_icon():
 
 
 def check_for_water_collector_collect_icon():
-    region = [1000, 770, 100, 50]
+    region = [1008, 782, 80, 20]
     image = screenshot(region)
+    
+    # plt.imshow(numpy.asarray(image))
+    # plt.show()
+    
     text = img_to_txt(image)
+    
+    # print(text)
+    
     if text.startswith("GET"):
         return True
     return False
