@@ -248,7 +248,9 @@ def img_to_txt_single_char(image):
 
 
 
-
+def show_image(image):
+    plt.imshow(numpy.asarray(image))
+    plt.show()
 
 
 

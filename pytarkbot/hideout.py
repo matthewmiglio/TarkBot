@@ -6,7 +6,7 @@ import pyautogui
 from matplotlib import pyplot as plt
 
 from pytarkbot.client import (check_quit_key_press, click,
-                              find_all_pixel_coords, img_to_txt, screenshot, string_to_chars_only)
+                              find_all_pixel_coords, img_to_txt, screenshot, show_image, string_to_chars_only)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
 
@@ -182,20 +182,28 @@ def check_if_at_intelligence_center():
         return True
     return False
 
+
 def check_if_at_medstation():
-    region=[698,340,229,29]
+    region=[698,340,150,29]
     image=screenshot(region)
     text=img_to_txt(image)
+    
+    # print(text)
+    # show_image(image)
+    
     if text.startswith('Meds'):
         return True
     return False
         
-    
 
 def check_if_at_scav_case():
-    region=[700,357,123,27]
+    region=[700,337,123,33]
     image=screenshot(region)
     text=img_to_txt(image)
+    
+    # print(text)
+    # show_image(image)
+    
     if text.startswith("Scav"):
         return True
     return False
@@ -205,6 +213,10 @@ def check_if_at_lavatory():
     region=[698,341,120,30]
     image=screenshot(region)
     text=img_to_txt(image)
+    
+    # print(text)
+    # show_image(image)
+    
     if text.startswith("Lava"):
         return True
 
@@ -440,14 +452,20 @@ def manage_workbench(logger):
 def start_green_gunpowder_craft_in_workbench(logger):
     check_quit_key_press()
     logger.log("Starting green gunpowder craft.")
+    
     # click first start
-    click_green_gunpowder_start_icon(logger)
-
-    # click handover
-    click(650, 675)
+    coords=find_green_gunpowerder_icon_in_workbench()
+    if coords is None: return
+    coords[0]=coords[0]+85
+    coords[1]=coords[1]+24
+    pyautogui.moveTo(coords[0],coords[1],duration=0.2)
+    click(coords[0],coords[1])
     time.sleep(1)
-    logger.log("Started craft for green_gunpowder.")
-    reset_station(logger)
+    
+    #click handover
+    pyautogui.moveTo(642,671,duration=0.2)
+    click(642,671)
+    time.sleep(1)
 
 
 def get_items_from_workbench():
@@ -501,7 +519,6 @@ def check_for_get_items_in_workbench():
     return False
     
 
-
 def check_for_workbench_producing_icon():
     check_quit_key_press()
     current_image = screenshot()
@@ -523,7 +540,7 @@ def check_for_workbench_producing_icon():
 
 
 def find_green_gunpowerder_icon_in_workbench():
-    region = [970, 385, 230, 465]
+    region = [970, 385, 100, 400]
     current_image = screenshot(region)
 
     # plt.imshow(numpy.asarray(current_image))
@@ -538,6 +555,11 @@ def find_green_gunpowerder_icon_in_workbench():
         "5.png",
         "6.png",
         "7.png",
+        "8.png",
+        "9.png",
+        "10.png",
+        "11.png",
+        
     ]
 
     locations = find_references(
@@ -583,24 +605,10 @@ def get_to_green_gunpowder_craft(logger):
         time.sleep(1)
         if find_green_gunpowerder_icon_in_workbench() is not None:
             at_green_gunpowder_craft = True
+    
     logger.log("Found green gunpowder craft in workbench.")
 
 
-def click_green_gunpowder_start_icon(logger):
-    logger.log("Looking for green gunpowder's start icon.")
-    green_gunpowder_coords = find_green_gunpowerder_icon_in_workbench()
-    x_coord_range = range(
-        green_gunpowder_coords[0] + 50,
-        green_gunpowder_coords[0] + 150)
-    y_coord = green_gunpowder_coords[1] + 15
-    iar = numpy.asarray(screenshot())
-    color_tan = [158, 156, 144]
-    for x_coord in x_coord_range:
-        current_pix = iar[y_coord][x_coord]
-        current_coord = [x_coord, y_coord]
-        if pixel_is_equal(current_pix, color_tan, tol=50):
-            click(current_coord[0], current_coord[1])
-            logger.log("Clicking green gunpowder start icon.")
 
 
 # water collector
@@ -699,8 +707,6 @@ def add_filter_to_water_collector():
     #click next filter
     click(971,797)
     time.sleep(1)
-    
-    
     
 
 def find_add_filter_dropdown_arrow_in_water_collector():
@@ -925,8 +931,9 @@ def get_to_pile_of_meds_craft_in_medstation():
     pyautogui.click(700, 700)
     pyautogui.scroll(-400)
 
+
 def find_pile_of_meds_icon():
-    region = [972, 387, 75, 557]
+    region = [992, 415, 50, 350]
     check_quit_key_press()
     current_image = screenshot(region)
     
@@ -944,15 +951,7 @@ def find_pile_of_meds_icon():
         "6.png",
         "7.png",
         "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-        "12.png",
-        "13.png",
-        "14.png",
-        
-        
-
+        "9.png"
     ]
 
     locations = find_references(
@@ -964,7 +963,7 @@ def find_pile_of_meds_icon():
     coord = get_first_location(locations)
     if coord is None:
         return None
-    return [coord[1] + 972, coord[0] + 387]
+    return [coord[1] + 992, coord[0] + 415]
 
 
 def check_state_of_medstation():
@@ -972,6 +971,12 @@ def check_state_of_medstation():
         return "producing"
 
     get_to_pile_of_meds_craft_in_medstation()
+    
+    if check_for_start_in_medstation():
+        return "start"
+    
+    
+    
     image = get_image_of_pile_of_meds_craft_in_medstation()
     text=img_to_txt(image)
     
@@ -988,6 +993,20 @@ def check_state_of_medstation():
 
     if text.startswith("GET"):
         return "get items"
+
+
+def check_for_start_in_medstation():
+    coords=find_pile_of_meds_icon()
+    region=[coords[0]+75,coords[1]+13,40,15]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    
+    print(text)
+    show_image(image)
+    
+    if (text.startswith("START"))or(text.startswith("STA"))or(text.startswith("SST"))or(text.startswith("SSST")):
+        return True
+    return False
 
 
 def get_image_of_pile_of_meds_craft_in_medstation():
@@ -1018,18 +1037,22 @@ def manage_lavatory(logger):
     
     if state=="start":
         buy_slings_for_cordura_craft(logger)
-        
         start_cordura_craft_in_hideout()
+        
     if state=="get items":
         coords=find_cordura_craft_in_lavatory()
         click(coords[0],coords[1],clicks=3,interval=0.2)
+    
     reset_station(logger)
     
     
 def find_cordura_craft_in_lavatory():
-    region = [845,313,50,520]
+    region = [845,453,50,380]
     check_quit_key_press()
     current_image = screenshot(region)
+    
+    # show_image(current_image)
+    
     reference_folder = "find_cordura_craft_in_lavatory"
     references = [
         "1.png",
@@ -1038,9 +1061,6 @@ def find_cordura_craft_in_lavatory():
         "4.png",
         "5.png",
         "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
     ]
 
     locations = find_references(
@@ -1052,7 +1072,7 @@ def find_cordura_craft_in_lavatory():
     coord = get_first_location(locations)
     if coord is None:
         return None
-    return [coord[1]+1045, coord[0]+323]
+    return [coord[1]+845, coord[0]+453]
 
 
 def get_to_cordura_craft_in_lavatory():
@@ -1074,6 +1094,9 @@ def check_lavatory():
     get_to_cordura_craft_in_lavatory()
     time.sleep(0.33)
     
+    if check_for_start_in_lavatory():
+        return "start"
+    
     craft_coords=find_cordura_craft_in_lavatory()
     region=[craft_coords[0]-20,craft_coords[1]-10,100,30]
     image=screenshot(region)
@@ -1085,11 +1108,22 @@ def check_lavatory():
     text=img_to_txt(image)
     print(text)
     
-    if (text.startswith("STA"))or(text.startswith("sta"))or(text.startswith("SO")):
+    if (text.startswith("STA"))or(text.startswith("sta"))or(text.startswith("SO"))or(text.startswith("SSST")):
         return "start"
     
     if (text.startswith("GE"))or(text.startswith("ge"))or(text.startswith("Ge")):
         return "get items"
+    
+
+def check_for_start_in_lavatory():
+    coords=find_cordura_craft_in_lavatory()    
+    region=[coords[0]+195,coords[1]+12,40,15]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    
+    if (text.startswith("START"))or(text.startswith("ST"))or(text.startswith("SSTA"))or(text.startswith("SSST")):
+        return True
+    return False
     
     
 def check_if_lavatory_is_producing():
@@ -1105,14 +1139,18 @@ def check_if_lavatory_is_producing():
 def start_cordura_craft_in_hideout():
     #click start
     coord=find_cordura_craft_in_lavatory()
-    pyautogui.moveTo(coord[0],coord[1],duration=0.2)
-    time.sleep(0.2)
+    pyautogui.moveTo(coord[0]+210,coord[1]+18,duration=0.2)
+    time.sleep(0.33)
     pyautogui.click()
     time.sleep(0.33)
     
     #click handover
-    click(640,674)
+    pyautogui.moveTo(656,674,duration=0.33)
     time.sleep(0.33)
+    pyautogui.click()
+    time.sleep(0.33)
+    
+
     
         
 def buy_slings_for_cordura_craft(logger):
@@ -1170,9 +1208,6 @@ def find_sling_in_lavatory_craft_menu():
         "4.png",
         "5.png",
         "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
     ]
 
     locations = find_references(
