@@ -237,8 +237,8 @@ def main():
         # bot config checkboxes
         [sg.Text('Select ONLY ONE of the following modes:'),
          sg.Text(size=(15, 1), key='-OUTPUT-')],
-        [sg.Checkbox('Manage Hideout', default=True,
-                     key="-hideout_management_in-")],
+        [sg.Radio('Flea mode', "RADIO1", default=False, key="-IN2-")],
+        [sg.Radio('Hideout mode', "RADIO1", default=True, key="-IN3-")],
         [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
         [sg.Text('Select which stations to farm:'),
          sg.Text(size=(15, 1), key='-OUTPUT-')],
@@ -265,16 +265,12 @@ def main():
             break
         # if gui sees start press then start bot
         if event == 'Start':
-            print("starting")
-            # if both are checked blow the program up
-            if (values["-hideout_management_in-"]
-                    ) and (values["-flea_items_in-"]):
-                logger.log("Select ONLY ONE of the mode checkboxes")
-                break
 
+           
             # if hideout management checkbox is checked, run the hideout
             # management main
-            if values["-hideout_management_in-"]:
+            if values["-IN3-"]:
+                logger.log("\n\nStarting hideout management mode.\n")
                 window.close()
 
                 crafts_to_farm = []
@@ -292,8 +288,9 @@ def main():
                 hideout_management_main(crafts_to_farm)
 
             # if flea items checkbox is checked, run the flea items main
-            if values["-flea_items_in-"]:
+            if values["-IN2-"]:
                 window.close()
+                logger.log("\n\nStarting flea items mode.\n")
                 flea_items_main()
 
         if event == 'Help':
