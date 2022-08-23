@@ -247,7 +247,6 @@ def main():
         sg.Checkbox('Medstation crafts',default=True,key="-medstation_crafts_in-"),
         sg.Checkbox('Water collector crafts',default=True,key="-water_collector_crafts_in-"),
         sg.Checkbox('Scav case crafts',default=True,key="-scav_case_crafts_in-"),
-        sg.Checkbox('Booze generator crafts', default=True, key="-booze_generator_crafts_in-"),
         sg.Checkbox('Lavatory crafts', default=True, key="-lavatory_crafts_in-")
         ],
 
@@ -287,13 +286,9 @@ def main():
                     crafts_to_farm.append("medstation")
                 if values["-water_collector_crafts_in-"]:
                     crafts_to_farm.append("water_collector")
-                if values["-booze_generator_crafts_in-"]:
-                    crafts_to_farm.append("booze_generator")
                 if values["-lavatory_crafts_in-"]:
                     crafts_to_farm.append("lavatory")
                 
-
-
                 hideout_management_main(crafts_to_farm)
 
             # if flea items checkbox is checked, run the flea items main
