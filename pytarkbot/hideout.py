@@ -504,15 +504,14 @@ def check_for_start_in_workbench():
 
 def check_for_get_items_in_workbench():
     green_gunpowder_coords=find_green_gunpowerder_icon_in_workbench()
-    region=[green_gunpowder_coords[0]+50,green_gunpowder_coords[1]+2,80,20]
+    region=[green_gunpowder_coords[0]+50,green_gunpowder_coords[1]+12,80,20]
     
     
     image=screenshot(region)
     text = img_to_txt(image)
     
     # print(text)
-    # plt.imshow(numpy.asarray(image))
-    # plt.show()
+    # show_image(image)
     
     if text.startswith("GET"): return True
     if text.startswith("get"): return True
@@ -559,7 +558,11 @@ def find_green_gunpowerder_icon_in_workbench():
         "9.png",
         "10.png",
         "11.png",
-        
+        "12.png",
+        "13.png",
+        "14.png",
+        "15.png",
+        "16.png",
     ]
 
     locations = find_references(
@@ -683,15 +686,12 @@ def check_for_water_collector_producing_icon():
 def check_for_water_collector_collect_icon():
     region = [1008, 782, 80, 20]
     image = screenshot(region)
-    
-    # plt.imshow(numpy.asarray(image))
-    # plt.show()
-    
     text = img_to_txt(image)
     
     # print(text)
+    # show_image(image)
     
-    if text.startswith("GET"):
+    if (text.startswith("GET"))or(text.startswith("GETITE"))or(text.startswith("GE"))or(text.startswith("GGE")):
         return True
     return False
 
@@ -975,24 +975,25 @@ def check_state_of_medstation():
     if check_for_start_in_medstation():
         return "start"
     
+    if check_for_get_items_in_medstation():
+        return "get items"
     
-    
-    image = get_image_of_pile_of_meds_craft_in_medstation()
+
+
+def check_for_get_items_in_medstation():
+    coord=find_pile_of_meds_icon()
+    region=[coord[0]+62,coord[1]+12,65,17]
+    image=screenshot(region)
     text=img_to_txt(image)
     
     # print(text)
-    # plt.imshow(numpy.asanyarray(image))
-    # plt.show()
+    # show_image(image)
+    
+    if (text.startswith("GET"))or(text.startswith("GE"))or(text.startswith("get")):
+        return True
+    return False
     
     
-    if image is None:
-        return
-
-    if text.startswith("STAR"):
-        return "start"
-
-    if text.startswith("GET"):
-        return "get items"
 
 
 def check_for_start_in_medstation():
@@ -1001,8 +1002,8 @@ def check_for_start_in_medstation():
     image=screenshot(region)
     text=img_to_txt(image)
     
-    print(text)
-    show_image(image)
+    # print(text)
+    # show_image(image)
     
     if (text.startswith("START"))or(text.startswith("STA"))or(text.startswith("SST"))or(text.startswith("SSST")):
         return True
@@ -1010,19 +1011,13 @@ def check_for_start_in_medstation():
 
 
 def get_image_of_pile_of_meds_craft_in_medstation():
-    pile_of_meds_coords = find_pile_of_meds_icon()
-    if pile_of_meds_coords is None:
-        return
-    region = [
-        pile_of_meds_coords[0] +
-        40,
-        pile_of_meds_coords[1] -
-        20,
-        140,
-        70]
-
-    return screenshot(region)
-
+    coords=find_pile_of_meds_icon()
+    region=[coords[0]+60,coords[1]+12,67,19]
+    image=screenshot(region)
+    
+    # show_image(image)
+    
+    return image
 
 
 #lavatory
@@ -1040,14 +1035,23 @@ def manage_lavatory(logger):
         start_cordura_craft_in_hideout()
         
     if state=="get items":
-        coords=find_cordura_craft_in_lavatory()
-        click(coords[0],coords[1],clicks=3,interval=0.2)
+        get_items_from_lavatory()
     
     reset_station(logger)
     
     
+    
+def get_items_from_lavatory():
+    coords=find_cordura_craft_in_lavatory()
+    pyautogui.moveTo(coords[0]+205,coords[1]+20,duration=0.33)
+    time.sleep(0.33)
+    pyautogui.click(clicks=2,interval=0.2)
+    time.sleep(1)
+    
+    
+    
 def find_cordura_craft_in_lavatory():
-    region = [845,453,50,380]
+    region = [845,453,50,300]
     check_quit_key_press()
     current_image = screenshot(region)
     
@@ -1087,39 +1091,45 @@ def get_to_cordura_craft_in_lavatory():
         
         
 def check_lavatory():
+    time.sleep(1)
     ###first check if lavatory is producing
     if check_if_lavatory_is_producing():
         return "producing"
     
     get_to_cordura_craft_in_lavatory()
-    time.sleep(0.33)
+    time.sleep(1)
     
     if check_for_start_in_lavatory():
         return "start"
     
-    craft_coords=find_cordura_craft_in_lavatory()
-    region=[craft_coords[0]-20,craft_coords[1]-10,100,30]
-    image=screenshot(region)
-    
-    # plt.imshow(numpy.asarray(image))
-    # plt.show()
-    
-    
-    text=img_to_txt(image)
-    print(text)
-    
-    if (text.startswith("STA"))or(text.startswith("sta"))or(text.startswith("SO"))or(text.startswith("SSST")):
-        return "start"
-    
-    if (text.startswith("GE"))or(text.startswith("ge"))or(text.startswith("Ge")):
+    if check_for_get_items_in_lavatory():
         return "get items"
     
+    
+
+
+def check_for_get_items_in_lavatory():
+    coords=find_cordura_craft_in_lavatory()
+    region=[coords[0]+187,coords[1]+10,64,17]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    
+
+    
+    if (text.startswith("Get"))or(text.startswith("GET"))or(text.startswith("GGE")):
+        return True
+    return False
+
 
 def check_for_start_in_lavatory():
     coords=find_cordura_craft_in_lavatory()    
-    region=[coords[0]+195,coords[1]+12,40,15]
+    region=[coords[0]+198,coords[1]+14,40,15]
     image=screenshot(region)
     text=img_to_txt(image)
+    
+    # print(text)
+    # show_image(image)
+    
     
     if (text.startswith("START"))or(text.startswith("ST"))or(text.startswith("SSTA"))or(text.startswith("SSST")):
         return True
