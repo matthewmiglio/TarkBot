@@ -20,6 +20,8 @@ from pytarkbot.tesseract_install import setup_tesseract
 
 user_settings = load_user_settings()
 launcher_path = user_settings["launcher_path"]
+pyautogui.FAILSAFE = False
+
 
 #tarkov_graphics_settings_path = user_settings["graphics_setting_path"]
 
@@ -66,17 +68,6 @@ def hideout_management_main(crafts_to_farm):
         if state == "restart":
             state_restart()
             state = "manage_hideout_mode"
-
-
-def state_user_help_printout():
-    blank_line = "////////////////////////////////////////////////////"
-    logger.log("")
-    logger.log(blank_line)
-    logger.log("State==user_help_printout")
-    logger.log(blank_line)
-    logger.log("")
-    logger.log("lol good luck.")
-    return "restart"
 
 
 def state_intro():
@@ -213,7 +204,7 @@ def show_donate_gui():
 
 def show_help_gui():
     sg.theme('Material2')
-    layout = [[sg.Text('Hideout Information:\n  Workbench: Have M18 smokes and M67 nades for green gunpowder craft \n  Medstation: Have AI-2s, bandages(blue and white ones), and augmentin \n  Water collector: have extra water filters \n  Scav case: Have intelligence folders \n  Booze generator: Have sugar and super water (bot will use water collector super water btw)\n\nFlea Mode Information:\n  Bot will sell the items in the top ~40 rows of your inventory.\n  Make sure this area is composed of items only for the flea.\n  This bot does well to not flea the wrong items, or to waste your money- but it is not perfect.'), sg.Text(
+    layout = [[sg.Text('If youre getting [WinError 5] Access is denied error, try running the program as administrator.\n\nHideout Information:\n  Workbench: Have M18 smokes and M67 nades for green gunpowder craft \n  Medstation: Have AI-2s, bandages(blue and white ones), and augmentin \n  Water collector: have extra water filters \n  Scav case: Have intelligence folders \n  Booze generator: Have sugar and super water (bot will use water collector super water btw)\n\nFlea Mode Information:\n  Bot will sell the items in the top ~40 rows of your inventory.\n  Make sure this area is composed of items only for the flea.\n  This bot does well to not flea the wrong items, or to waste your money- but it is not perfect.'), sg.Text(
         size=(15, 1), key='-OUTPUT-')], [sg.Button('Exit')]]
     window = sg.Window('PY-TarkBot', layout)
     while True:

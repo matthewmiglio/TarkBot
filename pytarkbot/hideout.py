@@ -68,14 +68,9 @@ def manage_hideout(logger, crafts_to_farm):
 
         print(crafts_to_farm)
 
-        if "medstation" in crafts_to_farm:
-            logger.log("Starting medstation management")
-            manage_medstation(logger)
-            time.sleep(4)
-
-        if "booze_generator" in crafts_to_farm:
-            logger.log("Starting booze generator management")
-            manage_booze_generator(logger)
+        if "lavatory" in crafts_to_farm:
+            logger.log("Starting lavatory management")
+            manage_lavatory(logger)
             time.sleep(4)
 
         if "workbench" in crafts_to_farm:
@@ -93,9 +88,9 @@ def manage_hideout(logger, crafts_to_farm):
             manage_scav_case(logger)
             time.sleep(4)
 
-        if "lavatory" in crafts_to_farm:
-            logger.log("Starting lavatory management")
-            manage_lavatory(logger)
+        if "medstation" in crafts_to_farm:
+            logger.log("Starting medstation management")
+            manage_medstation(logger)
             time.sleep(4)
 
         logger.add_hideout_rotation()
@@ -121,104 +116,89 @@ def check_if_in_hideout():
     return True
 
 
-def reset_station(logger):
-    check_quit_key_press()
-    pyautogui.press('esc')
-    time.sleep(0.33)
-    pyautogui.press('esc')
-    get_to_hideout(logger)
-    open_hideout_interface()
-
 
 # checking if currently at the right station
-def check_if_at_booze_generator():
+def check_if_at_booze_generator(logger):
     region=[700,516,200,30]
     image=screenshot(region)
     text=img_to_txt(image)
+    logger.log(f"check_if_at_booze_generator text readout: {text}")
     if text.startswith('Boo'):
         return True
     return False
 
 
-def check_if_at_water_collector():
+def check_if_at_water_collector(logger):
     region=[698,494,189,26]
     image=screenshot(region)
     text=img_to_txt(image)
+    logger.log(f"check_if_at_water_collector text readout: {text}")
     if text.startswith('Wat'):
         return True
     return False
 
-def check_if_at_lavatory():
+
+def check_if_at_lavatory(logger):
     region=[698,338,117,31]
     image=screenshot(region)
     text=img_to_txt(image)
+    logger.log(f"check_if_at_lavatory text readout: {text}")
     if text.startswith('Lava'):
         return True
     return False
 
-def check_if_at_nutrition_unit():
+
+def check_if_at_nutrition_unit(logger):
     region=[698,340,170,26]
     image=screenshot(region)
     text=img_to_txt(image)
+    logger.log(f"check_if_at_nutrition_unit text readout: {text}")
     if text.startswith('Nutr'):
         return True
     return False
 
 
-def check_if_at_workbench():
+def check_if_at_workbench(logger):
     region=[698,341,138,26]
     image=screenshot(region)
     text=img_to_txt(image)
+    logger.log(f"check_if_at_workbench text readout: {text}")
     if text.startswith('Workb'):
         return True
     return False
 
 
-def check_if_at_intelligence_center():
+def check_if_at_intelligence_center(logger):
     region=[698,340,229,29]
     image=screenshot(region)
     text=img_to_txt(image)
+    logger.log(f"check_if_at_intelligence_center text readout: {text}")
+    
     if text.startswith('Intell'):
         return True
     return False
 
 
-def check_if_at_medstation():
+def check_if_at_medstation(logger):
     region=[698,340,150,29]
     image=screenshot(region)
     text=img_to_txt(image)
     
-    # print(text)
-    # show_image(image)
-    
+    logger.log(f"check_if_at_medstation text readout: {text}")
     if text.startswith('Meds'):
         return True
     return False
         
 
-def check_if_at_scav_case():
+def check_if_at_scav_case(logger):
     region=[700,337,123,33]
     image=screenshot(region)
     text=img_to_txt(image)
     
-    # print(text)
-    # show_image(image)
-    
+    logger.log(f"check_if_at_scav_case text readout: {text}")
     if text.startswith("Scav"):
         return True
     return False
-
-
-def check_if_at_lavatory():
-    region=[698,341,120,30]
-    image=screenshot(region)
-    text=img_to_txt(image)
-    
-    # print(text)
-    # show_image(image)
-    
-    if text.startswith("Lava"):
-        return True
 
 
 # move to each station
@@ -226,11 +206,11 @@ def get_to_water_collector(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_water_collector()
+    at_location = check_if_at_water_collector(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_water_collector()
+        at_location = check_if_at_water_collector(logger)
     logger.log("Made it to water collector.")
 
 
@@ -238,11 +218,11 @@ def get_to_lavatory(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_lavatory()
+    at_location = check_if_at_lavatory(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_lavatory()
+        at_location = check_if_at_lavatory(logger)
     logger.log("Made it to lavatory")
 
 
@@ -251,11 +231,11 @@ def get_to_booze_generator(logger):
     logger.log("Getting to booze generator")
     open_hideout_interface()
 
-    at_location = check_if_at_booze_generator()
+    at_location = check_if_at_booze_generator(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(5)
-        at_location = check_if_at_booze_generator()
+        at_location = check_if_at_booze_generator(logger)
     logger.log("Made it to booze_generator.")
 
 
@@ -263,11 +243,11 @@ def get_to_nutrition_unit(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_nutrition_unit()
+    at_location = check_if_at_nutrition_unit(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_nutrition_unit()
+        at_location = check_if_at_nutrition_unit(logger)
     logger.log("Made it to nutrition_unit")
 
 
@@ -275,11 +255,11 @@ def get_to_workbench(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_workbench()
+    at_location = check_if_at_workbench(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_workbench()
+        at_location = check_if_at_workbench(logger)
     logger.log("Made it to workbench")
 
 
@@ -287,11 +267,11 @@ def get_to_intelligence_center(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_intelligence_center()
+    at_location = check_if_at_intelligence_center(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_intelligence_center()
+        at_location = check_if_at_intelligence_center(logger)
     logger.log("Made it to intelligence_center")
 
 
@@ -299,11 +279,11 @@ def get_to_medstation(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_medstation()
+    at_location = check_if_at_medstation(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_medstation()
+        at_location = check_if_at_medstation(logger)
     logger.log("Made it to medstation")
 
 
@@ -311,24 +291,13 @@ def get_to_scav_case(logger):
     check_quit_key_press()
     open_hideout_interface()
 
-    at_location = check_if_at_scav_case()
+    at_location = check_if_at_scav_case(logger)
     while not (at_location):
         scroll_left_in_hideout()
         time.sleep(4)
-        at_location = check_if_at_scav_case()
+        at_location = check_if_at_scav_case(logger)
     logger.log("Made it to scav_case.")
 
-
-def get_to_lavatory(logger):
-    check_quit_key_press()
-    open_hideout_interface()
-
-    at_location = check_if_at_lavatory()
-    while not (at_location):
-        scroll_left_in_hideout()
-        time.sleep(4)
-        at_location = check_if_at_lavatory()
-    logger.log("Made it to lavatory")
 
 # booze generator station
 def manage_booze_generator(logger):
@@ -357,7 +326,7 @@ def manage_booze_generator(logger):
         logger.log("Collecting items.")
         click(1070, 795)
         time.sleep(3)
-        reset_station()
+       
 
 def check_booze_generator():
     check_quit_key_press()
@@ -418,7 +387,7 @@ def start_moonshine_craft(logger):
     time.sleep(0.5)
 
     logger.log("Started moonshine craft.")
-    reset_station(logger)
+    
 
 
 # workbench
@@ -446,7 +415,7 @@ def manage_workbench(logger):
         logger.add_craft_completed()
         get_items_from_workbench()
 
-    reset_station(logger)
+   
 
 
 def start_green_gunpowder_craft_in_workbench(logger):
@@ -639,7 +608,7 @@ def manage_water_collector(logger):
         time.sleep(1)
         logger.add_craft_completed()
 
-    reset_station(logger)
+   
 
 
 def check_water_collector():
@@ -768,7 +737,6 @@ def manage_scav_case(logger):
 
     logger.log("Done managing scav case.")
 
-    reset_station(logger)
 
 
 def check_scav_case():
@@ -979,7 +947,6 @@ def check_state_of_medstation():
         return "get items"
     
 
-
 def check_for_get_items_in_medstation():
     coord=find_pile_of_meds_icon()
     region=[coord[0]+62,coord[1]+12,65,17]
@@ -993,8 +960,6 @@ def check_for_get_items_in_medstation():
         return True
     return False
     
-    
-
 
 def check_for_start_in_medstation():
     coords=find_pile_of_meds_icon()
@@ -1037,8 +1002,7 @@ def manage_lavatory(logger):
     if state=="get items":
         get_items_from_lavatory()
     
-    reset_station(logger)
-    
+   
     
     
 def get_items_from_lavatory():
@@ -1047,7 +1011,6 @@ def get_items_from_lavatory():
     time.sleep(0.33)
     pyautogui.click(clicks=2,interval=0.2)
     time.sleep(1)
-    
     
     
 def find_cordura_craft_in_lavatory():
@@ -1105,8 +1068,6 @@ def check_lavatory():
     if check_for_get_items_in_lavatory():
         return "get items"
     
-    
-
 
 def check_for_get_items_in_lavatory():
     coords=find_cordura_craft_in_lavatory()
@@ -1159,8 +1120,6 @@ def start_cordura_craft_in_hideout():
     time.sleep(0.33)
     pyautogui.click()
     time.sleep(0.33)
-    
-
     
         
 def buy_slings_for_cordura_craft(logger):
