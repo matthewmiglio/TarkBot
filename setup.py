@@ -47,6 +47,7 @@ setup(
         "cx_freeze",
         "pywin32",
         "pywinauto",
+        "screeninfo",
     ],
     packages=['pytarkbot'],
     include_package_data=True,

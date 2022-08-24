@@ -35,6 +35,7 @@ dependencies = [
     "lxml",
     "win32com",
     "win32gui"
+    "screeninfo",
 ]
 
 build_exe_options = {

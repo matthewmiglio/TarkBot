@@ -16,3 +16,4 @@ requests
 lxml
 pywin32
 pywinauto
+screeninfo
