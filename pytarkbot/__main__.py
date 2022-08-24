@@ -228,6 +228,7 @@ def main():
         # bot config checkboxes
         [sg.Text('Select ONLY ONE of the following modes:'),
          sg.Text(size=(15, 1), key='-OUTPUT-')],
+        [sg.Text("Make sure launcher path is configured @ appdata/roaming/py-TarkBot/config.json!!!")],
         [sg.Radio('Flea mode', "RADIO1", default=False, key="-IN2-")],
         [sg.Radio('Hideout mode', "RADIO1", default=True, key="-IN3-")],
         [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
