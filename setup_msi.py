@@ -34,7 +34,7 @@ dependencies = [
     "requests",
     "lxml",
     "win32com",
-    "win32gui"
+    "win32gui",
     "screeninfo",
 ]
 
