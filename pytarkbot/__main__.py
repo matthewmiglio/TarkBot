@@ -203,9 +203,28 @@ def show_donate_gui():
 
 
 def show_help_gui():
+    #help menu text
+    out_text=""
+    out_text=out_text+"Debugging Information\n\n"
+    out_text=out_text+"    1. If the bot is instantly closing after pressing the start button, it is likely due to an incorrectly specified launcher path @ appdata/roaming/py-tarkBot/config.json\n"
+    out_text=out_text+"        In this config file make sure to use double slashes as shown in the default launcher path.\n"
+    out_text=out_text+"    2. If youre getting '[WinError 5] Access is denied error', try running the program as administrator.\n"
+    out_text=out_text+"    3. If window resizing is your issue, try to start the tarkov client with a resolution smaller than 1280x960 (something like 1154x900 or something worked for me).\n"
+    out_text=out_text+"    4. Hideout mode is WIP so dont even expect that mode to do anything right and keep this in mind when reporting glaring bugs with the hideout mode.\n"
+    out_text=out_text+"\n\nHideout Information:\n\n"
+    out_text=out_text+"     Workbench: Have M18 smokes and M67 nades for green gunpowder craft\n"
+    out_text=out_text+"     Medstation: Have AI-2s, bandages(blue and white ones), and augmentin\n"
+    out_text=out_text+"     Water collector: have extra water filters \n"
+    out_text=out_text+"     Scav case: Have intelligence folders \n"
+    out_text=out_text+"\n\nFlea Mode Information:\n\n"  
+    out_text=out_text+"     Bot will sell the items in the top ~40 rows of your inventory.\n"
+    out_text=out_text+"     Make sure this area is composed of items only for the flea.\n"
+    out_text=out_text+"     This bot does well to not flea the wrong items, or to waste your money- but it is not perfect.\n"
+    out_text=out_text+"     The bot chooses an item, looks for its price, and if the price recognition is any bit unsure itll move onto the next one, otherwise it will sell it according to an undercut function.\n\n"
+    out_text=out_text+"You can share any failures (or successes?) of the bot on the github @ github.com/matthewmiglio/py-tarkBot\n"
+    
     sg.theme('Material2')
-    layout = [[sg.Text('If youre getting [WinError 5] Access is denied error, try running the program as administrator.\n\nHideout Information:\n  Workbench: Have M18 smokes and M67 nades for green gunpowder craft \n  Medstation: Have AI-2s, bandages(blue and white ones), and augmentin \n  Water collector: have extra water filters \n  Scav case: Have intelligence folders \n  Booze generator: Have sugar and super water (bot will use water collector super water btw)\n\nFlea Mode Information:\n  Bot will sell the items in the top ~40 rows of your inventory.\n  Make sure this area is composed of items only for the flea.\n  This bot does well to not flea the wrong items, or to waste your money- but it is not perfect.'), sg.Text(
-        size=(15, 1), key='-OUTPUT-')], [sg.Button('Exit')]]
+    layout = [[sg.Text(out_text)],]
     window = sg.Window('PY-TarkBot', layout)
     while True:
         event, values = window.read()
@@ -217,24 +236,23 @@ def show_help_gui():
 def main():
     orientate_terminal()
     intro_printout(logger)
+    
+    out_text=""
+    out_text=out_text+"-Python Tarkov bot - Matthew Miglio ~Aug 2022\n\n"
+    out_text=out_text+"-Make sure launcher path is specified at appdata/roaming/py-tarkBot/config.json\n\n"
+    out_text=out_text+"-Manually set your tarkov client to windowed at a resolution close to but under 1280x960 (~1150x900?) idk it helps prevent an error.\n"
+
+    
     sg.theme('Material2')
     # defining various things that r gonna be in the gui.
     layout = [
-        # text output var
-        [sg.Text('Python Tarkov bot - Matthew Miglio ~Aug 2022\n\nREMINDER: Set tarkov graphics settings BEFORE starting the bot\n(windowed/1280x960/4:3)\n'),
-         sg.Text(size=(15, 1), key='-OUTPUT-')],
-        # text input var
-        # [sg.Input(key='-IN-')],
-        # bot config checkboxes
-        [sg.Text('Select ONLY ONE of the following modes:'),
-         sg.Text(size=(15, 1), key='-OUTPUT-')],
-        [sg.Text("Make sure launcher path is configured @ appdata/roaming/py-TarkBot/config.json!!!")],
+        [sg.Text(out_text)],
+
         [sg.Radio('Flea mode', "RADIO1", default=False, key="-IN2-")],
         [sg.Radio('Hideout mode', "RADIO1", default=True, key="-IN3-")],
         [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
-        [sg.Text('Select which stations to farm:'),
-         sg.Text(size=(15, 1), key='-OUTPUT-')],
         [
+        sg.Text('Select which stations to farm:'),
         sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),
         sg.Checkbox('Medstation crafts',default=True,key="-medstation_crafts_in-"),
         sg.Checkbox('Water collector crafts',default=True,key="-water_collector_crafts_in-"),
