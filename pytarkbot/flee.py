@@ -412,11 +412,18 @@ def wait_till_can_add_another_offer(logger):
         
         loops=loops+1
         if (loops % 2 == 0): print(f"Waiting for another offer: {loops}")
+        
         close_add_offer_window(logger)
         time.sleep(1)
+        
         pyautogui.press('f5')
         time.sleep(1)
+        
+        get_to_flee_tab(logger)
+        
+        
         has_another_offer=check_if_can_add_offer(logger)
+        
     logger.log("Done waiting for another offer.")
         
 
