@@ -660,7 +660,7 @@ def check_for_water_collector_collect_icon():
     # print(text)
     # show_image(image)
     
-    if (text.startswith("GET"))or(text.startswith("GETITE"))or(text.startswith("GE"))or(text.startswith("GGE")):
+    if (text.startswith("GET"))or(text.startswith("GETITE"))or(text.startswith("GE"))or(text.startswith("GGE"))or(text.startswith("-GET")):
         return True
     return False
 
@@ -1001,8 +1001,6 @@ def manage_lavatory(logger):
         
     if state=="get items":
         get_items_from_lavatory()
-    
-   
     
     
 def get_items_from_lavatory():
