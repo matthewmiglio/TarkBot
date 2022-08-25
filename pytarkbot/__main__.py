@@ -239,15 +239,18 @@ def main():
     
     out_text=""
     out_text=out_text+"-Python Tarkov bot - Matthew Miglio ~Aug 2022\n\n"
+    out_text=out_text+"-HOLDING SPACE TERMINATES THE PROGRAM\n\n"
     out_text=out_text+"-Make sure launcher path is specified at appdata/roaming/py-tarkBot/config.json\n\n"
     out_text=out_text+"-Manually set your tarkov client to windowed at a resolution close to but under 1280x960 (~1150x900?) idk it helps prevent an error.\n"
+    
+    
+    
 
     
     sg.theme('Material2')
     # defining various things that r gonna be in the gui.
     layout = [
         [sg.Text(out_text)],
-
         [sg.Radio('Flea mode', "RADIO1", default=False, key="-IN2-")],
         [sg.Radio('Hideout mode', "RADIO1", default=True, key="-IN3-")],
         [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
