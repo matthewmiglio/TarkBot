@@ -241,6 +241,7 @@ def img_to_txt_numbers_only(image):
     #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
     return pytesseract.image_to_string(image, config="digits --psm 9")
 
+
 def img_to_txt_single_char(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
