@@ -169,20 +169,31 @@ def get_value_to_post_item():
 
 def find_coords_of_item_to_flee():
     region = [16,509,407,427]
-
-    # plt.imshow(numpy.asarray(screenshot(region)))
-    # plt.show()
-
-    color_black = [20, 20, 20]
-    coords_list = find_all_pixels_not_equal_to(region, color=color_black)
-
-    # return one of the coords at random that aren't the background's black
-    # color.
-    coord = coords_list[random.randint(0, len(coords_list))]
-    coord[0] = coord[0] + 11
-    coord[1] = coord[1] + 470
-
-    return coord
+    iar=numpy.asarray(screenshot(region))
+    coords_list=[]
+    for x_coord in range(0,407):
+        for y_coord in range(0,427):
+            if (x_coord % 4 == 0)and(y_coord % 4 == 0):
+                coords_list.append([x_coord,y_coord])
+    
+    has_item=False
+    while not (has_item):
+        #select one of those random coords
+        random_coord_index=random.randint(0,len(coords_list)-1)
+        coord=coords_list[random_coord_index]
+        
+        #get this coord's color
+        color=iar[coord[1]][coord[0]]
+        
+        #color check to see if its not black or wahtever
+        color_total=int(color[0])+int(color[1])+int(color[2])
+        if color_total>100:
+            coord[0]=coord[0]+16
+            coord[1]=coord[1]+509
+            
+            return coord
+        
+    
 
 
 def check_first_price(logger):

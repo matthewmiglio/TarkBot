@@ -306,7 +306,7 @@ def get_image(folder, name):
     return Image.open(join(reference_folder, folder, name))
 
 
-def find_all_pixels_not_equal_to(region, color, image=None):
+def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
     # make iar
     if image is None:
         iar = numpy.asarray(screenshot(region))
@@ -319,14 +319,14 @@ def find_all_pixels_not_equal_to(region, color, image=None):
     # loop through iar
     sentinel = [color[0], color[1], color[2]]
     width = iar.shape[1]
-    height = iar.shape[0]
+    height = iar.shape[0]                        
     x_coord = 0
     while x_coord < width:
         y_coord = 0
         while y_coord < height:
             current_pixel = iar[y_coord][x_coord]
             current_coord = [x_coord, y_coord]
-            if not (pixel_is_equal(current_pixel, sentinel, tol=15)):
+            if not (pixel_is_equal(current_pixel, sentinel, tol=tol)):
                 coords_list.append(current_coord)
 
             y_coord = y_coord + 1

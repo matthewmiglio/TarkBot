@@ -5,6 +5,7 @@ import time
 import pygetwindow
 
 from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot
+from pytarkbot.debug import waiting_animation
 from pytarkbot.graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
 from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 import pyautogui
@@ -211,7 +212,7 @@ def wait_for_play_button_in_launcher(logger):
         logger.log(f"Waiting for play button to appear in launcher {loop}")
         loop = loop + 2
         waiting = not (check_if_play_button_exists_in_launcher())
-        time.sleep(2)
+        waiting_animation(2)
         if loop > 50:
             logger.log(
                 "Spent too long waiting for launcher's play button. Restarting.")
