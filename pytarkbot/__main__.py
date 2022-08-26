@@ -110,13 +110,10 @@ def state_remove_flee_offers():
 
 def state_flee_mode():
     blank_line = "////////////////////////////////////////////////////"
-    logger.log("")
-    logger.log(blank_line)
-    logger.log("State==flee mode")
-    logger.log(blank_line)
-    logger.log("")
-
-    logger.log("STATE=flee_mode")
+    for _ in range(5): logger.log(blank_line)
+   
+    logger.log("STATE=flee_mode\n\n")
+    logger.log("Opening flea tab")
     # open flea
     if get_to_flee_tab(logger) == "restart":
         return "restart"
@@ -127,6 +124,7 @@ def state_flee_mode():
         pyautogui.press('n')
 
         # wait for add offer
+        logger.log("Checking if we can add another offer.")
         if wait_till_can_add_another_offer(logger) == "remove_flee_offers":
             return "remove_flee_offers"
 
@@ -151,17 +149,12 @@ def state_flee_mode():
 
 def state_restart():
     blank_line = "////////////////////////////////////////////////////"
-    logger.log("")
-    logger.log(blank_line)
-    logger.log("State==Restart")
-    logger.log(blank_line)
-    logger.log("")
-
-    # add to logegr
+    for _ in range(5): logger.log(blank_line)
+    logger.log("\n\nState==Restart")
+    
+    # add to logger
     logger.add_restart()
 
-    # if tark open close it
-    logger.log("STATE=RESTART")
     restart_tarkov(logger, launcher_path)
 
     return "flee_mode"

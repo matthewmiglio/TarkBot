@@ -13,7 +13,7 @@ import pyautogui
 from pytarkbot.client import (calculate_avg_pixel, check_quit_key_press, click,
                               find_all_pixel_coords, find_all_pixels,
                               find_all_pixels_not_equal_to, img_to_txt, img_to_txt_numbers_only,
-                              screenshot)
+                              screenshot, waiting_animation)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
 
@@ -226,15 +226,14 @@ def check_first_price(logger):
     digit_counter_count = count_digits()
     image_rec_count = len(str(detected_price))
     if (post_price is None) or (image_rec_count != digit_counter_count):
-        logger.log(
-            f"Error with digit check. \n Tried to post at {post_price} but found {digit_counter_count} digits.")
+        logger.log(f"Error with digit check. \n Tried to post at {post_price} but found {digit_counter_count} digits.")
         return False
 
     if post_price is None:
         logger.log("Problem getting post_price. Returning false for price.")
         return False
 
-    logger.log("Top price passed USD/EURO/TRADER/digit checks. Returning True")
+    logger.log(f"Found price: {post_price}")
     return post_price
 
 
@@ -341,6 +340,7 @@ def get_to_flee_tab(logger):
     on_flee = check_if_on_flee_page()
     loops = 0
     while not (on_flee):
+        logger.log("Didnt find flea tab. Clicking flea tab.")
         if loops > 10:
             return "restart"
         loops = loops + 1
@@ -349,6 +349,7 @@ def get_to_flee_tab(logger):
         click(829, 977)
         time.sleep(2)
         on_flee = check_if_on_flee_page()
+    logger.log("Made it to flea tab.")
 
 
 def check_if_on_flee_page():
@@ -414,7 +415,6 @@ def find_add_offer_window():
 
 
 def wait_till_can_add_another_offer(logger):
-    logger.log("Starting wait for another offer")
     has_another_offer=check_if_can_add_offer(logger)
     loops=0
     while not(has_another_offer):
@@ -425,13 +425,12 @@ def wait_till_can_add_another_offer(logger):
         if (loops % 2 == 0): print(f"Waiting for another offer: {loops}")
         
         close_add_offer_window(logger)
-        time.sleep(1)
+        waiting_animation(1)
         
         pyautogui.press('f5')
-        time.sleep(1)
+        waiting_animation(1)
         
         get_to_flee_tab(logger)
-        
         
         has_another_offer=check_if_can_add_offer(logger)
         
@@ -577,6 +576,8 @@ def click_fbi_button():
 
 
 def open_add_offer_tab(logger):
+    logger.log("Clicking add offer button in the top")
+    
     # handle popups
     pyautogui.click(50,50)
     pyautogui.press('n')
@@ -601,6 +602,7 @@ def open_add_offer_tab(logger):
     
 
 def select_random_item_to_flee(logger):
+    logger.log("Selecting another random item to flea.")
     has_item_to_flee = False
     while not (has_item_to_flee):
         # clicks the random item's FBI button
@@ -617,6 +619,9 @@ def select_random_item_to_flee(logger):
         if click_fbi_button() != "restart":
             logger.log('Found item to flee.')
             has_item_to_flee = True
+            logger.log("Found a satisfactory item to flea.")
+        else:
+            logger.log("This item's filter by item button was unreadable this go-around. Finding another item.")
 
 
 def click_add_requirements_in_add_requirements_window(logger):
@@ -743,8 +748,10 @@ def check_filters_window_orientation():
     
 
 def orientate_filters_window(logger):
+    
     is_orientated = check_filters_window_orientation()
     while not (is_orientated):
+        logger.log("Orientating filters window.")
         coords = find_filters_window()
         if coords is not None:
             pyautogui.moveTo(coords[0], coords[1], duration=0.33)
@@ -762,13 +769,15 @@ def open_filters_window(logger):
 
 
 def set_flea_filters(logger):
-    logger.log("Filtering by roubles")
+    logger.log("Setting the flea filters for price undercut recognition")
 
     # open filter window
+    logger.log("Opening the filters window")
     open_filters_window(logger)
     time.sleep(0.17)
 
     # click currency dropdown
+    logger.log("Filtering by roubles.")
     click(113, 62)
     time.sleep(0.17)
 
@@ -777,6 +786,7 @@ def set_flea_filters(logger):
     time.sleep(0.17)
 
     # click 'display offers from' dropdown
+    logger.log("Filtering by player sales only.")
     click(171, 188)
     time.sleep(0.17)
 
@@ -785,6 +795,7 @@ def set_flea_filters(logger):
     time.sleep(0.17)
 
     # click OK
+    logger.log("Clicking OK in filters tab.")
     click(83, 272)
     time.sleep(0.17)
 
