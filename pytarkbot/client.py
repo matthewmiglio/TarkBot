@@ -54,8 +54,7 @@ def show_entire_screen():
 
 def orientate_tarkov_client(title, logger):
     logger.log("Orientating tarkov client.")
-    title='EscapeFromTarkov'
-    
+
     #change res
     resize=[1299,999]
     resize_window(window_name=title,resize=resize)
@@ -98,18 +97,15 @@ def orientate_terminal():
             "py-tarkbot v")[0]
         terminal_window.minimize()
         terminal_window.restore()
-        
+
         #resize according to monitor width
         monitor_width=get_screen_resolution()[0]
         terminal_width=monitor_width-1290
         terminal_window.resizeTo(terminal_width, 350)
-        
+
         #move window
         terminal_window.moveTo(970,5)
-        
-        
-        
-        
+
         terminal_window.moveTo(1285, 5)
     except BaseException:
         print("Couldn't orientate terminal.")
@@ -245,7 +241,7 @@ def img_to_txt_numbers_only(image):
 def img_to_txt_single_char(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
-    return pytesseract.image_to_string(image , config="--psm 10") 
+    return pytesseract.image_to_string(image , config="--psm 10")
 
 
 
@@ -268,7 +264,6 @@ def string_to_chars_only(string):
         if element.isalpha():
             out_string=out_string+element
     return out_string
-            
 
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
@@ -334,7 +329,7 @@ def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
     # loop through iar
     sentinel = [color[0], color[1], color[2]]
     width = iar.shape[1]
-    height = iar.shape[0]                        
+    height = iar.shape[0]
     x_coord = 0
     while x_coord < width:
         y_coord = 0
@@ -450,8 +445,8 @@ def resize_window(window_name,resize):
 def move_window(window_name,coord):
     window=pygetwindow.getWindowsWithTitle(window_name)[0]
     window.moveTo(coord[0],coord[1])
-    
-    
+
+
 def find_eft_window():
     check_quit_key_press()
     current_image = screenshot()

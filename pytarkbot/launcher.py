@@ -4,8 +4,7 @@ import time
 
 import pygetwindow
 
-from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot
-from pytarkbot.graphics_config import save_default_settings_to_file, set_tarkov_settings_to_bot_config, set_tarkov_settings_to_default_config
+from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot, waiting_animation
 from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 import pyautogui
 
@@ -25,8 +24,6 @@ def check_if_on_tark_main(logger):
         "9.png",
         "10.png",
         "11.png",
-        
-        
     ]
 
     locations = find_references(
