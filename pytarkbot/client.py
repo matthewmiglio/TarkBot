@@ -34,8 +34,7 @@ def intro_printout(logger):
 
 def orientate_tarkov_client(title, logger):
     logger.log("Orientating tarkov client.")
-    title='EscapeFromTarkov'
-    
+
     #change res
     resize=[1299,999]
     resize_window(window_name=title,resize=resize)
@@ -79,18 +78,15 @@ def orientate_terminal():
             "py-tarkbot v")[0]
         terminal_window.minimize()
         terminal_window.restore()
-        
+
         #resize according to monitor width
         monitor_width=get_screen_resolution()[0]
         terminal_width=monitor_width-1290
         terminal_window.resizeTo(terminal_width, 350)
-        
+
         #move window
         terminal_window.moveTo(970,5)
-        
-        
-        
-        
+
         terminal_window.moveTo(1285, 5)
     except BaseException:
         print("Couldn't orientate terminal.")
@@ -211,6 +207,25 @@ def find_all_pixel_colors(region, color, image=None):
     return colors_list
 
 
+def img_to_txt(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    config = ('-l eng --oem 3 --psm 9')
+    return pytesseract.image_to_string(image, config=config)
+
+
+def img_to_txt_numbers_only(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image, config="digits --psm 9")
+
+
+def img_to_txt_single_char(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image , config="--psm 10")
+
+
+
 def show_image(image):
     plt.imshow(numpy.asarray(image))
     plt.show()
@@ -221,7 +236,16 @@ def screenshot(region=(0, 0, 1400, 1400)):
         return pyautogui.screenshot()
     else:
         return pyautogui.screenshot(region=region)
-       
+
+
+def string_to_chars_only(string):
+    out_string=""
+    for element in string:
+        if element.isalpha():
+            out_string=out_string+element
+    return out_string
+            
+
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
     # move the mouse to the spot
@@ -252,6 +276,27 @@ def check_quit_key_press():
                 pressed = True
 
 
+def get_image(folder, name):
+    top_level = dirname(__file__)
+    reference_folder = join(top_level, "reference_images")
+    return Image.open(join(reference_folder, folder, name))
+
+
+def waiting_animation(time):
+
+    for _ in range(0,time):
+        pyautogui.moveTo(1270,271,duration=0.1)
+        pyautogui.moveTo(1414,554,duration=0.1)
+        pyautogui.moveTo(1737,603,duration=0.1)
+        pyautogui.moveTo(1507,822,duration=0.1)
+        pyautogui.moveTo(1558,1136,duration=0.1)
+        pyautogui.moveTo(1273,1001,duration=0.1)
+        pyautogui.moveTo(996,1139,duration=0.1)
+        pyautogui.moveTo(1051,825,duration=0.1)
+        pyautogui.moveTo(818,603,duration=0.1)
+        pyautogui.moveTo(1140,534,duration=0.1)
+
+
 def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
     # make iar
     if image is None:
@@ -265,7 +310,7 @@ def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
     # loop through iar
     sentinel = [color[0], color[1], color[2]]
     width = iar.shape[1]
-    height = iar.shape[0]                        
+    height = iar.shape[0]
     x_coord = 0
     while x_coord < width:
         y_coord = 0
@@ -381,8 +426,8 @@ def resize_window(window_name,resize):
 def move_window(window_name,coord):
     window=pygetwindow.getWindowsWithTitle(window_name)[0]
     window.moveTo(coord[0],coord[1])
-    
-    
+
+
 def find_eft_window():
     check_quit_key_press()
     current_image = screenshot()

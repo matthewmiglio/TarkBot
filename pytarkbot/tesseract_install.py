@@ -22,6 +22,13 @@ class DownloadProgressBar(tqdm):
     """
 
     def update_to(self, b=1, bsize=1, tsize=None) -> None:
+        """override update_to of tqdm class
+
+        Args:
+            b (int, optional): Defaults to 1.
+            bsize (int, optional): Defaults to 1.
+            tsize (_type_, optional): Defaults to None.
+        """
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)
@@ -158,5 +165,5 @@ def setup_tesseract() -> None:
     except FileNotFoundError:
         install_tesseract()
         tesseract_path = get_tsrct_path()
-    environ["TESSDATA_PREFIX"] = str(join(tesseract_path,'tessdata'))
+    environ["TESSDATA_PREFIX"] = str(join(tesseract_path, 'tessdata'))
     environ["TESSERACT_PATH"] = str(join(tesseract_path, "tesseract.exe"))
