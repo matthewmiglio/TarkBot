@@ -1,12 +1,12 @@
-from distutils.command.install_egg_info import to_filename
 import time
+
 
 import numpy
 import pyautogui
 from matplotlib import pyplot as plt
 
 from pytarkbot.client import (check_quit_key_press, click,
-                              find_all_pixel_coords, img_to_txt, screenshot, show_image, string_to_chars_only)
+                              find_all_pixel_coords, img_to_txt, screenshot)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
 
