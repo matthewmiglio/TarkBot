@@ -36,8 +36,7 @@ setup_tesseract()
 
 
     
-def flea_items_main():
-
+def flea_items_main():               
     state = "intro"
 
     while True:
@@ -50,7 +49,7 @@ def flea_items_main():
             state = "flee_mode"
 
         if state == "flee_mode":
-            state = state_flea_mode_2()
+            state = state_flea_mode()
 
         if state == "remove_flee_offers":
             state = state_remove_flee_offers()
@@ -111,7 +110,7 @@ def state_remove_flee_offers():
 
 
 
-def state_flea_mode_2():
+def state_flea_mode():
     logger.log("Beginning flea alg.\n")
     while True:
         #open flea
@@ -133,6 +132,8 @@ def state_flea_mode_2():
         time.sleep(0.33)
         
         logger.log("Orientating add offer window.")
+        orientate_add_offer_window(logger)
+        time.sleep(1)
         orientate_add_offer_window(logger)
         time.sleep(1)
         
