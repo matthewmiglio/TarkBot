@@ -6,7 +6,7 @@ import pyperclip
 import PySimpleGUI as sg
 
 from pytarkbot.client import intro_printout, orientate_terminal
-from pytarkbot.configuration import load_user_settings
+from pytarkbot.configuration import load_user_config
 from pytarkbot.flee import (check_first_price, get_to_flee_tab,
                             get_to_flee_tab_from_my_offers_tab,
                             get_to_my_offers_tab, open_add_offer_tab,
@@ -18,7 +18,7 @@ from pytarkbot.launcher import restart_tarkov
 from pytarkbot.logger import Logger
 from pytarkbot.tesseract_install import setup_tesseract
 
-user_settings = load_user_settings()
+user_settings = load_user_config()
 launcher_path = user_settings["launcher_path"]
 pyautogui.FAILSAFE = False
 
@@ -33,7 +33,7 @@ logger = Logger()
 setup_tesseract()
 
 
-    
+
 def flea_items_main():
 
     state = "intro"
@@ -111,7 +111,7 @@ def state_remove_flee_offers():
 def state_flee_mode():
     blank_line = "////////////////////////////////////////////////////"
     for _ in range(5): logger.log(blank_line)
-   
+
     logger.log("STATE=flee_mode\n\n")
     logger.log("Opening flea tab")
     # open flea
@@ -151,7 +151,7 @@ def state_restart():
     blank_line = "////////////////////////////////////////////////////"
     for _ in range(5): logger.log(blank_line)
     logger.log("\n\nState==Restart")
-    
+
     # add to logger
     logger.add_restart()
 
@@ -209,13 +209,13 @@ def show_help_gui():
     out_text=out_text+"     Medstation: Have AI-2s, bandages(blue and white ones), and augmentin\n"
     out_text=out_text+"     Water collector: have extra water filters \n"
     out_text=out_text+"     Scav case: Have intelligence folders \n"
-    out_text=out_text+"\n\nFlea Mode Information:\n\n"  
+    out_text=out_text+"\n\nFlea Mode Information:\n\n"
     out_text=out_text+"     Bot will sell the items in the top ~40 rows of your inventory.\n"
     out_text=out_text+"     Make sure this area is composed of items only for the flea.\n"
     out_text=out_text+"     This bot does well to not flea the wrong items, or to waste your money- but it is not perfect.\n"
     out_text=out_text+"     The bot chooses an item, looks for its price, and if the price recognition is any bit unsure itll move onto the next one, otherwise it will sell it according to an undercut function.\n\n"
     out_text=out_text+"You can share any failures (or successes?) of the bot on the github @ github.com/matthewmiglio/py-tarkBot\n"
-    
+
     sg.theme('Material2')
     layout = [[sg.Text(out_text)],]
     window = sg.Window('PY-TarkBot', layout)
@@ -229,17 +229,17 @@ def show_help_gui():
 def main():
     orientate_terminal()
     intro_printout(logger)
-    
+
     out_text=""
     out_text=out_text+"-Python Tarkov bot - Matthew Miglio ~Aug 2022\n\n"
     out_text=out_text+"-HOLDING SPACE TERMINATES THE PROGRAM\n\n"
     out_text=out_text+"-Make sure launcher path is specified at appdata/roaming/py-tarkBot/config.json\n\n"
     out_text=out_text+"-Manually set your tarkov client to windowed at a resolution close to but under 1280x960 (~1150x900?) idk it helps prevent an error.\n"
-    
-    
-    
 
-    
+
+
+
+
     sg.theme('Material2')
     # defining various things that r gonna be in the gui.
     layout = [
@@ -272,7 +272,7 @@ def main():
         # if gui sees start press then start bot
         if event == 'Start':
 
-           
+
             # if hideout management checkbox is checked, run the hideout
             # management main
             if values["-IN3-"]:
@@ -290,7 +290,7 @@ def main():
                     crafts_to_farm.append("water_collector")
                 if values["-lavatory_crafts_in-"]:
                     crafts_to_farm.append("lavatory")
-                
+
                 hideout_management_main(crafts_to_farm)
 
             # if flea items checkbox is checked, run the flea items main
