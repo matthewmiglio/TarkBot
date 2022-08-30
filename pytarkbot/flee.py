@@ -11,9 +11,8 @@ import numpy
 import pyautogui
 
 from pytarkbot.client import (calculate_avg_pixel, check_quit_key_press, click,
-                              find_all_pixel_coords, find_all_pixels,
-                              find_all_pixels_not_equal_to, img_to_txt, img_to_txt_numbers_only,
-                              screenshot, waiting_animation)
+                              find_all_pixel_coords, find_all_pixels, img_to_txt, img_to_txt_numbers_only,
+                              screenshot)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
 
@@ -136,8 +135,6 @@ def get_current_price():
 
     price_image = screenshot(region)
 
-    # plt.imshow(numpy.asarray(price_image))
-    # plt.show()
 
     # get text
     text = img_to_txt_numbers_only(price_image)
@@ -425,10 +422,10 @@ def wait_till_can_add_another_offer(logger):
         if (loops % 2 == 0): print(f"Waiting for another offer: {loops}")
         
         close_add_offer_window(logger)
-        waiting_animation(1)
+        time.sleep(1)
         
         pyautogui.press('f5')
-        waiting_animation(1)
+        time.sleep(1)
         
         get_to_flee_tab(logger)
         
@@ -941,3 +938,34 @@ def look_for_remove_offer_button():
     if (pix_list is None) or (pix_list == []):
         return None
     return pix_list[0]
+
+
+def get_price_text():
+    region=[909,132,80,24]
+    image=screenshot(region)
+    text=img_to_txt(image)
+    
+    # show_image(image)
+    print(f"read text: {text}")
+    
+    return text
+    
+def splice_price_text(logger,price_text):
+    out_string=""
+    for digit in price_text:
+        if digit.isdigit(): out_string=out_string+digit
+        if (digit=="e") or (digit=="a") or (digit=="o") or (digit=="O")or (digit=="B"): out_string=out_string+"0"
+    if len(out_string) != count_digits(): 
+        logger.log(f"Price check failed. Read price: {out_string}, digits: {count_digits()}")
+        return "fail"
+    return out_string
+
+
+
+
+
+
+
+
+
+

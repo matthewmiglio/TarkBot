@@ -1,9 +1,9 @@
 
-from http import client
 import sys
 import time
+
 from os import environ
-from os.path import dirname, join
+
 
 import keyboard
 import numpy
@@ -17,7 +17,7 @@ from PIL import Image
 from pywinauto.findwindows import find_window
 from screeninfo import get_monitors
 
-from pytarkbot.image_rec import (check_for_location, coords_is_equal,
+from pytarkbot.image_rec import (coords_is_equal,
                                  find_references, get_first_location,
                                  pixel_is_equal)
 
@@ -30,26 +30,6 @@ def intro_printout(logger):
     logger.log(name_line)
     logger.log(blank_line)
     logger.log(blank_line)
-
-
-def exit_printout(logger):
-    blank_line = "////////////////////////////////////////////////////////////////////////////////////"
-    name_line = "/////////////Python Tarkov flea sell bot // Matthew Miglio ~Aug 2022////////////////"
-    logger.log(blank_line)
-    logger.log(blank_line)
-    logger.log(name_line)
-    logger.log(blank_line)
-    logger.log(blank_line)
-
-
-def show_screenshot(ss):
-    iar = numpy.asarray(ss)
-    plt.imshow(iar)
-    plt.show()
-
-
-def show_entire_screen():
-    show_screenshot(screenshot())
 
 
 def orientate_tarkov_client(title, logger):
@@ -83,6 +63,7 @@ def orientate_launcher():
     time.sleep(1)
     move_window(window_name=title,coord=[0,0])
     time.sleep(1)
+
 
 def get_screen_resolution():
     monitor_1=get_monitors()[0]
@@ -250,7 +231,6 @@ def show_image(image):
     plt.show()
 
 
-
 def screenshot(region=(0, 0, 1400, 1400)):
     if region is None:
         return pyautogui.screenshot()
@@ -264,6 +244,7 @@ def string_to_chars_only(string):
         if element.isalpha():
             out_string=out_string+element
     return out_string
+            
 
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
@@ -464,3 +445,25 @@ def find_eft_window():
     coord= get_first_location(locations)
     if coord is None: return None
     return [coord[1],coord[0]]
+
+
+def img_to_txt(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    config = ('-l eng --oem 3 --psm 9')
+    return pytesseract.image_to_string(image, config=config)
+
+
+def img_to_txt_numbers_only(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image, config="digits --psm 7")
+
+
+def img_to_txt_single_char(image):
+    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image , config="--psm 10") 
+
+
+
+

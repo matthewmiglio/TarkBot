@@ -7,11 +7,13 @@ import PySimpleGUI as sg
 
 from pytarkbot.client import intro_printout, orientate_terminal
 from pytarkbot.configuration import load_user_config
-from pytarkbot.flee import (check_first_price, get_to_flee_tab,
+from pytarkbot.flee import (get_price_text,
+                            get_price_undercut, get_to_flee_tab,
                             get_to_flee_tab_from_my_offers_tab,
                             get_to_my_offers_tab, open_add_offer_tab,
-                            post_item, remove_offers,
-                            select_random_item_to_flee, set_flea_filters,
+                            orientate_add_offer_window, post_item,
+                            remove_offers, select_random_item_to_flee,
+                            set_flea_filters, splice_price_text,
                             wait_till_can_add_another_offer)
 from pytarkbot.hideout import manage_hideout
 from pytarkbot.launcher import restart_tarkov
@@ -48,7 +50,7 @@ def flea_items_main():
             state = "flee_mode"
 
         if state == "flee_mode":
-            state = state_flee_mode()
+            state = state_flea_mode()
 
         if state == "remove_flee_offers":
             state = state_remove_flee_offers()
@@ -108,43 +110,59 @@ def state_remove_flee_offers():
     return "flee_mode"
 
 
-def state_flee_mode():
-    blank_line = "////////////////////////////////////////////////////"
-    for _ in range(5): logger.log(blank_line)
 
-    logger.log("STATE=flee_mode\n\n")
-    logger.log("Opening flea tab")
-    # open flea
-    if get_to_flee_tab(logger) == "restart":
-        return "restart"
-    time.sleep(0.33)
-
+def state_flea_mode():
+    logger.log("Beginning flea alg.\n")
     while True:
-        pyautogui.click(50,50)
-        pyautogui.press('n')
+        #open flea
+        logger.log("Getting to flea")
+        if get_to_flee_tab(logger)=="restart":
+            return "restart"
+        time.sleep(1)
 
-        # wait for add offer
-        logger.log("Checking if we can add another offer.")
+        #wait for another add offer
+        logger.log("Waiting for another flea offer slot.")
         if wait_till_can_add_another_offer(logger) == "remove_flee_offers":
             return "remove_flee_offers"
+        time.sleep(1)
 
-        # click add offer button on top of screen
-        open_add_offer_tab(logger)
+        #click add offer
+        logger.log("Adding another offer.")
+        pyautogui.moveTo(837,82,duration=0.33)
+        pyautogui.click()
+        time.sleep(0.33)
 
-        # fbi for random item
-        if select_random_item_to_flee(logger) == "restart":
-            logger.log("Issue selecting random item to flee.")
-            return "restart"
+        logger.log("Orientating add offer window.")
+        orientate_add_offer_window(logger)
+        time.sleep(1)
+        orientate_add_offer_window(logger)
+        time.sleep(1)
 
-        # set search
+        select_random_item_to_flee(logger)
+        time.sleep(1)
+
+        #set flea filter
+        logger.log("Setting the flea filters to only RUB/players only.")
         set_flea_filters(logger)
         time.sleep(1)
 
-        # if current price passes check, post this item up. else skip
-        post_price = check_first_price(logger)
-        if post_price is not False:
-            logger.log("Post price passed all checks. Posting this item.")
-            post_item(logger, post_price)
+        #get/check price
+        logger.log("Doing price check.")
+        logger.add_flea_sale_attempt()
+        detected_price = splice_price_text(logger,get_price_text())
+        if detected_price!="fail":
+            logger.log(f"Price of {detected_price} passed check.")
+
+            #get undercut
+            undercut_price=get_price_undercut(detected_price)
+            logger.log(f"Undercut price is: {undercut_price}")
+
+            #post this item
+            post_item(logger,undercut_price)
+
+
+
+
 
 
 def state_restart():
