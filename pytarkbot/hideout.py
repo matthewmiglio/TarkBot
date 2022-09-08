@@ -1,12 +1,12 @@
 import time
 
-
 import numpy
 import pyautogui
 from matplotlib import pyplot as plt
 
 from pytarkbot.client import (check_quit_key_press, click,
-                              find_all_pixel_coords, img_to_txt, screenshot)
+                              find_all_pixel_coords, img_to_txt, screenshot,
+                              show_image)
 from pytarkbot.image_rec import (check_for_location, find_references,
                                  get_first_location, pixel_is_equal)
 
@@ -110,8 +110,6 @@ def manage_hideout(logger, crafts_to_farm):
         time.sleep(3)
 
 
-
-
 def check_if_in_hideout():
     check_quit_key_press()
     iar = numpy.asarray(screenshot())
@@ -147,38 +145,76 @@ def check_this_station_name(logger):
 
 
 # checking if currently at the right station
-def check_if_at_booze_generator(logger):
-    region = [775, 516, 125, 30]
-    image = screenshot(region)
-    text = img_to_txt(image)
-    
-    
-    # print(text)
-    # show_image(image)
-    
-    if text.startswith('Gene'):
-        return True
-    return False
+def check_if_at_booze_generator():
+    t=time.time()
+    region=[650,475,350,150]
+    current_image = screenshot(region)
+    reference_folder = "check_if_at_booze_generator"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
 
-def check_if_at_water_collector(logger):
-    region = [698, 494, 189, 26]
-    image = screenshot(region)
-    text = img_to_txt(image)
-    #logger.log(f"check_if_at_water_collector text readout: {text}")
-    if text.startswith('Wat'):
-        return True
-    return False
+def check_if_at_water_collector():
+    t=time.time()
+    region=[650,475,350,150]
+    current_image = screenshot(region)
+    reference_folder = "check_if_at_water_collector"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "4.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
 
-def check_if_at_lavatory(logger):
-    region = [698, 338, 117, 31]
-    image = screenshot(region)
-    text = img_to_txt(image)
-    #logger.log(f"check_if_at_lavatory text readout: {text}")
-    if text.startswith('Lava'):
-        return True
-    return False
+def check_if_at_lavatory():
+    t=time.time()
+    region=[660,306,250,179]
+    current_image = screenshot(region)
+    reference_folder = "check_if_at_lavatory"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
 
 def check_if_at_nutrition_unit(logger):
@@ -195,14 +231,31 @@ def check_if_at_nutrition_unit(logger):
     return False
 
 
-def check_if_at_workbench(logger):
-    region = [698, 341, 138, 26]
-    image = screenshot(region)
-    text = img_to_txt(image)
-    #logger.log(f"check_if_at_workbench text readout: {text}")
-    if text.startswith('Workb'):
-        return True
-    return False
+def check_if_at_workbench():
+    t=time.time()
+    region=[660,306,250,179]
+    current_image = screenshot(region)
+    reference_folder = "check_if_at_workbench"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
 
 def check_if_at_intelligence_center(logger):
@@ -216,39 +269,58 @@ def check_if_at_intelligence_center(logger):
     return False
 
 
-def check_if_at_medstation(logger):
-    region = [698, 340, 150, 29]
-    image = screenshot(region)
-    text = img_to_txt(image)
+def check_if_at_medstation():
+    t=time.time()
+    region=[660,306,250,179]
+    current_image = screenshot(region)
+    reference_folder = "check_if_at_medstation"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
-    #logger.log(f"check_if_at_medstation text readout: {text}")
-    if text.startswith('Meds'):
-        return True
-    return False
 
-
-def check_if_at_scav_case(logger):
-#two regions for this one because IDK WHY NIKITA?????!!!!
-    region = [700, 337, 123, 33]
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    if text.startswith("Scav"):
-        return True
-    
-    
-    region = [700, 357, 123, 33]
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    # print(text)
-    # show_image(image)
-
-    #logger.log(f"check_if_at_scav_case text readout: {text}")
-    if text.startswith("Scav"):
-        return True
-    
-    return False    
+def check_if_at_scav_case():
+    t=time.time()
+    region=[660,306,250,179]
+    current_image = screenshot(region)
+    reference_folder = "check_if_at_scav_case"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations) 
 
 
 # move to each station
@@ -1032,6 +1104,7 @@ def manage_lavatory(logger):
 
 
 def get_items_from_lavatory():
+    get_to_cordura_craft_in_lavatory()
     coords = find_cordura_craft_in_lavatory()
     pyautogui.moveTo(coords[0]+205, coords[1]+20, duration=0.33)
     time.sleep(0.33)
@@ -1083,9 +1156,9 @@ def get_to_cordura_craft_in_lavatory():
 
 def check_lavatory():
     time.sleep(1)
-    # first check if lavatory is producing
-    if check_if_lavatory_is_producing():
-        return "producing"
+    # check for get items
+    if check_for_lavatory_get_items():
+        return "get items"
 
     get_to_cordura_craft_in_lavatory()
     time.sleep(1)
@@ -1093,8 +1166,6 @@ def check_lavatory():
     if check_for_start_in_lavatory():
         return "start"
 
-    if check_for_get_items_in_lavatory():
-        return "get items"
 
 
 def check_for_get_items_in_lavatory():
@@ -1122,14 +1193,28 @@ def check_for_start_in_lavatory():
     return False
 
 
-def check_if_lavatory_is_producing():
-    region = [831, 345, 80, 16]
-    image = screenshot(region)
-    text = img_to_txt(image)
+def check_for_lavatory_get_items():
+    t=time.time()
+    region=[800,336,150,40]
+    current_image = screenshot(region)
+    #show_image(current_image)
+    reference_folder = "check_for_lavatory_get_items"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "3.png",
+        "4.png",
 
-    if (text.startswith("Pro")) or (text.startswith("pro")):
-        return True
-    return False
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
 
 def start_cordura_craft_in_hideout():
