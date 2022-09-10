@@ -558,50 +558,31 @@ def get_items_from_workbench():
 
 def check_workbench(logger):
     check_quit_key_press()
-    # get to green gunpowder craft
-    get_to_green_gunpowder_craft(logger)
-
-    if check_for_get_items_in_workbench():
-        return "Get items"
-    if check_for_start_in_workbench():
-        return "start"
-
-
-def check_for_start_in_workbench():
-    green_gunpowder_coords = find_green_gunpowerder_icon_in_workbench()
-    region = [green_gunpowder_coords[0]+76,
-              green_gunpowder_coords[1]+14, 40, 15]
-
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    # print(text)
-    # plt.imshow(numpy.asarray(image))
-    # plt.show()
-
-    if text.startswith("START"):
-        return True
-    if text.startswith("start"):
-        return True
-    return False
-
+    check_for_get_items_in_workbench()
+    
 
 def check_for_get_items_in_workbench():
-    green_gunpowder_coords = find_green_gunpowerder_icon_in_workbench()
-    region = [green_gunpowder_coords[0]+50,
-              green_gunpowder_coords[1]+12, 80, 20]
+    t=time.time()
+    region=[800,336,150,40]
+    current_image = screenshot(region)
+    #show_image(current_image)
+    reference_folder = "check_for_get_items_in_workbench"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "3.png",
+        "4.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    print(f"Check_for_get_items_in_workbench search took {'{:06.4f}'.format(time.time()-t)} seconds")
+    return check_for_location(locations)
 
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    # print(text)
-    # show_image(image)
-
-    if text.startswith("GET"):
-        return True
-    if text.startswith("get"):
-        return True
-    return False
 
 
 def check_for_workbench_producing_icon():
@@ -1089,13 +1070,11 @@ def get_image_of_pile_of_meds_craft_in_medstation():
 # lavatory
 def manage_lavatory(logger):
     logger.log("Managing lavatory")
-
-
-
     state = check_lavatory()
     logger.log(f"Lavatory state: {state}")
 
     if state == "start":
+        get_to_cordura_craft_in_lavatory()
         buy_slings_for_cordura_craft(logger)
         start_cordura_craft_in_hideout()
 
@@ -1159,38 +1138,27 @@ def check_lavatory():
     # check for get items
     if check_for_lavatory_get_items():
         return "get items"
-
-    get_to_cordura_craft_in_lavatory()
-    time.sleep(1)
-
-    if check_for_start_in_lavatory():
-        return "start"
+    if look_for_producing_in_lavatory():
+        return "producing"
+    return "start"
 
 
-
-def check_for_get_items_in_lavatory():
-    coords = find_cordura_craft_in_lavatory()
-    region = [coords[0]+187, coords[1]+10, 64, 17]
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    if (text.startswith("Get")) or (text.startswith("GET")) or (text.startswith("GGE")):
-        return True
+def look_for_producing_in_lavatory():
+    t=time.time()
+    loops=33
+    while loops>0:
+        loops=loops-1
+        if check_for_producing_icon_in_lavatory(): 
+            print(f"Spent {'{:06.4f}'.format(time.time()-t)} looking for producing icon in lavatory.")
+            return True
+    print(f"Spent {'{:06.4f}'.format(time.time()-t)} looking for producing icon in lavatory.")
     return False
 
 
-def check_for_start_in_lavatory():
-    coords = find_cordura_craft_in_lavatory()
-    region = [coords[0]+198, coords[1]+14, 40, 15]
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    # print(text)
-    # show_image(image)
-
-    if (text.startswith("START")) or (text.startswith("ST")) or (text.startswith("SSTA")) or (text.startswith("SSST")):
-        return True
-    return False
+def check_for_producing_icon_in_lavatory():
+    iar=numpy.asarray(screenshot())
+    pix=iar[330][688]
+    return pixel_is_equal(pix,[184, 183, 171],tol=35)
 
 
 def check_for_lavatory_get_items():
