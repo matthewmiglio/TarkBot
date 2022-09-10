@@ -459,27 +459,20 @@ def orientate_add_offer_window(logger):
 def check_add_offer_window_orientation():
     iar = numpy.asarray(screenshot())
 
-    pix1 = iar[485][24]
-    pix2 = iar[485][33]
-    pix3 = iar[491][34]
-    pix4 = iar[492][42]
+    white_pix_list=[]
+    white_pix_list.append(iar[471][14])
+    white_pix_list.append(iar[469][35])
+    white_pix_list.append(iar[469][52])
+    white_pix_list.append(iar[469][23])
+    white_pix_list.append(iar[468][41])
+    white_pix_list.append(iar[470][58])
 
-    pix5 = iar[492][23]
-    pix6 = iar[490][30]
-    pix7 = iar[490][48]
-    pix8 = iar[487][61]
-
-    if not(pixel_is_equal(pix1,[143, 141,129],tol=25)): return False
-    if not(pixel_is_equal(pix2, [143 ,141 ,129],tol=25)): return False
-    if not(pixel_is_equal(pix3,[0 ,0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix4,[137 ,136 ,124],tol=25)): return False
-    
-    if not(pixel_is_equal(pix5,[0, 0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix6,[0 ,0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix7,[0, 0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix8,[0, 0 ,0],tol=25)): return False
-    
+    for pix in white_pix_list:
+        sentinel=[133,141,145]
+        if not(pixel_is_equal(pix,sentinel,tol=50)): return False
     return True
+
+    
     
 
 
