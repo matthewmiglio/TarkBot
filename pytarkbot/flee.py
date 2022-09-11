@@ -459,27 +459,20 @@ def orientate_add_offer_window(logger):
 def check_add_offer_window_orientation():
     iar = numpy.asarray(screenshot())
 
-    pix1 = iar[485][24]
-    pix2 = iar[485][33]
-    pix3 = iar[491][34]
-    pix4 = iar[492][42]
+    white_pix_list=[]
+    white_pix_list.append(iar[471][14])
+    white_pix_list.append(iar[469][35])
+    white_pix_list.append(iar[469][52])
+    white_pix_list.append(iar[469][23])
+    white_pix_list.append(iar[468][41])
+    white_pix_list.append(iar[470][58])
 
-    pix5 = iar[492][23]
-    pix6 = iar[490][30]
-    pix7 = iar[490][48]
-    pix8 = iar[487][61]
-
-    if not(pixel_is_equal(pix1,[143, 141,129],tol=25)): return False
-    if not(pixel_is_equal(pix2, [143 ,141 ,129],tol=25)): return False
-    if not(pixel_is_equal(pix3,[0 ,0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix4,[137 ,136 ,124],tol=25)): return False
-    
-    if not(pixel_is_equal(pix5,[0, 0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix6,[0 ,0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix7,[0, 0, 0],tol=25)): return False
-    if not(pixel_is_equal(pix8,[0, 0 ,0],tol=25)): return False
-    
+    for pix in white_pix_list:
+        sentinel=[133,141,145]
+        if not(pixel_is_equal(pix,sentinel,tol=50)): return False
     return True
+
+    
     
 
 
@@ -721,28 +714,24 @@ def find_filters_window():
 def check_filters_window_orientation():
     iar = numpy.asarray(screenshot())
 
-    pix1 = iar[35][25]
-    pix2 = iar[168][78]
-    pix4 = iar[168][78]
-
-    pix5 = iar[37][77]
-    pix6 = iar[52][62]
-    pix7 = iar[36][70]
-    pix8 = iar[189][230]
-
+    white_pix_list=[]
+    white_pix_list.append(iar[40][19])
+    white_pix_list.append(iar[25][36])
+    white_pix_list.append(iar[37][31])
+    white_pix_list.append(iar[37][35])
+    white_pix_list.append(iar[37][45])
+    white_pix_list.append(iar[37][51])
+    white_pix_list.append(iar[35][57])
+    white_pix_list.append(iar[36][25])
+    white_pix_list.append(iar[36][45])
     
-    
-    if not(pixel_is_equal(pix1,[90, 96, 98],tol=20)): return False
-    if not(pixel_is_equal(pix2,[224, 223, 211],tol=20)): return False
-    if not(pixel_is_equal(pix4,[224, 223, 211],tol=20)): return False
-    
-    if not(pixel_is_equal(pix5,[26, 28, 28],tol=20)): return False
-    if not(pixel_is_equal(pix6,[1, 1, 1],tol=20)): return False
-    if not(pixel_is_equal(pix7,[27, 29, 29],tol=20)): return False
-    if not(pixel_is_equal(pix8,[3, 3 ,1],tol=20)): return False
-    
+    for pix in white_pix_list:
+        sentinel=[160,175,180]
+        if not(pixel_is_equal(pix,sentinel,tol=100)):
+            return False
     return True
-    
+
+
 
 def orientate_filters_window(logger):
     
