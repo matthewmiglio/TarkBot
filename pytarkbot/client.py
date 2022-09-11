@@ -225,7 +225,6 @@ def img_to_txt_single_char(image):
     return pytesseract.image_to_string(image , config="--psm 10")
 
 
-
 def show_image(image):
     plt.imshow(numpy.asarray(image))
     plt.show()
@@ -245,7 +244,6 @@ def string_to_chars_only(string):
             out_string=out_string+element
     return out_string
             
-
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
     # move the mouse to the spot

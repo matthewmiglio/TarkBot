@@ -25,11 +25,6 @@ launcher_path = user_settings["launcher_path"]
 pyautogui.FAILSAFE = False
 
 
-#tarkov_graphics_settings_path = user_settings["graphics_setting_path"]
-
-#saved_user_settings_path = join(".\config","user_default_config","Graphics.ini")
-#preset_graphics_for_bot_path = join(".\config","config_for_bot","Graphics.ini")
-
 
 logger = Logger()
 setup_tesseract()
@@ -109,7 +104,6 @@ def state_remove_flee_offers():
     return "flee_mode"
 
 
-
 def state_flea_mode():
     logger.log("Beginning flea alg.\n")
     while True:
@@ -158,11 +152,7 @@ def state_flea_mode():
             
             #post this item
             post_item(logger,undercut_price)
-
-    
-    
-
-
+ 
 
 def state_restart():
     blank_line = "////////////////////////////////////////////////////"
