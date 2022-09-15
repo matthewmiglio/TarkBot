@@ -142,7 +142,7 @@ def state_flea_mode():
 
         #get/check price
         logger.log("Doing price check.")
-        logger.add_flea_sale_attempt()
+        #logger.add_flea_sale_attempt()
         detected_price = get_price_2()
         if detected_price != None:
             logger.log(f"Price of {detected_price} passed check.")
@@ -153,7 +153,7 @@ def state_flea_mode():
 
             #post this item
             post_item(logger,undercut_price)
- 
+        logger.add_flea_sale_attempt()
 
 def state_restart():
     blank_line = "////////////////////////////////////////////////////"
@@ -252,8 +252,8 @@ def main():
     # defining various things that r gonna be in the gui.
     layout = [
         [sg.Text(out_text)],
-        [sg.Radio('Flea mode', "RADIO1", default=False, key="-IN2-")],
-        [sg.Radio('Hideout mode', "RADIO1", default=True, key="-IN3-")],
+        [sg.Radio('Flea mode', "RADIO1", default=True, key="-IN2-")],
+        [sg.Radio('Hideout mode', "RADIO1", default=False, key="-IN3-")],
         [
         sg.Text('Select which stations to farm:'),
         sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),

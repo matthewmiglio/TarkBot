@@ -1028,7 +1028,8 @@ def get_price_2():
         digit2=get_number_from_image(image_2)
         #print(digit1,digit2)
         if (digit1 is None)or(digit2 is None):
-            print("One of the digits is empty")
+            print("One of the digits is empty.\nBot thinks this is a 5 digit number.")
+            print("First two read digits: ",digit1,digit2)
             return
         num=digit1+digit2+"500"
     if digits == 6: 
@@ -1043,7 +1044,8 @@ def get_price_2():
         digit3=get_number_from_image(image3)
         print(digit1,"|",digit2,"|",digit3)
         if (digit1 is None)or(digit2 is None)or(digit3 is None):
-            print("One of the digits is empty. Returning")
+            print("One of the digits is empty. Bot thinkgs this is a 6 digit number.")
+            print("First three read digits: ",digit1,digit2,digit3)
             return
         num=digit1+digit2+digit3+"500"
         
