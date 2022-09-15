@@ -42,15 +42,49 @@ def get_color_list_of_current_price(image):
             
     return english_color_list
         
+def count_digits2():
+    ####get pix list of pixels from (900,141) -> (1000,141)
+    pixel_list=[]
+    iar=numpy.asarray(screenshot())
+    #show_image(screenshot([900,138,100,6]))
+    y_coord=141
+    for x_coord in range(900,1000):
+        pixel=iar[y_coord][x_coord]
+        pixel_list.append(pixel)
+
+    ####Turn pix list into english list
+    color_tan=[196,193,173]
+    color_black=[37,36,31]
+    color_white=[190,196,193]
+    english_list=[]
+    for pixel in pixel_list:
+        if pixel_is_equal(pixel,color_white,tol=40):
+            english_list.append("white")
+        else: english_list.append("black")
+            
+    ####Remove dupes in english list
+    short_english_list=[]
+    for color in english_list:
+        if short_english_list==[]:
+            short_english_list.append(color)
+        else:
+            if short_english_list[-1] != color:
+                short_english_list.append(color)
+                
+    ####count whites
+    white_count=0
+    for color in short_english_list:
+        if color == "white":white_count=white_count+1
+            
+    return white_count-2
+
+
 
 def count_digits():
     # region = [896, 126, 115, 47]
     image = screenshot()
 
     color_list = get_color_list_of_current_price(image)
-    
-
-
     spliced_color_list=splice_color_list_for_count_digits(color_list=color_list)
     
     tan_count=0
@@ -59,7 +93,8 @@ def count_digits():
             tan_count=tan_count+1
     
     return tan_count-1
-    
+
+
 
 def splice_color_list_for_count_digits(color_list):
     returnPixlist=[None]
@@ -221,14 +256,19 @@ def check_first_price(logger):
     detected_price = prices[1]
     # compare against digit count
     digit_counter_count = count_digits()
+    digit_counter_count2 = count_digits2()
     image_rec_count = len(str(detected_price))
-    if (post_price is None) or (image_rec_count != digit_counter_count):
-        logger.log(f"Error with digit check. \n Tried to post at {post_price} but found {digit_counter_count} digits.")
-        return False
-
-    if post_price is None:
-        logger.log("Problem getting post_price. Returning false for price.")
-        return False
+    #checks
+    if post_price is None: 
+        logger.log("Price read failed. Skipping")
+        return
+    
+    if image_rec_count != digit_counter_count:
+        logger.log("Image rec price read failed digit check #1")
+        
+    if image_rec_count != digit_counter_count2:
+        logger.log("Image rec price read failed digit check #2")
+    
 
     logger.log(f"Found price: {post_price}")
     return post_price
