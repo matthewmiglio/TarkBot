@@ -7,7 +7,7 @@ import PySimpleGUI as sg
 
 from pytarkbot.client import intro_printout, orientate_terminal
 from pytarkbot.configuration import load_user_config
-from pytarkbot.flee import (get_price_text,
+from pytarkbot.flee import (get_price_2, get_price_text,
                             get_price_undercut, get_to_flee_tab,
                             get_to_flee_tab_from_my_offers_tab,
                             get_to_my_offers_tab, open_add_offer_tab,
@@ -143,8 +143,8 @@ def state_flea_mode():
         #get/check price
         logger.log("Doing price check.")
         logger.add_flea_sale_attempt()
-        detected_price = splice_price_text(logger,get_price_text())
-        if detected_price!="fail":
+        detected_price = get_price_2()
+        if detected_price != None:
             logger.log(f"Price of {detected_price} passed check.")
 
             #get undercut
@@ -254,7 +254,6 @@ def main():
         [sg.Text(out_text)],
         [sg.Radio('Flea mode', "RADIO1", default=False, key="-IN2-")],
         [sg.Radio('Hideout mode', "RADIO1", default=True, key="-IN3-")],
-        [sg.Checkbox('Flea items', default=False, key="-flea_items_in-")],
         [
         sg.Text('Select which stations to farm:'),
         sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),

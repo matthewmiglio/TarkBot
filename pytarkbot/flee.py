@@ -1,5 +1,6 @@
 
 
+
 import random
 import time
 
@@ -41,7 +42,46 @@ def get_color_list_of_current_price(image):
             english_color_list.append(None)
             
     return english_color_list
+     
         
+def count_digits3():
+    #show_image(screenshot([900,147,100,6]))
+    #show_image(screenshot())
+    
+    iar=numpy.asarray(screenshot())
+    
+    ####get pix list from (900,150) -> (1000,150)
+    pixel_list=[]
+    y_coord=151
+    for x_coord in range(900,1000):
+        pixel=iar[y_coord][x_coord]
+        pixel_list.append(pixel)
+    
+    ####Turn pix list into english list
+    color_white=[190,196,193]
+    english_list=[]
+    for pixel in pixel_list:
+        if pixel_is_equal(pixel,color_white,tol=40):
+            english_list.append("white")
+        else: english_list.append("black")
+            
+    ####Remove dupes in english list
+    short_english_list=[]
+    for color in english_list:
+        if short_english_list==[]:
+            short_english_list.append(color)
+        else:
+            if short_english_list[-1] != color:
+                short_english_list.append(color)
+                
+    ####count whites
+    white_count=0
+    for color in short_english_list:
+        if color == "white":white_count=white_count+1
+            
+    return white_count-1
+    
+              
 def count_digits2():
     ####get pix list of pixels from (900,141) -> (1000,141)
     pixel_list=[]
@@ -79,7 +119,6 @@ def count_digits2():
     return white_count-2
 
 
-
 def count_digits():
     # region = [896, 126, 115, 47]
     image = screenshot()
@@ -93,7 +132,6 @@ def count_digits():
             tan_count=tan_count+1
     
     return tan_count-1
-
 
 
 def splice_color_list_for_count_digits(color_list):
@@ -226,8 +264,6 @@ def find_coords_of_item_to_flee():
             return coord
         
     
-
-
 def check_first_price(logger):
     # get avg pixel across left side
     region = [904, 135, 1, 26]
@@ -497,24 +533,13 @@ def orientate_add_offer_window(logger):
 
 
 def check_add_offer_window_orientation():
-    iar = numpy.asarray(screenshot())
-
-    white_pix_list=[]
-    white_pix_list.append(iar[471][14])
-    white_pix_list.append(iar[469][35])
-    white_pix_list.append(iar[469][52])
-    white_pix_list.append(iar[469][23])
-    white_pix_list.append(iar[468][41])
-    white_pix_list.append(iar[470][58])
-
-    for pix in white_pix_list:
-        sentinel=[133,141,145]
-        if not(pixel_is_equal(pix,sentinel,tol=50)): return False
+    coords=find_add_offer_window()
+    if coords is None: return False
+    value1=abs(coords[0] - 20)
+    value2=abs(coords[1] - 471)
+    if (value1>3)or(value2>3): return False
     return True
-
     
-    
-
 
 def find_add_requirement_window():
     check_quit_key_press()
@@ -567,26 +592,12 @@ def orientate_add_requirement_window(logger):
 
 
 def check_add_requirement_window_orientation():
-    iar = numpy.asarray(screenshot())
-
-    pix1 = iar[476][1009]
-    pix3 = iar[473][1021]
-    pix4 = iar[476][1030]
-
-    pix5 = iar[475][1027]
-    pix6 = iar[476][1006]
-    pix7 = iar[475][1100]
-    pix8 = iar[476][1126]
-
-    if not(pixel_is_equal(pix1,[130 ,138 ,142],tol=15)): return False
-    if not(pixel_is_equal(pix3,[162 ,171 ,177],tol=15)): return False
-    if not(pixel_is_equal(pix4,[116 ,122, 125],tol=15)): return False
-    
-    if not(pixel_is_equal(pix5,[25 ,27 ,27],tol=15)): return False
-    if not(pixel_is_equal(pix6,[25 ,27, 27],tol=15)): return False
-    if not(pixel_is_equal(pix7,[25, 27 ,27],tol=15)): return False
-    if not(pixel_is_equal(pix8,[25, 27, 27],tol=15)): return False
-    
+    coords=find_add_requirement_window()
+    #print(coords)
+    if coords is None: return False
+    value1=abs(coords[0] - 1008)
+    value2=abs(coords[1] - 471)
+    if (value1>3)or(value2>3): return False
     return True
 
 
@@ -752,25 +763,13 @@ def find_filters_window():
 
 
 def check_filters_window_orientation():
-    iar = numpy.asarray(screenshot())
-
-    white_pix_list=[]
-    white_pix_list.append(iar[40][19])
-    white_pix_list.append(iar[25][36])
-    white_pix_list.append(iar[37][31])
-    white_pix_list.append(iar[37][35])
-    white_pix_list.append(iar[37][45])
-    white_pix_list.append(iar[37][51])
-    white_pix_list.append(iar[35][57])
-    white_pix_list.append(iar[36][25])
-    white_pix_list.append(iar[36][45])
-    
-    for pix in white_pix_list:
-        sentinel=[160,175,180]
-        if not(pixel_is_equal(pix,sentinel,tol=100)):
-            return False
+    coords=find_filters_window()
+    #print(coords)
+    if coords is None: return False
+    value1=abs(coords[0] - 24)
+    value2=abs(coords[1] - 35)
+    if (value1>3)or(value2>3): return False
     return True
-
 
 
 def orientate_filters_window(logger):
@@ -979,6 +978,7 @@ def get_price_text():
     
     return text
     
+    
 def splice_price_text(logger,price_text):
     out_string=""
     for digit in price_text:
@@ -989,6 +989,334 @@ def splice_price_text(logger,price_text):
         return "fail"
     return out_string
 
+
+def get_price_2():
+    #returns digits and the significant figures of the price
+    digit_ch_1=count_digits()
+    digit_ch_2=count_digits2()
+    digit_ch_3=count_digits2()
+    
+    
+    if not((digit_ch_1==digit_ch_2)and(digit_ch_2==digit_ch_3)):
+        print("Failed digit checking. Returning.")
+        return
+
+    
+    digits=digit_ch_1
+    
+    print("Digits: ",digits)
+    if (digits ==0)or(digits ==1)or(digits ==2)or(digits is None):
+        print("Digits are too low. Returning.")
+        return
+    if digits == 3: 
+        image=screenshot([928,137,10,16])
+        num=get_number_from_image(image)
+        if num is None: return None
+        num=num+"50"
+    if digits == 4: 
+        image=screenshot([918,138,16,16])
+        #show_image(image)
+        num=get_number_from_image(image)
+        if num is None: return None
+        num=num+"500"  
+    if digits == 5: 
+        image_1=screenshot([916,137,12,18])
+        image_2=screenshot([926,137,12,18])
+        # show_image(image_1)
+        # show_image(image_2)
+        digit1=get_number_from_image(image_1)
+        digit2=get_number_from_image(image_2)
+        #print(digit1,digit2)
+        if (digit1 is None)or(digit2 is None):
+            print("One of the digits is empty")
+            return
+        num=digit1+digit2+"500"
+    if digits == 6: 
+        image1=screenshot([909,139,11,14])
+        image2=screenshot([918,139,11,14])
+        image3=screenshot([928,139,11,14])
+        # show_image(image1)
+        # show_image(image2)
+        #show_image(image3)
+        digit1=get_number_from_image(image1)
+        digit2=get_number_from_image(image2)
+        digit3=get_number_from_image(image3)
+        print(digit1,"|",digit2,"|",digit3)
+        if (digit1 is None)or(digit2 is None)or(digit3 is None):
+            print("One of the digits is empty. Returning")
+            return
+        num=digit1+digit2+digit3+"500"
+        
+
+    return num
+
+
+def get_number_from_image(image):
+    if check_for_1_in_image(image): return "1"
+    if check_for_2_in_image(image): return "2"
+    if check_for_3_in_image(image): return "3"
+    if check_for_4_in_image(image): return "4"
+    if check_for_5_in_image(image): return "5"
+    if check_for_6_in_image(image): return "6"
+    if check_for_7_in_image(image): return "7"
+    if check_for_8_in_image(image): return "8"
+    if check_for_9_in_image(image): return "9"
+    if check_for_0_in_image(image): return "0"
+    
+    return None
+
+
+def check_for_1_in_image(current_image):
+    reference_folder = "check_for_1_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_2_in_image(current_image):
+    reference_folder = "check_for_2_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+        "10.png",
+        "11.png",
+        
+        
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_3_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_3_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",   
+        "6.png",   
+        "7.png",   
+        "8.png",   
+        "9.png",   
+        "10.png",  
+        "11.png",  
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_4_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_4_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",   
+        "6.png",   
+        "7.png", 
+        "8.png", 
+        "9.png", 
+        "10.png", 
+        "11.png", 
+        
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_5_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_5_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",   
+        "6.png",   
+        "7.png",   
+        "8.png",   
+        
+        
+         
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_6_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_6_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",  
+        "5.png",  
+        "6.png",  
+        "7.png", 
+        "8.png", 
+        "9.png", 
+        "10.png", 
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_7_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_7_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",  
+        "5.png",  
+        "6.png",  
+        "7.png",
+        "8.png",
+        "9.png",
+        "10.png",
+        "11.png",
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_8_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_8_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",  
+        "5.png",  
+        "6.png",  
+        "7.png",
+        "8.png",
+        "9.png",
+        "10.png",
+        
+        
+         
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_9_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_9_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",  
+        "5.png",  
+        "6.png",  
+        
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
+
+
+def check_for_0_in_image(current_image):
+    #show_image(current_image)
+    reference_folder = "check_for_0_in_image"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        
+    ]
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return check_for_location(locations)
 
 
 
