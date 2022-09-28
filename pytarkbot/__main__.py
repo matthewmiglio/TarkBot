@@ -30,11 +30,28 @@ logger = Logger()
 setup_tesseract()
 
 
+def snipe_flea_mode():
+    state = "intro"
+    while True:
+        if state == "intro":
+            state_intro()
+            state = "flee_mode"
+
+        if state == "restart":
+            state_restart()
+            state = "snipe_mode"
+
+        if state=="snipe_mode":
+            state=state_snipe_mode()
+            
+
+def state_snipe_mode():
+    pass
+    
+
 
 def flea_items_main():
-
     state = "intro"
-
     while True:
         if state == "intro":
             state_intro()
