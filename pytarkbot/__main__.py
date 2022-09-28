@@ -323,6 +323,11 @@ def main():
                 window.close()
                 logger.log("\n\nStarting flea snipe mode.\n")
                 snipe_flea_mode()
+            # if Flea mode checkbox is checked, run the Flea mode main
+            if values["-IN2-"]:
+                window.close()
+                logger.log("\n\nStarting flea snipe mode.\n")
+                flea_items_main()
 
 
         if event == 'Help':
