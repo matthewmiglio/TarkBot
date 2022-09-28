@@ -1,3 +1,4 @@
+import numpy
 import subprocess
 import sys
 import time
@@ -10,52 +11,30 @@ import pyautogui
 
 
 def check_if_on_tark_main(logger):
-    current_image = screenshot()
-    reference_folder = "tark_main_menu"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-    ]
+    iar=numpy.asarray(screenshot())
+    pix_list=[]
+    pix_list.append(iar[613][762])
+    pix_list.append(iar[616][926])
+    pix_list.append(iar[611][294])
+    pix_list.append(iar[618][769])
+    pix_list.append(iar[651][427])
+    pix_list.append(iar[615][1010])
+    pix_list.append(iar[648][290])
+    
 
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99
-    )
-
-    truth = check_for_location(locations)
-    if truth:
-        logger.log("On Tark main.")
-    return truth
-
+    for pix in pix_list:
+        if not pixel_is_equal(pix,[175,90,50],tol=100):
+            return False
+    return True
 
 def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main(logger)
     loops = 0
     while not (on_main):
-        #top
-        pyautogui.moveTo(250,250,duration=0.22)
-        #left
-        pyautogui.moveTo(125,330,duration=0.22)
-        #bottom
-        pyautogui.moveTo(250,500,duration=0.22)
-        #right
-        pyautogui.moveTo(330,330,duration=0.22)
-
         check_quit_key_press()
         logger.log(f"Waiting for tark main {loops}")
         loops = loops + 2
-
+        time.sleep(2)
         on_main = check_if_on_tark_main(logger)
         if loops > 120:
             return "restart"

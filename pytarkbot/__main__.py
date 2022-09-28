@@ -32,7 +32,6 @@ setup_tesseract()
 
 
 def flea_items_main():
-
     state = "intro"
 
     while True:
@@ -242,7 +241,7 @@ def main():
     out_text=out_text+"-Python Tarkov bot - Matthew Miglio ~Aug 2022\n\n"
     out_text=out_text+"-HOLDING SPACE TERMINATES THE PROGRAM\n\n"
     out_text=out_text+"-Make sure launcher path is specified at appdata/roaming/py-tarkBot/config.json\n\n"
-    out_text=out_text+"-Manually set your tarkov client to windowed at a resolution close to but under 1280x960 (~1150x900?) idk it helps prevent an error.\n"
+    out_text=out_text+"-You MUST manually set tarkov to windowed and 4:3 BEFORE running the bot.\n"
 
 
 
