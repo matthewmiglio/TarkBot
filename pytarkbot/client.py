@@ -40,7 +40,7 @@ def orientate_tarkov_client(title, logger):
     resize_window(window_name=title,resize=resize)
 
     #move window to top left
-    move_tarkov_client_to_topleft()
+    move_window_to_top_left("EscapeFromTarkov")
     time.sleep(1)
 
 
@@ -54,6 +54,12 @@ def move_tarkov_client_to_topleft():
         time.sleep(0.33)
         pyautogui.dragTo(33,6,duration=1)
     print("Done moving tark window.")
+
+
+def move_window_to_top_left(window_name):
+    window = pyautogui.getWindowsWithTitle(window_name)[0]
+    window.moveTo(0, 0)
+
 
 
 def orientate_launcher():
@@ -79,17 +85,50 @@ def orientate_terminal():
         terminal_window.minimize()
         terminal_window.restore()
 
-        #resize according to monitor width
+        #resize according to monitor size
         monitor_width=get_screen_resolution()[0]
+        moitor_height=get_screen_resolution()[1]
+        
         terminal_width=monitor_width-1290
-        terminal_window.resizeTo(terminal_width, 350)
+        terminal_height=moitor_height-100
+        
+        
+        terminal_window.resizeTo(terminal_width, terminal_height)
 
         #move window
         terminal_window.moveTo(970,5)
+        time.sleep(0.33)
 
         terminal_window.moveTo(1285, 5)
+        time.sleep(0.33)
     except BaseException:
-        print("Couldn't orientate terminal.")
+        print("Couldn't orientate terminal using name 'pytarkbot'")
+
+    try:
+        terminal_window = pygetwindow.getWindowsWithTitle(
+            "__main__.py")[0]
+        terminal_window.minimize()
+        terminal_window.restore()
+
+        #resize according to monitor size
+        monitor_width=get_screen_resolution()[0]
+        moitor_height=get_screen_resolution()[1]
+        
+        terminal_width=monitor_width-1290
+        terminal_height=moitor_height-100
+        
+        
+        terminal_window.resizeTo(terminal_width, terminal_height)
+
+        #move window
+        terminal_window.moveTo(970,5)
+        time.sleep(0.33)
+
+        terminal_window.moveTo(1285, 5)
+        time.sleep(0.33)
+    except BaseException:
+        print("Couldn't orientate terminal using name '__main__.py'")
+
 
 
 def combine_duplicate_coords(coords_list, tolerance=5):
