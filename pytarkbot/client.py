@@ -502,5 +502,10 @@ def img_to_txt_single_char(image):
     return pytesseract.image_to_string(image , config="--psm 10") 
 
 
-
+def smooth_click(x_coord,y_coord,button='left',duration=0.33):
+    pyautogui.moveTo(x_coord,y_coord,duration=0.33)
+    time.sleep(0.1)
+    pyautogui.click(button=button)
+    time.sleep(0.1)
+    
 

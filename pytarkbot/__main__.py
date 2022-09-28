@@ -154,6 +154,7 @@ def state_flea_mode():
             post_item(logger,undercut_price)
         logger.add_flea_sale_attempt()
 
+
 def state_restart():
     blank_line = "////////////////////////////////////////////////////"
     for _ in range(5): logger.log(blank_line)
