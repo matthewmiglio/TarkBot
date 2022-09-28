@@ -13,7 +13,7 @@ from pytarkbot.flee import (get_price_2, get_price_text,
                             get_to_my_offers_tab, open_add_offer_tab,
                             orientate_add_offer_window, post_item,
                             remove_offers, select_random_item_to_flee,
-                            set_flea_filters, splice_price_text,
+                            set_flea_filters, snipe_dorm_marked_key, splice_price_text,
                             wait_till_can_add_another_offer)
 from pytarkbot.hideout import manage_hideout
 from pytarkbot.launcher import restart_tarkov
@@ -35,19 +35,19 @@ def snipe_flea_mode():
     while True:
         if state == "intro":
             state_intro()
-            state = "flee_mode"
+            state = "snipe_mode"
 
         if state == "restart":
             state_restart()
             state = "snipe_mode"
 
         if state=="snipe_mode":
-            state=state_snipe_mode()
+            if snipe_dorm_marked_key(logger)=="restart": state="restart"
+    
             
 
-def state_snipe_mode():
-    pass
-    
+  
+
 
 
 def flea_items_main():
@@ -272,6 +272,8 @@ def main():
         [sg.Text(out_text)],
         [sg.Radio('Flea mode', "RADIO1", default=True, key="-IN2-")],
         [sg.Radio('Hideout mode', "RADIO1", default=False, key="-IN3-")],
+        [sg.Radio('Flea Snipe Mode', "RADIO1", default=False, key="-IN4-")],
+        
         [
         sg.Text('Select which stations to farm:'),
         sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),
@@ -296,8 +298,6 @@ def main():
             break
         # if gui sees start press then start bot
         if event == 'Start':
-
-
             # if hideout management checkbox is checked, run the hideout
             # management main
             if values["-IN3-"]:
@@ -318,11 +318,12 @@ def main():
 
                 hideout_management_main(crafts_to_farm)
 
-            # if flea items checkbox is checked, run the flea items main
-            if values["-IN2-"]:
+            # if snipe flea items checkbox is checked, run the snipe flea items main
+            if values["-IN4-"]:
                 window.close()
-                logger.log("\n\nStarting flea items mode.\n")
-                flea_items_main()
+                logger.log("\n\nStarting flea snipe mode.\n")
+                snipe_flea_mode()
+
 
         if event == 'Help':
             show_help_gui()

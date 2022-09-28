@@ -409,6 +409,9 @@ def find_fbi_button():
     return get_first_location(locations)
 
 
+
+
+
 def get_to_flee_tab(logger):
     on_flee = check_if_on_flee_page()
     loops = 0
@@ -848,6 +851,7 @@ def check_for_post_confirmation_popup():
 
 
 def handle_post_confirmation_popup(logger):
+    check_quit_key_press()
     if check_for_post_confirmation_popup():
         logger.log("Handling post confirmation popup")
         pyautogui.click(50,50)
@@ -879,6 +883,7 @@ def check_for_purchase_confirmation_popup():
 
 
 def handle_purchase_confirmation_popup(logger):
+    check_quit_key_press()
     if check_for_purchase_confirmation_popup():
         logger.log("Handling purchase confirmation popup")
         pyautogui.click(50, 50)
@@ -888,6 +893,7 @@ def handle_purchase_confirmation_popup(logger):
 
 
 def check_if_on_my_offers_tab():
+    check_quit_key_press()
     iar = numpy.asarray(screenshot())
 
     pix1 = iar[77][255]
@@ -906,6 +912,7 @@ def check_if_on_my_offers_tab():
 
 
 def get_to_my_offers_tab(logger):
+    check_quit_key_press()
     on_offers_tab = check_if_on_my_offers_tab()
 
     loops = 0
@@ -921,6 +928,7 @@ def get_to_my_offers_tab(logger):
 
 
 def remove_offers(logger):
+    check_quit_key_press()
     # starts on my offers tab
     # removes all your offers that you've posted. Usually all of them.
 
@@ -1298,6 +1306,7 @@ def check_for_9_in_image(current_image):
 
 
 def check_for_0_in_image(current_image):
+    check_quit_key_press()
     #show_image(current_image)
     reference_folder = "check_for_0_in_image"
     references = [
@@ -1321,10 +1330,128 @@ def check_for_0_in_image(current_image):
     return check_for_location(locations)
 
 
+def snipe_dorm_marked_key(logger):
+    check_quit_key_press()
+    logger.log("Sniping dorm marked key")
+    time.sleep(1)
+    
+    #get to flea tab
+    logger.log("Getting to flea")
+    get_to_flee_tab(logger)
+    time.sleep(1)
+    
+    #get to wishlist tab
+    get_to_wishlist()
+    time.sleep(3)
+    
+    #click dorm room 314 in wishlist list
+    check_quit_key_press()
+    logger.log("Selecting dorm room 314 in wishlist")
+    coord=find_dorm_room_314_in_wishlist()
+    if coord is None: return "restart"
+    pyautogui.moveTo(coord[1],coord[0],duration=0.33)
+    pyautogui.click()
+    time.sleep(1)
+
+    #open filters tab
+    logger.log("Setting filters for dorm marked key snipe")
+    open_filters_window(logger)
+    time.sleep(1)
+    
+    #reset filters then reopen filter window
+    check_quit_key_press()
+    check_quit_key_press()
+    logger.log("Resetting filters")
+    pyautogui.moveTo(186,275)
+    pyautogui.click()
+    time.sleep(0.5)
+    open_filters_window(logger)
+    
+    
+    logger.log("Setting filters for dorm marked key snipe")
+    #open currency filter
+    check_quit_key_press()
+    pyautogui.moveTo(121,61)
+    pyautogui.click()
+    time.sleep(0.5)
+    
+    #set to roubles
+    check_quit_key_press()
+    pyautogui.moveTo(114,99)
+    pyautogui.click()
+    time.sleep(0.5)
+    
+    #set price limit of 500k
+    check_quit_key_press()
+    pyautogui.moveTo(222,82)
+    pyautogui.click()
+    time.sleep(0.5)
+    pyautogui.write("500000")
+    time.sleep(0.5)
+
+    #click OK
+    check_quit_key_press()
+    pyautogui.moveTo(88,272)
+    pyautogui.click()
+    time.sleep(3)
+    logger.log("Done applying filters.")
+    
+    #if has offer, buy it
+    if check_if_has_offer(): 
+        logger.log("Found offer, buying")
+        purchase_first_offer()
+    else:
+        logger.log("No offers found")
 
 
+def get_to_wishlist():
+    check_quit_key_press()
+    pyautogui.moveTo(164,85)
+    pyautogui.click()
+    time.sleep(0.5)
+    
+    
+def find_dorm_room_314_in_wishlist():
+    check_quit_key_press()
+    current_image = screenshot()
+    reference_folder = "find_dorm_room_314_in_wishlist"
+    references = [
+        "1.png",
+        "2.png",
+        "3.png",
+        "4.png",
+        "5.png",
+    ]
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99
+    )
+    return get_first_location(locations)
 
 
-
-
-
+def check_if_has_offer():
+    check_quit_key_press()
+    iar=numpy.asarray(screenshot())
+    pix_list=[
+        iar[134][605],
+        iar[164][623],
+        iar[139][626],
+        iar[161][603],
+    ]
+    sentinel=[70,70,50]
+    for pix in pix_list:
+        if not(pixel_is_equal(pix,sentinel,tol=50)):
+            return True
+    return False
+    
+    
+def purchase_first_offer():
+    check_quit_key_press()
+    pyautogui.moveTo(1193,150)
+    pyautogui.click()
+    time.sleep(0.5)
+    
+    pyautogui.press('y')
+    time.sleep(0.5)
