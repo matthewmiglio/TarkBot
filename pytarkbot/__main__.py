@@ -31,8 +31,11 @@ setup_tesseract()
 
 
 def snipe_flea_mode():
+    state_flea_snip_loops=0
     state = "intro"
     while True:
+        state_flea_snip_loops=state_flea_snip_loops+1
+        logger.log(f"Snipe flea mode iteration: {state_flea_snip_loops}")
         if state == "intro":
             state_intro()
             state = "snipe_mode"
@@ -44,11 +47,6 @@ def snipe_flea_mode():
         if state=="snipe_mode":
             if snipe_dorm_marked_key(logger)=="restart": state="restart"
     
-            
-
-  
-
-
 
 def flea_items_main():
     state = "intro"
@@ -261,10 +259,6 @@ def main():
     out_text=out_text+"-HOLDING SPACE TERMINATES THE PROGRAM\n\n"
     out_text=out_text+"-Make sure launcher path is specified at appdata/roaming/py-tarkBot/config.json\n\n"
     out_text=out_text+"-You MUST manually set tarkov to windowed and 4:3 BEFORE running the bot.\n"
-
-
-
-
 
     sg.theme('Material2')
     # defining various things that r gonna be in the gui.

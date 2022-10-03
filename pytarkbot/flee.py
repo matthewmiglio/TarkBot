@@ -1341,6 +1341,7 @@ def snipe_dorm_marked_key(logger):
     time.sleep(1)
     
     #get to wishlist tab
+    logger.log("Getting to wishlist")
     get_to_wishlist()
     time.sleep(3)
     
@@ -1348,8 +1349,11 @@ def snipe_dorm_marked_key(logger):
     check_quit_key_press()
     logger.log("Selecting dorm room 314 in wishlist")
     coord=find_dorm_room_314_in_wishlist()
-    if coord is None: return "restart"
-    pyautogui.moveTo(coord[1],coord[0],duration=0.33)
+    time.sleep(1)
+    if coord is None: 
+        logger.log("Dorm room 314 not found in wishlist")
+        return "restart"
+    pyautogui.moveTo(coord[0],coord[1],duration=0.33)
     pyautogui.click()
     time.sleep(1)
 
@@ -1366,6 +1370,10 @@ def snipe_dorm_marked_key(logger):
     pyautogui.click()
     time.sleep(0.5)
     open_filters_window(logger)
+    
+    time.sleep(2)
+    pyautogui.press('f5')
+    time.sleep(2)
     
     
     logger.log("Setting filters for dorm marked key snipe")
@@ -1402,6 +1410,11 @@ def snipe_dorm_marked_key(logger):
         purchase_first_offer()
     else:
         logger.log("No offers found")
+        
+    click(100,200)
+    time.sleep(1)
+    
+    logger.log("Flea snipe rotation complete")
 
 
 def get_to_wishlist():
@@ -1413,7 +1426,8 @@ def get_to_wishlist():
     
 def find_dorm_room_314_in_wishlist():
     check_quit_key_press()
-    current_image = screenshot()
+    
+    current_image = screenshot(region=[39,121,400,600])
     reference_folder = "find_dorm_room_314_in_wishlist"
     references = [
         "1.png",
@@ -1421,6 +1435,14 @@ def find_dorm_room_314_in_wishlist():
         "3.png",
         "4.png",
         "5.png",
+        "6.png",
+        "7.png",
+        "8.png",
+        "9.png",
+        "10.png",
+        "11.png",
+        "12.png",
+        
     ]
     locations = find_references(
         screenshot=current_image,
@@ -1428,7 +1450,12 @@ def find_dorm_room_314_in_wishlist():
         names=references,
         tolerance=0.99
     )
-    return get_first_location(locations)
+    coord= get_first_location(locations)
+    if coord is None: return None
+    
+    coord = [coord[1]+39,coord[0]+121]
+    return coord
+
 
 
 def check_if_has_offer():
