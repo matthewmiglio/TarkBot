@@ -1394,7 +1394,7 @@ def snipe_dorm_marked_key(logger):
     pyautogui.moveTo(222,82)
     pyautogui.click()
     time.sleep(0.5)
-    pyautogui.write("500000")
+    pyautogui.write("1000000")
     time.sleep(0.5)
 
     #click OK
