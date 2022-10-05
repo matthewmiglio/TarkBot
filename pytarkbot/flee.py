@@ -1408,6 +1408,7 @@ def snipe_dorm_marked_key(logger):
     if check_if_has_offer(): 
         logger.log("Found offer, buying")
         purchase_first_offer()
+        logger.add_snipe()
     else:
         logger.log("No offers found")
         
