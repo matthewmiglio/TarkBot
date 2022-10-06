@@ -15,7 +15,7 @@ class Logger:
         self.item_sold = 0
         self.crafts_completed = 0
         self.hideout_rotations = 0
-        self.snipes = 0
+
 
 
     def make_timestamp(self):
@@ -47,10 +47,9 @@ class Logger:
         hideout_rotations_str = str(
             self.hideout_rotations) + " hideout rotations"
         flea_success_str = str(self.make_flea_success_rate()) + "%" + " success rate fleaing items"
-        snipes_str=str(self.snipes)+" snipes"
-
+   
         gap_str = "|"
-        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + flea_success_str + gap_str + snipes_str + gap_str
+        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + flea_success_str + gap_str
 
     def convert_int_to_time(self, seconds):
         """convert epoch to time
@@ -102,5 +101,3 @@ class Logger:
     def add_flea_sale_attempt(self):
         self.sale_attempts = self.sale_attempts + 1
         
-    def add_snipe(self):
-        self.snipes = self.snipes + 1

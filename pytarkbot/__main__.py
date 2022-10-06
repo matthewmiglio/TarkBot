@@ -7,14 +7,13 @@ import PySimpleGUI as sg
 
 from pytarkbot.client import intro_printout, orientate_terminal
 from pytarkbot.configuration import load_user_config
-from pytarkbot.flee import (get_price_2, get_price_text,
-                            get_price_undercut, get_to_flee_tab,
+from pytarkbot.flee import (get_price_2, get_price_text, get_price_undercut,
+                            get_to_flee_tab,
                             get_to_flee_tab_from_my_offers_tab,
                             get_to_my_offers_tab, open_add_offer_tab,
                             orientate_add_offer_window, post_item,
                             remove_offers, select_random_item_to_flee,
-                            set_flea_filters, snipe_dorm_marked_key, splice_price_text,
-                            wait_till_can_add_another_offer)
+                            set_flea_filters, wait_till_can_add_another_offer)
 from pytarkbot.hideout import manage_hideout
 from pytarkbot.launcher import restart_tarkov
 from pytarkbot.logger import Logger
@@ -29,24 +28,6 @@ pyautogui.FAILSAFE = False
 logger = Logger()
 setup_tesseract()
 
-
-def snipe_flea_mode():
-    state_flea_snip_loops=0
-    state = "intro"
-    while True:
-        state_flea_snip_loops=state_flea_snip_loops+1
-        logger.log(f"Snipe flea mode iteration: {state_flea_snip_loops}")
-        if state == "intro":
-            state_intro()
-            state = "snipe_mode"
-
-        if state == "restart":
-            state_restart()
-            state = "snipe_mode"
-
-        if state=="snipe_mode":
-            if snipe_dorm_marked_key(logger)=="restart": state="restart"
-    
 
 def flea_items_main():
     state = "intro"
@@ -266,8 +247,6 @@ def main():
         [sg.Text(out_text)],
         [sg.Radio('Flea mode', "RADIO1", default=True, key="-IN2-")],
         [sg.Radio('Hideout mode', "RADIO1", default=False, key="-IN3-")],
-        [sg.Radio('Flea Snipe Mode', "RADIO1", default=False, key="-IN4-")],
-        
         [
         sg.Text('Select which stations to farm:'),
         sg.Checkbox('Workbench crafts', default=True, key="-workbench_crafts_in-"),
@@ -312,11 +291,7 @@ def main():
 
                 hideout_management_main(crafts_to_farm)
 
-            # if snipe flea items checkbox is checked, run the snipe flea items main
-            if values["-IN4-"]:
-                window.close()
-                logger.log("\n\nStarting flea snipe mode.\n")
-                snipe_flea_mode()
+
             # if Flea mode checkbox is checked, run the Flea mode main
             if values["-IN2-"]:
                 window.close()
