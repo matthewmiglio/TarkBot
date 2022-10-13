@@ -68,10 +68,12 @@ def restart_tarkov(logger, launcher_path):
     check_quit_key_press()
     if len(tark_window) != 0:
         close_tarkov_client(logger, tark_window)
+        time.sleep(5)
 
     # if launcher open
     if len(tark_launcher) != 0:
         close_launcher(logger, tark_launcher)
+        time.sleep(5)
 
     # open tark launcher
     check_quit_key_press()
