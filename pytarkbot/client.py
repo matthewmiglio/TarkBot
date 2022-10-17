@@ -1,9 +1,8 @@
 
 import sys
 import time
-
 from os import environ
-
+from os.path import dirname, join
 
 import keyboard
 import numpy
@@ -14,12 +13,10 @@ import win32com.client as win32
 import win32gui
 from matplotlib import pyplot as plt
 from PIL import Image
-from pywinauto.findwindows import find_window
 from screeninfo import get_monitors
 
-from pytarkbot.image_rec import (coords_is_equal,
-                                 find_references, get_first_location,
-                                 pixel_is_equal)
+from pytarkbot.image_rec import (coords_is_equal, find_references,
+                                 get_first_location, pixel_is_equal)
 
 
 def intro_printout(logger):
@@ -88,11 +85,11 @@ def orientate_terminal():
         #resize according to monitor size
         monitor_width=get_screen_resolution()[0]
         moitor_height=get_screen_resolution()[1]
-        
+
         terminal_width=monitor_width-1290
         terminal_height=moitor_height-100
-        
-        
+
+
         terminal_window.resizeTo(terminal_width, terminal_height)
 
         #move window
@@ -113,11 +110,11 @@ def orientate_terminal():
         #resize according to monitor size
         monitor_width=get_screen_resolution()[0]
         moitor_height=get_screen_resolution()[1]
-        
+
         terminal_width=monitor_width-1290
         terminal_height=moitor_height-100
-        
-        
+
+
         terminal_window.resizeTo(terminal_width, terminal_height)
 
         #move window
@@ -139,10 +136,8 @@ def combine_duplicate_coords(coords_list, tolerance=5):
 
     # loop vars
     total_coords_in_list = len(coords_list)
-    index = 0
-
     # loop through every coord in coords_list
-    while index < total_coords_in_list:
+    for index in range(total_coords_in_list):
         # get current coord
         current_coord = coords_list[index]
 
@@ -155,27 +150,19 @@ def combine_duplicate_coords(coords_list, tolerance=5):
                 tolerance=tolerance)):
             new_coords_list.append(current_coord)
 
-        # increment
-        index = index + 1
-
     return new_coords_list
 
 
 def check_if_coord_in_coord_list(coord, coord_list, tolerance=50):
-    # loop vars
-    index = 0
     total_coords_in_coords_list = len(coord_list)
 
-    while index < total_coords_in_coords_list:
+    for index in range(total_coords_in_coords_list):
         # get curent coord
         current_coord = coord_list[index]
 
         # compare current coord with coord in question
         if coords_is_equal(current_coord, coord, tol=tolerance):
             return True
-
-        # increment
-        index = index + 1
 
     # if we make it out of the loop without ever returning True then that
     # means the coord is unique
@@ -190,15 +177,11 @@ def find_all_pixel_coords(region, color, image=None, tol=15):
     coords_list = []
 
     # make image-as-array
-    if image is None:
-        iar = numpy.asarray(screenshot())
-    else:
-        iar = numpy.asarray(image)
-
+    iar = numpy.asarray(screenshot()) if image is None else numpy.asarray(image)
     x_coord = region[0]
-    while x_coord < (region[0] + region[2]):
+    while x_coord < x_coord + region[2]:
         y_coord = region[1]
-        while y_coord < (region[1] + region[3]):
+        while y_coord < y_coord + region[3]:
             # for each pixel in region
             iar_pix = iar[y_coord][x_coord]
             current_pix = [iar_pix[0], iar_pix[1], iar_pix[2]]
@@ -222,15 +205,11 @@ def find_all_pixel_colors(region, color, image=None):
     colors_list = []
 
     # make image-as-array
-    if image is None:
-        iar = numpy.asarray(screenshot())
-    else:
-        iar = numpy.asarray(image)
-
+    iar = numpy.asarray(screenshot()) if image is None else numpy.asarray(image)
     x_coord = region[0]
-    while x_coord < (region[0] + region[2]):
+    while x_coord < x_coord + region[2]:
         y_coord = region[1]
-        while y_coord < (region[1] + region[3]):
+        while y_coord < y_coord + region[3]:
             # for each pixel in region
             iar_pix = iar[y_coord][x_coord]
             current_pix = [iar_pix[0], iar_pix[1], iar_pix[2]]
@@ -244,24 +223,6 @@ def find_all_pixel_colors(region, color, image=None):
         x_coord = x_coord + 1
 
     return colors_list
-
-
-def img_to_txt(image):
-    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    config = ('-l eng --oem 3 --psm 9')
-    return pytesseract.image_to_string(image, config=config)
-
-
-def img_to_txt_numbers_only(image):
-    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
-    return pytesseract.image_to_string(image, config="digits --psm 9")
-
-
-def img_to_txt_single_char(image):
-    pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
-    return pytesseract.image_to_string(image , config="--psm 10")
 
 
 def show_image(image):
@@ -282,7 +243,7 @@ def string_to_chars_only(string):
         if element.isalpha():
             out_string=out_string+element
     return out_string
-            
+
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
     # move the mouse to the spot
@@ -293,7 +254,7 @@ def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
     while loops < clicks:
         check_quit_key_press()
         pyautogui.click(x=x, y=y, button=button)
-        loops = loops + 1
+        loops += 1
         time.sleep(interval)
 
 
@@ -321,7 +282,7 @@ def get_image(folder, name):
 
 def waiting_animation(time):
 
-    for _ in range(0,time):
+    for _ in range(time):
         pyautogui.moveTo(1270,271,duration=0.1)
         pyautogui.moveTo(1414,554,duration=0.1)
         pyautogui.moveTo(1737,603,duration=0.1)
@@ -353,12 +314,12 @@ def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
         y_coord = 0
         while y_coord < height:
             current_pixel = iar[y_coord][x_coord]
-            current_coord = [x_coord, y_coord]
             if not (pixel_is_equal(current_pixel, sentinel, tol=tol)):
+                current_coord = [x_coord, y_coord]
                 coords_list.append(current_coord)
 
-            y_coord = y_coord + 1
-        x_coord = x_coord + 1
+            y_coord += 1
+        x_coord += 1
 
     return coords_list
 
@@ -379,8 +340,8 @@ def find_all_pixels(region):
             current_pix = [current_pix[0], current_pix[1], current_pix[2]]
             pix_list.append(current_pix)
 
-            y_coord = y_coord + 1
-        x_coord = x_coord + 1
+            y_coord += 1
+        x_coord += 1
 
     return pix_list
 
@@ -392,22 +353,17 @@ def calculate_avg_pixel(pix_list):
     b_total = 0
     total_pixels = len(pix_list)
 
-    index = 0
-    while index < total_pixels:
+    for index in range(total_pixels):
         current_pix = pix_list[index]
         r_total = r_total + current_pix[0]
         g_total = g_total + current_pix[1]
         b_total = b_total + current_pix[2]
 
-        index = index + 1
-
     # make return pixel
     r_avg = int(r_total / total_pixels)
     g_avg = int(g_total / total_pixels)
     b_avg = int(b_total / total_pixels)
-    return_pix = [r_avg, g_avg, b_avg]
-
-    return return_pix
+    return [r_avg, g_avg, b_avg]
 
 
 def windowEnumerationHandler(hwnd, top_windows):
@@ -419,11 +375,7 @@ def get_window_size(window_name):
     top_windows = []  # all open windows
     win32gui.EnumWindows(windowEnumerationHandler, top_windows)
 
-    winlst = []  # windows to cycle through
-    for i in top_windows:  # all open windows
-        if i[1] == title:
-            winlst.append(i)
-
+    winlst = [i for i in top_windows if i[1] == title]
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys('%')  # Alt key,  send key
@@ -443,11 +395,7 @@ def resize_window(window_name,resize):
     top_windows = []  # all open windows
     win32gui.EnumWindows(windowEnumerationHandler, top_windows)
 
-    winlst = []  # windows to cycle through
-    for i in top_windows:  # all open windows
-        if i[1] == title:
-            winlst.append(i)
-
+    winlst = [i for i in top_windows if i[1] == title]
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys('%')  # Alt key,  send key
@@ -480,8 +428,7 @@ def find_eft_window():
         tolerance=0.99
     )
     coord= get_first_location(locations)
-    if coord is None: return None
-    return [coord[1],coord[0]]
+    return None if coord is None else [coord[1],coord[0]]
 
 
 def img_to_txt(image):
@@ -499,7 +446,7 @@ def img_to_txt_numbers_only(image):
 def img_to_txt_single_char(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
-    return pytesseract.image_to_string(image , config="--psm 10") 
+    return pytesseract.image_to_string(image , config="--psm 10")
 
 
 def smooth_click(x_coord,y_coord,button='left',duration=0.33):
@@ -507,5 +454,5 @@ def smooth_click(x_coord,y_coord,button='left',duration=0.33):
     time.sleep(0.1)
     pyautogui.click(button=button)
     time.sleep(0.1)
-    
+
 

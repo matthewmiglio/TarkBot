@@ -4,15 +4,10 @@ from os import makedirs
 from os.path import exists, expandvars, isdir, join
 from typing import Any
 
-top_level = join(expandvars(f'%appdata%'), "py-TarkBot")
+top_level = join(expandvars('%appdata%'), "py-TarkBot")
 config_file = join(top_level, 'config.json')
 
-default_config = {
-    # tarko launcher path
-    "launcher_path": (r"B:\BsgLauncher\BsgLauncher.exe"),
-    # tark graphics settings file path
-    "graphics_setting_path": join(expandvars(f"%appdata%"), "Battlestate", "Escape from Tarkov", "Settings", "Graphics.ini")
-}
+default_config = {"launcher_path": r"B:\BsgLauncher\BsgLauncher.exe", "graphics_setting_path": join(expandvars("%appdata%"), "Battlestate", "Escape from Tarkov", "Settings", "Graphics.ini")}
 
 
 def validate_keys(user_config: dict[str, Any]) -> dict[str, Any]:

@@ -19,6 +19,4 @@ def look_for_ruble_symbol(ss):
         tolerance=0.97
     )
     coords = get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1], coords[0]]
+    return None if coords is None else [coords[1], coords[0]]

@@ -14,9 +14,7 @@ def coords_is_equal(coords_a, coords_b, tol=30):
         return
     coords_1_diff = abs(coords_a[0] - coords_b[0])
     coords_2_diff = abs(coords_a[1] - coords_b[1])
-    if (coords_1_diff < tol) and (coords_2_diff < tol):
-        return True
-    return False
+    return coords_1_diff < tol and coords_2_diff < tol
 
 
 def get_first_location(locations: list[Union[list[int], None]], flip=False):
@@ -29,10 +27,7 @@ def get_first_location(locations: list[Union[list[int], None]], flip=False):
     Returns:
         list[int]: location
     """
-    for location in locations:
-        if location is not None:
-            return [location[1], location[0]] if flip else location
-    return None
+    return next(([location[1], location[0]] if flip else location for location in locations if location is not None), None)
 
 
 def check_for_location(locations: list[Union[list[int], None]]):
@@ -44,10 +39,7 @@ def check_for_location(locations: list[Union[list[int], None]]):
     Returns:
         bool: if location is found or not
     """
-    for location in locations:
-        if location is not None:
-            return True
-    return False
+    return any(location is not None for location in locations)
 
 
 def find_references(screenshot: Union[np.ndarray,
@@ -81,7 +73,7 @@ def find_all_references(screenshot: Union[np.ndarray,
                                           Image.Image],
                         folder: str,
                         names: list[str],
-                        tolerance=0.97) -> list[Union[list[int], None]]:
+                        tolerance=0.97):
     """find all reference images in a screenshot
 
     Args:
@@ -182,7 +174,4 @@ def compare_images(image: Union[np.ndarray,
     # Store the coordinates of matched area in a numpy array
     loc = np.where(res >= threshold)  # type: ignore
 
-    if len(loc[0]) != 1:
-        return None
-
-    return [int(loc[0][0]), int(loc[1][0])]
+    return None if len(loc[0]) != 1 else [int(loc[0][0]), int(loc[1][0])]

@@ -108,7 +108,7 @@ def run_installer(path: str) -> bool:
     Returns:
         bool: if install was successful
     """
-    return 0 == call(path, shell=False)
+    return call(path, shell=False) == 0
 
 
 def install_dependencies(dependencies: dict[str, list[str] | None]) -> None:
