@@ -1,10 +1,11 @@
-import pyautogui
 import time
+
 import numpy
+import pyautogui
 
 from pytarkbot.client import screenshot, smooth_click
-from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
-
+from pytarkbot.image_rec import (check_for_location, find_references,
+                                 pixel_is_equal)
 
 
 def skill_leveling_main():
@@ -19,13 +20,13 @@ def state_skill_leveling(logger):
         time.sleep(1)
         if queue_into_shoreline(logger)=="restart": return "restart"
         time.sleep(1)
-        
-        
+
+
 def wait_for_game_queue():
     waiting=True
     while waiting:
          time.sleep(1)
-                
+
 
 
 def get_to_main_menu(logger):
@@ -48,9 +49,7 @@ def check_if_on_main_menu():
         iar[651][946]
     ]
     sentinel=[155,77,17]
-    for pix in pix_list:
-        if not(pixel_is_equal(pix,sentinel,tol=50)):return False
-    return True
+    return all((pixel_is_equal(pix,sentinel,tol=50)) for pix in pix_list)
 
 
 def queue_into_shoreline(logger):
@@ -76,7 +75,7 @@ def queue_into_shoreline(logger):
     time.sleep(5)
     if not(look_for_in_queue()):
         return "restart"
-    
+
 
 def look_for_in_queue():
     current_image = screenshot()

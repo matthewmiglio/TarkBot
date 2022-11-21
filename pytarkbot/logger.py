@@ -27,11 +27,7 @@ class Logger:
         output_time = time.time() - self.start_time
         output_time = int(output_time)
 
-        time_str = str(self.convert_int_to_time(output_time))
-
-        output_string = time_str
-
-        return output_string
+        return str(self.convert_int_to_time(output_time))
 
     def make_output_string(self):
         """creates scoreboard for log output
@@ -40,14 +36,15 @@ class Logger:
             str: log scoreboard
         """
 
-        restart_str = str(self.restarts) + " restarts"
-        roubles_made_str = str(self.roubles_made) + " profit"
-        items_sold_str = str(self.item_sold) + " items sold"
-        crafts_completed_str = str(self.crafts_completed) + " crafts completed"
+        restart_str = f"{str(self.restarts)} restarts"
+        roubles_made_str = f"{str(self.roubles_made)} profit"
+        items_sold_str = f"{str(self.item_sold)} items sold"
+        crafts_completed_str = f"{str(self.crafts_completed)} crafts completed"
         hideout_rotations_str = str(
             self.hideout_rotations) + " hideout rotations"
-        flea_success_str = str(self.make_flea_success_rate()) + "%" + " success rate fleaing items"
-   
+        flea_success_str = f"{str(self.make_flea_success_rate())}% success rate fleaing items"
+
+
         gap_str = "|"
         return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + flea_success_str + gap_str
 
@@ -97,7 +94,7 @@ class Logger:
         if (self.item_sold == 0): return 0
         calculation= (self.item_sold / self.sale_attempts) * 100
         return int(calculation)
-    
+
     def add_flea_sale_attempt(self):
         self.sale_attempts = self.sale_attempts + 1
-        
+

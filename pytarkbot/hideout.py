@@ -62,49 +62,49 @@ def manage_hideout(logger, crafts_to_farm):
 
     if get_to_hideout(logger) == "restart":
         return "restart"
-    
+
     logger.log("Entering cyclical hideout interface mode.")
     open_hideout_interface()
     time.sleep(2)
 
     while True:
         check_quit_key_press()
-        
+
         #what station is this
         this_station_name=check_this_station_name(logger)
-        
+
         logger.log(f"This station is: {this_station_name}")
-        
+
         #if we're at medstation and medstation is selected in crafts to farm...
         if (this_station_name=="medstation")and("medstation" in crafts_to_farm):
             logger.log("Starting medstation management")
             manage_medstation(logger)
             time.sleep(4)
-            
+
         #if we're at lavatory and lavatory is selected in crafts to farm...
         if (this_station_name=="lavatory")and("lavatory" in crafts_to_farm):
             logger.log("Starting lavatory management")
             manage_lavatory(logger)
             time.sleep(4)
-            
+
         #if we're at workbench and workbench is selected in crafts to farm...
         if (this_station_name=="workbench")and("workbench" in crafts_to_farm):
             logger.log("Starting workbench management")
             manage_workbench(logger)
             time.sleep(4)
-            
+
         #if we're at water_collector and water_collector is selected in crafts to farm...
         if (this_station_name=="water_collector")and("water_collector" in crafts_to_farm):
             logger.log("Starting water_collector management")
             manage_water_collector(logger)
             time.sleep(4)
-            
+
         #if we're at scav_case and scav_case is selected in crafts to farm...
         if (this_station_name=="scav_case")and("scav_case" in crafts_to_farm):
             logger.log("Starting scav_case management")
             manage_scav_case(logger)
             time.sleep(4)
-            
+
 
         scroll_left_in_hideout()
         time.sleep(3)
@@ -117,17 +117,13 @@ def check_if_in_hideout():
     pix2 = iar[980][180]
 
     color_true = [159, 157, 144]
-    color_false = [15, 14, 14]
-
     if not (pixel_is_equal(pix1, color_true, tol=25)):
         return False
     if not (pixel_is_equal(pix2, color_true, tol=25)):
         return False
-    if pixel_is_equal(pix1, color_false, tol=25):
-        return False
-    if pixel_is_equal(pix2, color_false, tol=25):
-        return False
-    return True
+    color_false = [15, 14, 14]
+
+    return False if pixel_is_equal(pix1, color_false, tol=25) else not pixel_is_equal(pix2, color_false, tol=25)
 
 
 def check_this_station_name(logger):
@@ -141,7 +137,7 @@ def check_this_station_name(logger):
     if check_if_at_scav_case(logger): return "scav_case"
     else:
         return "unk"
-    
+
 
 
 # checking if currently at the right station
@@ -221,14 +217,12 @@ def check_if_at_nutrition_unit(logger):
     region = [698, 340, 170, 26]
     image = screenshot(region)
     text = img_to_txt(image)
-    
+
     # print(text)
     # show_image(image)
-    
-    
-    if text.startswith('Nutr'):
-        return True
-    return False
+
+
+    return bool(text.startswith('Nutr'))
 
 
 def check_if_at_workbench():
@@ -264,9 +258,7 @@ def check_if_at_intelligence_center(logger):
     text = img_to_txt(image)
     #logger.log(f"check_if_at_intelligence_center text readout: {text}")
 
-    if text.startswith('Intell'):
-        return True
-    return False
+    return bool(text.startswith('Intell'))
 
 
 def check_if_at_medstation():
@@ -320,7 +312,7 @@ def check_if_at_scav_case():
         tolerance=0.99
     )
     print(f"Search took {'{:06.4f}'.format(time.time()-t)} seconds")
-    return check_for_location(locations) 
+    return check_for_location(locations)
 
 
 # move to each station
@@ -409,17 +401,11 @@ def get_to_medstation(logger):
     logger.log("Made it to medstation")
 
 
-def get_to_scav_case(logger):
-    check_quit_key_press()
-    open_hideout_interface()
-
-    at_location = check_if_at_scav_case(logger)
-    while not (at_location):
-        scroll_left_in_hideout()
-        time.sleep(4)
-        at_location = check_if_at_scav_case(logger)
-    logger.log("Made it to scav_case.")
-
+def check_for_water_collector_collect_icon():
+    region = [1008, 782, 80, 20]
+    image = screenshot(region)
+    text = img_to_txt(image)
+    return bool(text.startswith("GET") or text.startswith("GETITE") or text.startswith("GE") or text.startswith("GGE") or text.startswith("-GET"))
 
 # booze generator station
 def manage_booze_generator(logger):
@@ -489,22 +475,11 @@ def find_start_symbol_in_booze_generator():
     return [coords[1], coords[0]]
 
 
-def start_moonshine_craft(logger):
-    check_quit_key_press()
-    start_coords = find_start_symbol_in_booze_generator()
-    if start_coords is None:
-        logger.log(
-            "Start button coords weren't found so start craft alg cannot continue.")
-        return
-
-    click(start_coords[0], start_coords[1])
-    time.sleep(0.5)
-
-    click(647, 674)
-    time.sleep(0.5)
-
-    logger.log("Started moonshine craft.")
-
+def find_water_filter_in_dropdown_in_water_collector():
+    region = [825, 734, 328, 197]
+    color_blue = [123, 219, 255]
+    coords_list = find_all_pixel_coords(region=region, color=color_blue)
+    return None if len(coords_list) == 0 else coords_list[0]
 
 # workbench
 def manage_workbench(logger):
@@ -529,24 +504,13 @@ def manage_workbench(logger):
         get_items_from_workbench()
 
 
-def start_green_gunpowder_craft_in_workbench(logger):
-    check_quit_key_press()
-    logger.log("Starting green gunpowder craft.")
-
-    # click first start
-    coords = find_green_gunpowerder_icon_in_workbench()
-    if coords is None:
-        return
-    coords[0] = coords[0]+85
-    coords[1] = coords[1]+24
-    pyautogui.moveTo(coords[0], coords[1], duration=0.2)
-    click(coords[0], coords[1])
-    time.sleep(1)
-
-    # click handover
-    pyautogui.moveTo(642, 671, duration=0.2)
-    click(642, 671)
-    time.sleep(1)
+def check_scav_case():
+    region = [1006, 711, 90, 35]
+    image = screenshot(region)
+    text = img_to_txt(image)
+    if text.startswith("GET"):
+        return "get items"
+    return "collecting" if check_for_scav_case_progress() else "start"
 
 
 def get_items_from_workbench():
@@ -559,7 +523,7 @@ def get_items_from_workbench():
 def check_workbench(logger):
     check_quit_key_press()
     check_for_get_items_in_workbench()
-    
+
 
 def check_for_get_items_in_workbench():
     t=time.time()
@@ -640,29 +604,24 @@ def find_green_gunpowerder_icon_in_workbench():
     )
 
     coord = get_first_location(locations)
-    if coord is None:
-        return None
-    return [coord[1] + 970, coord[0] + 385]
+    return None if coord is None else [coord[1] + 970, coord[0] + 385]
 
 
 def get_image_of_green_gunpowder_surroundings():
     coord = find_green_gunpowerder_icon_in_workbench()
     region = [coord[0] + 55, coord[1] - 20, 75, 60]
 
-    green_gunpowder_image = screenshot(region)
-
     # plt.imshow(numpy.asarray(image))
     # plt.show()
 
-    return green_gunpowder_image
+    return screenshot(region)
 
 
 def get_to_green_gunpowder_craft(logger):
     check_quit_key_press()
     logger.log("Getting to green gunpowder craft.")
-    at_green_gunpowder_craft = False
-    if find_green_gunpowerder_icon_in_workbench() is not None:
-        at_green_gunpowder_craft = True
+    at_green_gunpowder_craft = find_green_gunpowerder_icon_in_workbench() is not None
+
     loops = 0
     while not (at_green_gunpowder_craft):
         if loops > 50:
@@ -743,14 +702,7 @@ def check_for_water_collector_producing_icon():
     return check_for_location(locations)
 
 
-def check_for_water_collector_collect_icon():
-    region = [1008, 782, 80, 20]
-    image = screenshot(region)
-    text = img_to_txt(image)
 
-    if (text.startswith("GET")) or (text.startswith("GETITE")) or (text.startswith("GE")) or (text.startswith("GGE")) or (text.startswith("-GET")):
-        return True
-    return False
 
 
 def add_filter_to_water_collector():
@@ -786,20 +738,10 @@ def find_add_filter_dropdown_arrow_in_water_collector():
         tolerance=0.99
     )
     coord = get_first_location(locations)
-    if coord is None:
-        return None
-    return [coord[1] + 910, coord[0] + 773]
+    return None if coord is None else [coord[1] + 910, coord[0] + 773]
 
 
-def find_water_filter_in_dropdown_in_water_collector():
-    region = [825, 734, 328, 197]
-    color_blue = [123, 219, 255]
 
-    coords_list = find_all_pixel_coords(region=region, color=color_blue)
-
-    if len(coords_list) == 0:
-        return None
-    return coords_list[0]
 
 
 # scav case
@@ -824,17 +766,6 @@ def manage_scav_case(logger):
 
     logger.log("Done managing scav case.")
 
-
-def check_scav_case():
-    region = [1006, 711, 90, 35]
-    image = screenshot(region)
-    text = img_to_txt(image)
-
-    if text.startswith("GET"):
-        return "get items"
-    if check_for_scav_case_progress():
-        return "collecting"
-    return "start"
 
 
 def collect_scav_case():
@@ -968,10 +899,7 @@ def check_if_medstation_is_producing():
 
 
 def get_to_pile_of_meds_craft_in_medstation():
-    at_pile_of_meds = False
-    if find_pile_of_meds_icon() is not None:
-        at_pile_of_meds = True
-
+    at_pile_of_meds = find_pile_of_meds_icon() is not None
     while not (at_pile_of_meds):
         pyautogui.click(700, 700)
         pyautogui.scroll(-400)
@@ -1011,9 +939,7 @@ def find_pile_of_meds_icon():
         tolerance=0.99
     )
     coord = get_first_location(locations)
-    if coord is None:
-        return None
-    return [coord[1] + 992, coord[0] + 415]
+    return None if coord is None else [coord[1] + 992, coord[0] + 415]
 
 
 def check_state_of_medstation():
@@ -1038,9 +964,7 @@ def check_for_get_items_in_medstation():
     # print(text)
     # show_image(image)
 
-    if (text.startswith("GET")) or (text.startswith("GE")) or (text.startswith("get")):
-        return True
-    return False
+    return bool((text.startswith("GET")) or (text.startswith("GE")) or (text.startswith("get")))
 
 
 def check_for_start_in_medstation():
@@ -1052,19 +976,15 @@ def check_for_start_in_medstation():
     # print(text)
     # show_image(image)
 
-    if (text.startswith("START")) or (text.startswith("STA")) or (text.startswith("SST")) or (text.startswith("SSST")):
-        return True
-    return False
+    return bool((text.startswith("START")) or (text.startswith("STA")) or (text.startswith("SST")) or (text.startswith("SSST")))
 
 
 def get_image_of_pile_of_meds_craft_in_medstation():
     coords = find_pile_of_meds_icon()
     region = [coords[0]+60, coords[1]+12, 67, 19]
-    image = screenshot(region)
-
     # show_image(image)
 
-    return image
+    return screenshot(region)
 
 
 # lavatory
@@ -1115,16 +1035,11 @@ def find_cordura_craft_in_lavatory():
         tolerance=0.99
     )
     coord = get_first_location(locations)
-    if coord is None:
-        return None
-    return [coord[1]+845, coord[0]+453]
+    return None if coord is None else [coord[1]+845, coord[0]+453]
 
 
 def get_to_cordura_craft_in_lavatory():
-    at_craft = False
-    if find_cordura_craft_in_lavatory() is not None:
-        at_craft = True
-
+    at_craft = find_cordura_craft_in_lavatory() is not None
     while not (at_craft):
         pyautogui.click(700, 700)
         pyautogui.scroll(-400)
@@ -1138,17 +1053,13 @@ def check_lavatory():
     # check for get items
     if check_for_lavatory_get_items():
         return "get items"
-    if look_for_producing_in_lavatory():
-        return "producing"
-    return "start"
+    return "producing" if look_for_producing_in_lavatory() else "start"
 
 
 def look_for_producing_in_lavatory():
     t=time.time()
-    loops=33
-    while loops>0:
-        loops=loops-1
-        if check_for_producing_icon_in_lavatory(): 
+    for _ in range(33, 0, -1):
+        if check_for_producing_icon_in_lavatory():
             print(f"Spent {'{:06.4f}'.format(time.time()-t)} looking for producing icon in lavatory.")
             return True
     print(f"Spent {'{:06.4f}'.format(time.time()-t)} looking for producing icon in lavatory.")
@@ -1185,7 +1096,7 @@ def check_for_lavatory_get_items():
     return check_for_location(locations)
 
 
-def start_cordura_craft_in_hideout():
+def start_cordura_craft_in_hideout():  # sourcery skip: extract-duplicate-method
     # click start
     coord = find_cordura_craft_in_lavatory()
     pyautogui.moveTo(coord[0]+210, coord[1]+18, duration=0.2)
@@ -1200,47 +1111,16 @@ def start_cordura_craft_in_hideout():
     time.sleep(0.33)
 
 
-def buy_slings_for_cordura_craft(logger):
-    # start method when you can see the craft in the lavatory
-    logger.log("Buying 4 slings for cordura craft.")
+def find_cordura_craft_in_lavatory():
+    region = [845, 453, 50, 300]
+    check_quit_key_press()
+    current_image = screenshot(region)
+    reference_folder = "find_cordura_craft_in_lavatory"
+    references = ["1.png", "2.png", "3.png", "4.png", "5.png", "6.png"]
+    locations = find_references(screenshot=current_image, folder=reference_folder, names=references, tolerance=0.99)
 
-    # right click sling
-    logger.log("Getting to filter by item of sling bags")
-    sling_coords = find_sling_in_lavatory_craft_menu()
-    pyautogui.moveTo(sling_coords[0], sling_coords[1], duration=0.2)
-    time.sleep(0.33)
-    pyautogui.click(button='right')
-    time.sleep(1)
-
-    # click FBI button for sling
-    pyautogui.moveRel(20, 22)
-    time.sleep(0.22)
-    pyautogui.click()
-    time.sleep(2)
-
-    # set filters to ragman only
-    set_filters_to_only_ragman()
-    time.sleep(2)
-
-    # click purchase
-    click(1197, 150)
-    time.sleep(0.33)
-
-    # set buy to 4 and buy 4
-    click(693, 475)
-    time.sleep(0.33)
-    pyautogui.press('4')
-    time.sleep(0.33)
-    pyautogui.press('y')
-    time.sleep(1)
-
-    # get back to lavatory
-    pyautogui.press('esc')
-    time.sleep(1)
-
-    # get back to cordura
-    get_to_cordura_craft_in_lavatory()
-    time.sleep(1)
+    coord = get_first_location(locations)
+    return None if coord is None else [coord[1] + 845, coord[0] + 453]
 
 
 def find_sling_in_lavatory_craft_menu():
@@ -1264,12 +1144,10 @@ def find_sling_in_lavatory_craft_menu():
         tolerance=0.99
     )
     coord = get_first_location(locations)
-    if coord is None:
-        return None
-    return [coord[1]+845, coord[0]+313]
+    return None if coord is None else [coord[1]+845, coord[0]+313]
 
 
-def set_filters_to_only_ragman():
+def set_filters_to_only_ragman():  # sourcery skip: extract-duplicate-method
     # open filter cog button
     click(326, 87)
     time.sleep(1)
@@ -1320,6 +1198,4 @@ def find_filters_window_for_sling_purchase():
     )
 
     coords = get_first_location(locations)
-    if coords is None:
-        return None
-    return [coords[1] + 3, coords[0] + 3]
+    return None if coords is None else [coords[1] + 3, coords[0] + 3]

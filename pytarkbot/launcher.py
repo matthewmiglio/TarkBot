@@ -1,31 +1,29 @@
-import numpy
 import subprocess
 import sys
 import time
 
+import numpy
+import pyautogui
 import pygetwindow
 
+<<<<<<< HEAD
 from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot
 from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 import pyautogui
+=======
+from pytarkbot.client import (check_quit_key_press, click, orientate_launcher,
+                              orientate_tarkov_client, screenshot,
+                              waiting_animation)
+from pytarkbot.image_rec import (check_for_location, find_references,
+                                 pixel_is_equal)
+>>>>>>> dd3f3b197f6803e4b428b08c8b4c25bfce9c95b2
 
 
 def check_if_on_tark_main():
     iar=numpy.asarray(screenshot())
-    pix_list=[]
-    pix_list.append(iar[613][762])
-    pix_list.append(iar[616][926])
-    pix_list.append(iar[611][294])
-    pix_list.append(iar[618][769])
-    pix_list.append(iar[651][427])
-    pix_list.append(iar[615][1010])
-    pix_list.append(iar[648][290])
-    
+    pix_list = [iar[613][762], iar[616][926], iar[611][294], iar[618][769], iar[651][427], iar[615][1010], iar[648][290]]
 
-    for pix in pix_list:
-        if not pixel_is_equal(pix,[175,90,50],tol=100):
-            return False
-    return True
+    return all(pixel_is_equal(pix,[175,90,50],tol=100) for pix in pix_list)
 
 def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main()
@@ -105,13 +103,10 @@ def restart_tarkov(logger, launcher_path):
     check_quit_key_press()
     if wait_for_tarkov_to_open(logger) == "restart":
         restart_tarkov(logger, launcher_path)
-    index = 0
-    while index < 30:
+    for index in range(0, 30, 2):
         check_quit_key_press()
         logger.log(f"Giving tark time to load: {index}")
         time.sleep(2)
-        index = index + 2
-
     # orientate tark client
     check_quit_key_press()
     orientate_tarkov_client("EscapeFromTarkov",logger)
