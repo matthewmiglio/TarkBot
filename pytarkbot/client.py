@@ -313,25 +313,6 @@ def check_quit_key_press():
                 pressed = True
 
 
-def get_image(folder, name):
-    top_level = dirname(__file__)
-    reference_folder = join(top_level, "reference_images")
-    return Image.open(join(reference_folder, folder, name))
-
-
-def waiting_animation(time):
-
-    for _ in range(0,time):
-        pyautogui.moveTo(1270,271,duration=0.1)
-        pyautogui.moveTo(1414,554,duration=0.1)
-        pyautogui.moveTo(1737,603,duration=0.1)
-        pyautogui.moveTo(1507,822,duration=0.1)
-        pyautogui.moveTo(1558,1136,duration=0.1)
-        pyautogui.moveTo(1273,1001,duration=0.1)
-        pyautogui.moveTo(996,1139,duration=0.1)
-        pyautogui.moveTo(1051,825,duration=0.1)
-        pyautogui.moveTo(818,603,duration=0.1)
-        pyautogui.moveTo(1140,534,duration=0.1)
 
 
 def find_all_pixels_not_equal_to(region, color, image=None, tol=15):

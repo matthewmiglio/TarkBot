@@ -5,12 +5,12 @@ import time
 
 import pygetwindow
 
-from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot, waiting_animation
+from pytarkbot.client import check_quit_key_press, click, orientate_launcher, orientate_tarkov_client, screenshot
 from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 import pyautogui
 
 
-def check_if_on_tark_main(logger):
+def check_if_on_tark_main():
     iar=numpy.asarray(screenshot())
     pix_list=[]
     pix_list.append(iar[613][762])
@@ -28,14 +28,14 @@ def check_if_on_tark_main(logger):
     return True
 
 def wait_for_tark_main(logger):
-    on_main = check_if_on_tark_main(logger)
+    on_main = check_if_on_tark_main()
     loops = 0
     while not (on_main):
         check_quit_key_press()
         logger.log(f"Waiting for tark main {loops}")
         loops = loops + 2
         time.sleep(2)
-        on_main = check_if_on_tark_main(logger)
+        on_main = check_if_on_tark_main()
         if loops > 120:
             return "restart"
     logger.log("Made it to tarkov main.")
@@ -189,7 +189,7 @@ def wait_for_play_button_in_launcher(logger):
         logger.log(f"Waiting for play button to appear in launcher {loop}")
         loop = loop + 2
         waiting = not (check_if_play_button_exists_in_launcher())
-        waiting_animation(2)
+        time.sleep(2)
         if loop > 50:
             logger.log(
                 "Spent too long waiting for launcher's play button. Restarting.")
