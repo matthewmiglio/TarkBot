@@ -20,7 +20,6 @@ from pytarkbot.flee import (
     set_flea_filters,
     wait_till_can_add_another_offer,
 )
-from pytarkbot.hideout import manage_hideout
 from pytarkbot.launcher import restart_tarkov
 from pytarkbot.logger import Logger
 
@@ -51,22 +50,6 @@ def flea_items_main():
 
         if state == "remove_flee_offers":
             state = state_remove_flee_offers()
-
-
-def hideout_management_main(crafts_to_farm):
-    # intro_printout(logger)
-    state = "intro"
-    while True:
-        if state == "intro":
-            state_intro()
-            state = "manage_hideout_mode"
-
-        if state == "manage_hideout_mode":
-            state = state_hideout_management(crafts_to_farm)
-
-        if state == "restart":
-            state_restart()
-            state = "manage_hideout_mode"
 
 
 def state_intro():
@@ -172,19 +155,6 @@ def state_restart():
     return "flee_mode"
 
 
-def state_hideout_management(crafts_to_farm):
-    blank_line = "////////////////////////////////////////////////////"
-    logger.log("")
-    logger.log(blank_line)
-    logger.log("State==hideout management")
-    logger.log(blank_line)
-    logger.log("")
-
-    if manage_hideout(logger, crafts_to_farm) == "restart":
-        return "restart"
-    return "restart"
-
-
 def show_donate_gui():
     sg.theme("Material2")
     layout = [
@@ -249,9 +219,6 @@ def main():
     intro_printout(logger)
 
     out_text = "" + "-Python Tarkov bot - Matthew Miglio ~Aug 2022\n\n"
-    out_text += "-HOLDING SPACE TERMINATES THE PROGRAM\n\n"
-    out_text += "-Make sure launcher path is specified at appdata/roaming/py-tarkBot/config.json\n\n"
-
     out_text += (
         "-You MUST manually set tarkov to windowed and 4:3 BEFORE running the bot.\n"
     )
@@ -260,24 +227,8 @@ def main():
     # defining various things that r gonna be in the gui.
     layout = [
         [sg.Text(out_text)],
-        [sg.Radio("Flea mode", "RADIO1", default=True, key="-IN2-")],
-        [sg.Radio("Hideout mode", "RADIO1", default=False, key="-IN3-")],
-        [
-            sg.Text("Select which stations to farm:"),
-            sg.Checkbox("Workbench crafts", default=True, key="-workbench_crafts_in-"),
-            sg.Checkbox(
-                "Medstation crafts", default=True, key="-medstation_crafts_in-"
-            ),
-            sg.Checkbox(
-                "Water collector crafts",
-                default=True,
-                key="-water_collector_crafts_in-",
-            ),
-            sg.Checkbox("Scav case crafts", default=True, key="-scav_case_crafts_in-"),
-            sg.Checkbox("Lavatory crafts", default=True, key="-lavatory_crafts_in-"),
-        ],
         # buttons
-        [sg.Button("Start"), sg.Button("Help"), sg.Button("Donate")]
+        [sg.Button("Start"), sg.Button("Stop"), sg.Button("Help"), sg.Button("Donate")]
         # https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD
     ]
     # window layout
@@ -291,31 +242,10 @@ def main():
             break
         # if gui sees start press then start bot
         if event == "Start":
-            # if hideout management checkbox is checked, run the hideout
-            # management main
-            if values["-IN3-"]:
-                logger.log("\n\nStarting hideout management mode.\n")
-                window.close()
-
-                crafts_to_farm = []
-                if values["-workbench_crafts_in-"]:
-                    crafts_to_farm.append("workbench")
-                if values["-scav_case_crafts_in-"]:
-                    crafts_to_farm.append("scav_case")
-                if values["-medstation_crafts_in-"]:
-                    crafts_to_farm.append("medstation")
-                if values["-water_collector_crafts_in-"]:
-                    crafts_to_farm.append("water_collector")
-                if values["-lavatory_crafts_in-"]:
-                    crafts_to_farm.append("lavatory")
-
-                hideout_management_main(crafts_to_farm)
-
             # if Flea mode checkbox is checked, run the Flea mode main
-            if values["-IN2-"]:
-                window.close()
-                logger.log("\n\nStarting flea snipe mode.\n")
-                flea_items_main()
+            window.close()
+            logger.log("\n\nStarting flea snipe mode.\n")
+            flea_items_main()
 
         if event == "Help":
             show_help_gui()

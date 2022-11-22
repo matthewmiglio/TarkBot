@@ -7,7 +7,6 @@ import time
 
 import numpy
 import pyautogui
-from matplotlib import pyplot as plt
 
 from pytarkbot.client import (calculate_avg_pixel, check_quit_key_press, click,
                               find_all_pixel_coords, find_all_pixels,

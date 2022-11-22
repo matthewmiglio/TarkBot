@@ -73,7 +73,6 @@ def restart_tarkov(logger, launcher_path):
     try:
         subprocess.Popen(launcher_path)
     except FileNotFoundError:
-        print(r"Launcher path not found, edit config file: %appdata%\py-TarkBot\config.json")
         sys.exit("Launcher path not found")
     time.sleep(10)
 
