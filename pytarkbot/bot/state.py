@@ -1,4 +1,4 @@
-from time import time
+import time
 
 import pyautogui
 
@@ -19,17 +19,13 @@ from .flea import (
 )
 
 
-def state_tree(logger, state):
-    if state == "intro":
-        state_intro(logger)
-        state = "flea_mode"
-
-    elif state == "restart":
+def state_tree(logger, state,number_of_rows):
+    if state == "restart":
         state_restart(logger)
         state = "flea_mode"
 
     elif state == "flea_mode":
-        state = state_flea_mode(logger)
+        state = state_flea_mode(logger,number_of_rows)
 
     elif state == "remove_flea_offers":
         state = state_remove_flea_offers(logger)
@@ -37,7 +33,6 @@ def state_tree(logger, state):
 
 
 def state_intro(logger):
-
     logger.change_status("State==Intro")
     restart_tarkov(logger)
 
@@ -65,7 +60,7 @@ def state_remove_flea_offers(logger):
     return "flea_mode"
 
 
-def state_flea_mode(logger):
+def state_flea_mode(logger,number_of_rows):
     logger.change_status("Beginning flea alg.\n")
     while True:
         # open flea
@@ -92,7 +87,7 @@ def state_flea_mode(logger):
         orientate_add_offer_window(logger)
         time.sleep(1)
 
-        select_random_item_to_flea(logger)
+        select_random_item_to_flea(logger,number_of_rows)
         time.sleep(1)
 
         # set flea filter

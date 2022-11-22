@@ -53,7 +53,7 @@ class Logger:
             message (str): message to add
         """
         self.status = message
-        # print(f"{self.make_timestamp()} - {self.make_output_string()} : {message}")
+        print(message)
 
     @_updates_queue
     def add_restart(self):

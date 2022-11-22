@@ -269,21 +269,6 @@ def get_image(folder, name):
     return Image.open(join(reference_folder, folder, name))
 
 
-def waiting_animation(wait_time):
-
-    for _ in range(wait_time):
-        pyautogui.moveTo(1270, 271, duration=0.1)
-        pyautogui.moveTo(1414, 554, duration=0.1)
-        pyautogui.moveTo(1737, 603, duration=0.1)
-        pyautogui.moveTo(1507, 822, duration=0.1)
-        pyautogui.moveTo(1558, 1136, duration=0.1)
-        pyautogui.moveTo(1273, 1001, duration=0.1)
-        pyautogui.moveTo(996, 1139, duration=0.1)
-        pyautogui.moveTo(1051, 825, duration=0.1)
-        pyautogui.moveTo(818, 603, duration=0.1)
-        pyautogui.moveTo(1140, 534, duration=0.1)
-
-
 def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
     # make iar
     if image is None:

@@ -8,7 +8,7 @@ out_text = """Tarkov settings must match the following:
     - smaller than 1280x960 resolution
 Program must be run as administrator.
 
-The top 40 rows will be sold on the flea."""
+Matthew Miglio, Martin Miglio - Nov 2022"""
 
 # defining various things that r gonna be in the gui.
 main_layout = [
@@ -17,34 +17,66 @@ main_layout = [
             layout=[[sg.Text(out_text, size=(35, 7))]],
             title="Info",
             relief=sg.RELIEF_SUNKEN,
+            expand_y=True,
         ),
         sg.Frame(layout=stats, title="Stats", relief=sg.RELIEF_SUNKEN),
     ],
+    # buttons
     [
-        stat_box("time_since_start", size=(9, 1)),
+        sg.Frame(
+            layout=[
+                [
+                    sg.Text("Number of rows to target in your stash:"),
+                    sg.Slider(
+                        range=(1, 11),
+                        default_value=11,
+                        key="rows_to_target",
+                        orientation="horizontal",
+                        size=(26, None),
+                        relief=sg.RELIEF_FLAT,
+                    ),
+                ],
+                [
+                    sg.Column(
+                        [[
+                            sg.Button("Start"),
+                            sg.Button("Stop", disabled=True),
+                        ]],
+                        element_justification="left",
+                        expand_x=True,
+                    ),
+                    sg.Column(
+                        [[
+                            sg.Button("Help"),
+                            sg.Button("Issues?", key="issues-link"),
+                            sg.Button("Donate"),
+                        ]],
+                        element_justification="right",
+                        expand_x=True,
+                    ),
+                ],
+            ],
+            title="Controls",
+            relief=sg.RELIEF_SUNKEN,
+            expand_x=True,
+        ),
+    ],
+    [
+        stat_box("time_since_start", size=(7, 1)),
         sg.InputText(
             "Idle",
             key="current_status",
             use_readonly_for_disable=True,
             disabled=True,
             text_color="blue",
-            size=(60, 1),
+            expand_x=True,
         ),
-    ],
-    # buttons
-    [
-        sg.Button("Start"),
-        sg.Button("Stop", disabled=True),
-        sg.Button("Help"),
-        sg.Button("Issues?", key="issues-link"),
-        sg.Button("Donate"),
-        sg.Text("Matthew Miglio, Martin Miglio - Nov 2022"),
     ],
     # https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD
 ]
 
 # a list of all the keys that contain user configuration
-user_config_keys = []
+user_config_keys = ["rows_to_target"]
 
 # list of button and checkbox keys to disable when the bot is running
 disable_keys = user_config_keys + ["Start"]

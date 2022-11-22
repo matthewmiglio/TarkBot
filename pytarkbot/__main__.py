@@ -14,21 +14,14 @@ pyautogui.FAILSAFE = False
 sg.theme(THEME)
 
 
-def start_button_event(logger: Logger, window):
+def start_button_event(logger: Logger, window,values):
     logger.change_status("Starting")
 
     for key in disable_keys:
         window[key].update(disabled=True)
 
-    # jobs = read_job_list(values)
-
-    # # check if at least one job is selected
-    # if len(jobs) == 0:
-    #     logger.change_status("At least one job must be selected")
-    #     return None
-
     # setup thread and start it
-    args = None
+    args = values["rows_to_target"]
     thread = WorkerThread(logger, args)
     thread.start()
 
@@ -78,7 +71,7 @@ def main():
     while True:
         # get gui vars
         read = window.read(timeout=100)
-        event, _ = read or (None, None)
+        event, values = read or (None, None)
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
@@ -86,7 +79,7 @@ def main():
             break
 
         if event == "Start":
-            thread = start_button_event(logger, window)
+            thread = start_button_event(logger, window,values)
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)
@@ -125,13 +118,13 @@ class WorkerThread(StoppableThread):
 
     def run(self):
         try:
-            # args = self.args  # parse thread args
-            state = "intro"
+            number_of_rows = self.args  # parse thread args
+            state = "restart"
             # loop until shutdown flag is set
             while not self.shutdown_flag.is_set():
                 # perform state transition
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
-                state = state_tree(self.logger, state)
+                state = state_tree(self.logger, state,number_of_rows)
         except Exception as exc:  # pylint: disable=broad-except
             # we don't want the thread to crash the interface so we catch all exceptions and log
             # raise exc

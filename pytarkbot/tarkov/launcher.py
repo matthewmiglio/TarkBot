@@ -12,7 +12,7 @@ from pytarkbot.tarkov import (
     orientate_launcher,
     orientate_tarkov_client,
     screenshot,
-    waiting_animation,
+    
 )
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 
@@ -75,11 +75,13 @@ def restart_tarkov(logger):
     # if tark open
     check_quit_key_press()
     if len(tark_window) != 0:
+        logger.change_status("Tarkov client detected. Closing it.")
         close_tarkov_client(logger, tark_window)
         time.sleep(5)
 
     # if launcher open
     if len(tark_launcher) != 0:
+        logger.change_status("Tarkov launcher detected. Closing it.")
         close_launcher(logger, tark_launcher)
         time.sleep(5)
 
@@ -88,7 +90,8 @@ def restart_tarkov(logger):
     logger.change_status("Opening launcher.")
     try:
         with subprocess.Popen(bsg_launcher_path):
-            time.sleep(10)
+            logger.change_status("Waiting for launcher to open.")
+            time.sleep(5)
 
             # orientate launcher
             check_quit_key_press()
@@ -96,21 +99,24 @@ def restart_tarkov(logger):
             orientate_launcher()
 
             # wait for launcher play button to appear
+            logger.change_status("Waiting for launcher's play button")
             if wait_for_play_button_in_launcher(logger) == "restart":
                 restart_tarkov(logger)
 
             # click play
+            logger.change_status("Clicking play.")
             check_quit_key_press()
             click(942, 558)
             time.sleep(20)
 
             # wait for client opening
+            logger.change_status("Waiting for tarkov client to open.")
             check_quit_key_press()
             if wait_for_tarkov_to_open(logger) == "restart":
                 restart_tarkov(logger)
             for index in range(0, 30, 2):
                 check_quit_key_press()
-                logger.change_status(f"Giving tark time to load: {index}")
+                logger.change_status(f"Manually giving tark time to load: {index}")
                 time.sleep(2)
             # orientate tark client
             check_quit_key_press()
@@ -118,6 +124,7 @@ def restart_tarkov(logger):
             time.sleep(1)
 
             # wait for us to reach main menu
+            logger.change_status("Waiting for tarkov client to reach main menu.")
             check_quit_key_press()
             if wait_for_tark_main(logger) == "restart":
                 restart_tarkov(logger)
@@ -192,7 +199,7 @@ def wait_for_play_button_in_launcher(logger):
         logger.change_status(f"Waiting for play button to appear in launcher {loop}")
         loop = loop + 2
         waiting = not check_if_play_button_exists_in_launcher()
-        waiting_animation(2)
+        time.sleep(2)
         if loop > 50:
             logger.change_status(
                 "Spent too long waiting for launcher's play button. Restarting."

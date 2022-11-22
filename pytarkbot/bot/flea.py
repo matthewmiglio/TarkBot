@@ -210,32 +210,21 @@ def get_value_to_post_item():
     return [get_price_undercut(price), price]
 
 
-def find_coords_of_item_to_flea():
-    region = [16, 509, 407, 427]
-    iar = numpy.asarray(screenshot(region))
-    coords_list = [
-        [x_coord, y_coord]
-        for x_coord, y_coord in itertools.product(range(407), range(427))
-        if (x_coord % 4 == 0) and (y_coord % 4 == 0)
-    ]
+def find_coords_of_item_to_flea(rows_to_target):
+    check_quit_key_press()
+    positive_pixel_list=[]
+    iar=numpy.asarray(screenshot())
+    y_pixel_maximum=int(520+(rows_to_target-1)*42)
 
-    has_item = False
-    while not has_item:
-        # select one of those random coords
-        random_coord_index = random.randint(0, len(coords_list) - 1)
-        coord = coords_list[random_coord_index]
-
-        # get this coord's color
-        color = iar[coord[1]][coord[0]]
-
-        # color check to see if its not black or wahtever
-        color_total = int(color[0]) + int(color[1]) + int(color[2])
-        if color_total > 100:
-            coord[0] = coord[0] + 16
-            coord[1] = coord[1] + 509
-
-            return coord
-
+    
+    empty_color=[45,45,45]
+    for x in range(15,420,3):
+        for y in range(510,y_pixel_maximum,3):
+            this_pixel=iar[y][x]
+            if not (pixel_is_equal(this_pixel,empty_color,tol=45)):
+                positive_pixel_list.append([x,y])
+    #return a random pixel from the list
+    return random.choice(positive_pixel_list)
 
 def check_first_price(logger):
     # get avg pixel across left side
@@ -335,9 +324,9 @@ def look_for_usd_symbol():
     region = [896, 126, 115, 48]
 
     usd_color = [119, 195, 118]
-    euro_pixels = find_all_pixel_coords(region, usd_color, image=None)
+    USD_pixels = find_all_pixel_coords(region, usd_color, image=None)
 
-    return len(euro_pixels) != 0
+    return len(USD_pixels) != 0
 
 
 def find_fbi_button():
@@ -377,10 +366,11 @@ def find_fbi_button():
 
 
 def get_to_flea_tab(logger):
+    logger.change_status("Getting to flea tab")
     on_flea = check_if_on_flea_page()
     loops = 0
     while not on_flea:
-        logger.change_status("Didnt find flea tab. Clicking flea tab.")
+        #logger.change_status("Didnt find flea tab. Clicking flea tab.")
         if loops > 10:
             return "restart"
         loops = loops + 1
@@ -414,20 +404,24 @@ def check_if_on_flea_page():
     return True
 
 
-def check_if_can_add_offer(logger):
-    close_add_offer_window(logger)
-    check_quit_key_press()
-    # if we find pixels of this color in this region, then we can add offers
-    region = [800, 75, 90, 20]
-    color = [215, 209, 182]
-    pix_coords = find_all_pixel_coords(region, color, tol=25)
-
-    return pix_coords is not None and pix_coords
+def check_if_can_add_offer():
+    pix_list=[]
+    iar=numpy.asarray(screenshot())
+    positive_pixel=[220,215,190]
+    for x in range(780,870):
+        for y in range(75,90):
+            current_pix=iar[y][x]
+            if pixel_is_equal(current_pix,positive_pixel,tol=35):
+                pix_list.append(current_pix)
+    if len(pix_list)>25:
+        return True
+    return False
 
 
 def close_add_offer_window(logger):
     logger.change_status("Closing add offer window.")
     orientate_add_offer_window(logger)
+    #click dead space
     click(732, 471)
 
 
@@ -456,7 +450,7 @@ def find_add_offer_window():
 
 
 def wait_till_can_add_another_offer(logger):
-    has_another_offer = check_if_can_add_offer(logger)
+    has_another_offer = check_if_can_add_offer()
     loops = 0
     while not has_another_offer:
         if loops > 120:
@@ -474,7 +468,7 @@ def wait_till_can_add_another_offer(logger):
 
         get_to_flea_tab(logger)
 
-        has_another_offer = check_if_can_add_offer(logger)
+        has_another_offer = check_if_can_add_offer()
 
     logger.change_status("Done waiting for another offer.")
 
@@ -611,7 +605,11 @@ def open_add_offer_tab(logger):
     orientate_add_offer_window(logger)
 
 
-def select_random_item_to_flea(logger):
+def select_random_item_to_flea(logger,rows_to_target):
+    #ROWS TO TARGET MUST BE AN INT 1-11 THAT WILL BE GIVEN THRUGH THE GUI
+    #Rows just means the amt of rows it'll attempt to target when selecting an item to flea in the 
+    #add offer tab
+    
     logger.change_status("Selecting another random item to flea.")
     has_item_to_flea = False
     while not has_item_to_flea:
@@ -619,7 +617,7 @@ def select_random_item_to_flea(logger):
         # click item to flea
         check_quit_key_press()
 
-        item_coords = find_coords_of_item_to_flea()
+        item_coords = find_coords_of_item_to_flea(rows_to_target)
         if item_coords is None:
             return
         click(item_coords[0], item_coords[1])

@@ -22,10 +22,7 @@ bdist_msi_options = {
 }
 
 
-# GUI applications require a different base on Windows
-base = None
-# if sys.platform == 'win32':
-#    base = 'Win32GUI'
+base = "Win32GUI"  # None for console app
 
 exe = Executable(
     script="pytarkbot\\__main__.py",

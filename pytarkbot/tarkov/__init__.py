@@ -15,7 +15,7 @@ from .client import (
     orientate_tarkov_client,
     orientate_terminal,
     screenshot,
-    waiting_animation,
+
 )
 from .launcher import restart_tarkov
 
@@ -32,5 +32,5 @@ __all__ = [
     "orientate_launcher",
     "orientate_tarkov_client",
     "restart_tarkov",
-    "waiting_animation",
+
 ]
