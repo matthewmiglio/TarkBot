@@ -22,7 +22,6 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: Microsoft :: Windows",
   "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Topic :: Games/Entertainment",
 ]
 keywords = ["tarkov", "bot", "automation"]
@@ -30,7 +29,7 @@ include = ["README.md", "pytarkbot/detection/reference_images/**/*.png"]
 
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.10.0"
 pillow = "^9.3.0"
 pyperclip = "^1.8.2"
 PySimpleGUI = "^4.60"
@@ -48,6 +47,7 @@ requests = "^2.28"
 urllib3 = "^1.26.12"
 keyboard = "^0.13.5"
 pywin32 = "^305"
+lxml = "^4.9.1"
 
 
 [tool.poetry.group.build]
