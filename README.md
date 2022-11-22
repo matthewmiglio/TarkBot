@@ -1,6 +1,6 @@
 # py-TarkBot
 
-Python bot for Escape From Tarkov for handling flee market and hideout interactions.
+Automated Flee Market for Escape from Tarkov
 
 ## Install
 
@@ -13,11 +13,13 @@ Report bugs in the [Github issues tab](https://github.com/matthewmiglio/py-TarkB
 ## Contributing
 
 All contributions are welcome, open a pull request to contribute.
+
 For developers, to install the source code with the following:
 
-``` bash
+```bash
 git clone https://github.com/matthewmiglio/py-TarkBot.git
 cd py-TarkBot
-python -m pip install poetry
-poetry install --with dev # --with build
+python -m pip install poetry # install poetry for dependency management if you don't have it
+poetry install --with dev # --with build # install dependencies
+poetry run pre-commit install # optional, but highly recommended
 ```
