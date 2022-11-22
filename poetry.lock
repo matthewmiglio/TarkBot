@@ -135,7 +135,6 @@ python-versions = ">=3.6"
 [package.dependencies]
 lief = {version = ">=0.12.0", markers = "sys_platform == \"win32\""}
 packaging = ">=21.0"
-patchelf = {version = ">=0.12", markers = "sys_platform == \"linux\""}
 setuptools = ">=59.0.1,<66"
 
 [package.extras]
@@ -547,17 +546,6 @@ python-versions = ">=3.6"
 [package.extras]
 qa = ["flake8 (==3.8.3)", "mypy (==0.782)"]
 testing = ["docopt", "pytest (<6.0.0)"]
-
-[[package]]
-name = "patchelf"
-version = "0.17.0.0"
-description = "A small utility to modify the dynamic linker and RPATH of ELF executables."
-category = "dev"
-optional = false
-python-versions = "*"
-
-[package.extras]
-test = ["importlib-metadata", "pytest"]
 
 [[package]]
 name = "pathspec"
@@ -3000,7 +2988,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10.0"
-content-hash = "202e805242137462a7a909b439e67c4ebc2dbfe07196a7dce304a4eccf2be2e3"
+content-hash = "e80710943f19dc82f1a2ae26afe21828348c547bb28f27feb6f23561fc3a21a8"
 
 [metadata.files]
 appnope = [
@@ -3686,14 +3674,6 @@ pandas = [
 parso = [
     {file = "parso-0.8.3-py2.py3-none-any.whl", hash = "sha256:c001d4636cd3aecdaf33cbb40aebb59b094be2a74c556778ef5576c175e19e75"},
     {file = "parso-0.8.3.tar.gz", hash = "sha256:8c07be290bb59f03588915921e29e8a50002acaf2cdc5fa0e0114f91709fafa0"},
-]
-patchelf = [
-    {file = "patchelf-0.17.0.0-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:bb675f65ad3d999763e7332a53ec98d5ae186fb057e15f781de0d108e2258f5d"},
-    {file = "patchelf-0.17.0.0-py2.py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.musllinux_1_1_ppc64le.whl", hash = "sha256:634e7b0c389251f2f8ae3f30a0cfb15873048113fcd22ae18ca354a96dc94368"},
-    {file = "patchelf-0.17.0.0-py2.py3-none-manylinux_2_17_s390x.manylinux2014_s390x.musllinux_1_1_s390x.whl", hash = "sha256:80008417d50f66a82747a1a851f100c0f2de5f0df7aec9eaca0b479ad10a3caa"},
-    {file = "patchelf-0.17.0.0-py2.py3-none-manylinux_2_5_i686.manylinux1_i686.musllinux_1_1_i686.whl", hash = "sha256:f01e680cdfbbcdfd70dc95b23fe19f6c05b76a92961d04bf812ee188b8bd013a"},
-    {file = "patchelf-0.17.0.0-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl", hash = "sha256:858447ad58f84818afce32ad870c559fa27c3fe102302e9906d376461055e599"},
-    {file = "patchelf-0.17.0.0.tar.gz", hash = "sha256:a90c0244593ad353513b098a3c46a5fd60a71c160b7acf86ed16f1b5cb98878b"},
 ]
 pathspec = [
     {file = "pathspec-0.10.2-py3-none-any.whl", hash = "sha256:88c2606f2c1e818b978540f73ecc908e13999c6c3a383daf3705652ae79807a5"},
