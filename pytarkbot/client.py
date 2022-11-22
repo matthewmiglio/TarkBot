@@ -1,3 +1,4 @@
+
 import sys
 import time
 from os import environ
@@ -14,12 +15,8 @@ from matplotlib import pyplot as plt
 from PIL import Image
 from screeninfo import get_monitors
 
-from pytarkbot.image_rec import (
-    coords_is_equal,
-    find_references,
-    get_first_location,
-    pixel_is_equal,
-)
+from pytarkbot.image_rec import (coords_is_equal, find_references,
+                                 get_first_location, pixel_is_equal)
 
 
 def intro_printout(logger):
@@ -35,25 +32,24 @@ def intro_printout(logger):
 def orientate_tarkov_client(title, logger):
     logger.log("Orientating tarkov client.")
 
-    # change res
-    resize = [1299, 999]
-    resize_window(window_name=title, resize=resize)
+    #change res
+    resize=[1299,999]
+    resize_window(window_name=title,resize=resize)
 
-    # move window to top left
+    #move window to top left
     move_window_to_top_left("EscapeFromTarkov")
     time.sleep(1)
 
 
 def move_tarkov_client_to_topleft():
     for n in range(6):
-        if (n % 2) == 0:
-            print("Moving tark window")
+        if (n % 2) == 0: print("Moving tark window")
         check_quit_key_press()
-        current_coord = find_eft_window()
-        current_coord = [current_coord[0] + 18, current_coord[1] - 2]
-        pyautogui.moveTo(current_coord[0], current_coord[1], duration=0.33)
+        current_coord=find_eft_window()
+        current_coord=[current_coord[0]+18,current_coord[1]-2]
+        pyautogui.moveTo(current_coord[0],current_coord[1],duration=0.33)
         time.sleep(0.33)
-        pyautogui.dragTo(33, 6, duration=1)
+        pyautogui.dragTo(33,6,duration=1)
     print("Done moving tark window.")
 
 
@@ -62,39 +58,42 @@ def move_window_to_top_left(window_name):
     window.moveTo(0, 0)
 
 
+
 def orientate_launcher():
-    resize = [1100, 600]
-    title = "BsgLauncher"
-    resize_window(window_name=title, resize=resize)
+    resize=[1100,600]
+    title="BsgLauncher"
+    resize_window(window_name=title,resize=resize)
     time.sleep(1)
-    move_window(window_name=title, coord=[0, 0])
+    move_window(window_name=title,coord=[0,0])
     time.sleep(1)
 
 
 def get_screen_resolution():
-    monitor_1 = get_monitors()[0]
-    w = monitor_1.width
-    h = monitor_1.height
-    return [w, h]
+    monitor_1=get_monitors()[0]
+    w=monitor_1.width
+    h=monitor_1.height
+    return [w,h]
 
 
 def orientate_terminal():
     try:
-        terminal_window = pygetwindow.getWindowsWithTitle("py-tarkbot v")[0]
+        terminal_window = pygetwindow.getWindowsWithTitle(
+            "py-tarkbot v")[0]
         terminal_window.minimize()
         terminal_window.restore()
 
-        # resize according to monitor size
-        monitor_width = get_screen_resolution()[0]
-        moitor_height = get_screen_resolution()[1]
+        #resize according to monitor size
+        monitor_width=get_screen_resolution()[0]
+        moitor_height=get_screen_resolution()[1]
 
-        terminal_width = monitor_width - 1290
-        terminal_height = moitor_height - 100
+        terminal_width=monitor_width-1290
+        terminal_height=moitor_height-100
+
 
         terminal_window.resizeTo(terminal_width, terminal_height)
 
-        # move window
-        terminal_window.moveTo(970, 5)
+        #move window
+        terminal_window.moveTo(970,5)
         time.sleep(0.33)
 
         terminal_window.moveTo(1285, 5)
@@ -103,27 +102,30 @@ def orientate_terminal():
         print("Couldn't orientate terminal using name 'pytarkbot'")
 
     try:
-        terminal_window = pygetwindow.getWindowsWithTitle("__main__.py")[0]
+        terminal_window = pygetwindow.getWindowsWithTitle(
+            "__main__.py")[0]
         terminal_window.minimize()
         terminal_window.restore()
 
-        # resize according to monitor size
-        monitor_width = get_screen_resolution()[0]
-        moitor_height = get_screen_resolution()[1]
+        #resize according to monitor size
+        monitor_width=get_screen_resolution()[0]
+        moitor_height=get_screen_resolution()[1]
 
-        terminal_width = monitor_width - 1290
-        terminal_height = moitor_height - 100
+        terminal_width=monitor_width-1290
+        terminal_height=moitor_height-100
+
 
         terminal_window.resizeTo(terminal_width, terminal_height)
 
-        # move window
-        terminal_window.moveTo(970, 5)
+        #move window
+        terminal_window.moveTo(970,5)
         time.sleep(0.33)
 
         terminal_window.moveTo(1285, 5)
         time.sleep(0.33)
     except BaseException:
         print("Couldn't orientate terminal using name '__main__.py'")
+
 
 
 def combine_duplicate_coords(coords_list, tolerance=5):
@@ -143,9 +145,9 @@ def combine_duplicate_coords(coords_list, tolerance=5):
         # new coords list
         if not (
             check_if_coord_in_coord_list(
-                current_coord, new_coords_list, tolerance=tolerance
-            )
-        ):
+                current_coord,
+                new_coords_list,
+                tolerance=tolerance)):
             new_coords_list.append(current_coord)
 
     return new_coords_list
@@ -236,10 +238,10 @@ def screenshot(region=(0, 0, 1400, 1400)):
 
 
 def string_to_chars_only(string):
-    out_string = ""
+    out_string=""
     for element in string:
         if element.isalpha():
-            out_string = out_string + element
+            out_string=out_string+element
     return out_string
 
 
@@ -271,26 +273,6 @@ def check_quit_key_press():
                 time.sleep(3)
                 pressed = True
 
-
-def get_image(folder, name):
-    top_level = dirname(__file__)
-    reference_folder = join(top_level, "reference_images")
-    return Image.open(join(reference_folder, folder, name))
-
-
-def waiting_animation(time):
-
-    for _ in range(time):
-        pyautogui.moveTo(1270, 271, duration=0.1)
-        pyautogui.moveTo(1414, 554, duration=0.1)
-        pyautogui.moveTo(1737, 603, duration=0.1)
-        pyautogui.moveTo(1507, 822, duration=0.1)
-        pyautogui.moveTo(1558, 1136, duration=0.1)
-        pyautogui.moveTo(1273, 1001, duration=0.1)
-        pyautogui.moveTo(996, 1139, duration=0.1)
-        pyautogui.moveTo(1051, 825, duration=0.1)
-        pyautogui.moveTo(818, 603, duration=0.1)
-        pyautogui.moveTo(1140, 534, duration=0.1)
 
 
 
@@ -377,18 +359,19 @@ def get_window_size(window_name):
     winlst = [i for i in top_windows if i[1] == title]
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
-    shell.SendKeys("%")  # Alt key,  send key
+    shell.SendKeys('%')  # Alt key,  send key
     rect = win32gui.GetWindowRect(hwnd)
     x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
     w = x1 - x0
     h = y1 - y0
 
-    return [w, h]
+
+    return [w,h]
 
 
-def resize_window(window_name, resize):
-    # windown name gotta be a string
-    # resize gotta be a 1x2 ar like [width,height]
+def resize_window(window_name,resize):
+    #windown name gotta be a string
+    #resize gotta be a 1x2 ar like [width,height]
     title = window_name  # find first window with this title
     top_windows = []  # all open windows
     win32gui.EnumWindows(windowEnumerationHandler, top_windows)
@@ -396,18 +379,19 @@ def resize_window(window_name, resize):
     winlst = [i for i in top_windows if i[1] == title]
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
-    shell.SendKeys("%")  # Alt key,  send key
+    shell.SendKeys('%')  # Alt key,  send key
     rect = win32gui.GetWindowRect(hwnd)
     x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
     w = x1 - x0
     h = y1 - y0
 
+
     win32gui.MoveWindow(hwnd, x0, y0, resize[0], resize[1], True)
 
 
-def move_window(window_name, coord):
-    window = pygetwindow.getWindowsWithTitle(window_name)[0]
-    window.moveTo(coord[0], coord[1])
+def move_window(window_name,coord):
+    window=pygetwindow.getWindowsWithTitle(window_name)[0]
+    window.moveTo(coord[0],coord[1])
 
 
 def find_eft_window():
@@ -422,32 +406,34 @@ def find_eft_window():
         screenshot=current_image,
         folder=reference_folder,
         names=references,
-        tolerance=0.99,
+        tolerance=0.99
     )
-    coord = get_first_location(locations)
-    return None if coord is None else [coord[1], coord[0]]
+    coord= get_first_location(locations)
+    return None if coord is None else [coord[1],coord[0]]
 
 
 def img_to_txt(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    config = "-l eng --oem 3 --psm 9"
+    config = ('-l eng --oem 3 --psm 9')
     return pytesseract.image_to_string(image, config=config)
 
 
 def img_to_txt_numbers_only(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    # config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
     return pytesseract.image_to_string(image, config="digits --psm 7")
 
 
 def img_to_txt_single_char(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
-    # config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
-    return pytesseract.image_to_string(image, config="--psm 10")
+    #config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
+    return pytesseract.image_to_string(image , config="--psm 10")
 
 
-def smooth_click(x_coord, y_coord, button="left", duration=0.33):
-    pyautogui.moveTo(x_coord, y_coord, duration=0.33)
+def smooth_click(x_coord,y_coord,button='left',duration=0.33):
+    pyautogui.moveTo(x_coord,y_coord,duration=0.33)
     time.sleep(0.1)
     pyautogui.click(button=button)
     time.sleep(0.1)
+
+

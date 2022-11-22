@@ -2,10 +2,12 @@ import time
 
 
 class Logger:
-    """Handles creating and reading logs"""
+    """Handles creating and reading logs
+    """
 
     def __init__(self):
-        """Logger init"""
+        """Logger init
+        """
         self.start_time = time.time()
         self.restarts = 0
         self.roubles_made = 0
@@ -13,6 +15,8 @@ class Logger:
         self.item_sold = 0
         self.crafts_completed = 0
         self.hideout_rotations = 0
+
+
 
     def make_timestamp(self):
         """creates a time stamp for log output
@@ -36,23 +40,13 @@ class Logger:
         roubles_made_str = f"{str(self.roubles_made)} profit"
         items_sold_str = f"{str(self.item_sold)} items sold"
         crafts_completed_str = f"{str(self.crafts_completed)} crafts completed"
-        hideout_rotations_str = str(self.hideout_rotations) + " hideout rotations"
-        flea_success_str = (
-            f"{str(self.make_flea_success_rate())}% success rate fleaing items"
-        )
+        hideout_rotations_str = str(
+            self.hideout_rotations) + " hideout rotations"
+        flea_success_str = f"{str(self.make_flea_success_rate())}% success rate fleaing items"
+
 
         gap_str = "|"
-        return (
-            gap_str
-            + restart_str
-            + gap_str
-            + roubles_made_str
-            + gap_str
-            + items_sold_str
-            + gap_str
-            + flea_success_str
-            + gap_str
-        )
+        return gap_str + restart_str + gap_str + roubles_made_str + gap_str + items_sold_str + gap_str + flea_success_str + gap_str
 
     def convert_int_to_time(self, seconds):
         """convert epoch to time
@@ -79,7 +73,8 @@ class Logger:
         print(f"{self.make_timestamp()} - {self.make_output_string()} : {message}")
 
     def add_restart(self):
-        """add restart to log"""
+        """add restart to log
+        """
         self.restarts += 1
 
     def add_roubles_made(self, amount):
@@ -95,12 +90,11 @@ class Logger:
         self.hideout_rotations = self.hideout_rotations + 1
 
     def make_flea_success_rate(self):
-        if self.sale_attempts == 0:
-            return 0
-        if self.item_sold == 0:
-            return 0
-        calculation = (self.item_sold / self.sale_attempts) * 100
+        if (self.sale_attempts==0): return 0
+        if (self.item_sold == 0): return 0
+        calculation= (self.item_sold / self.sale_attempts) * 100
         return int(calculation)
 
     def add_flea_sale_attempt(self):
         self.sale_attempts = self.sale_attempts + 1
+
