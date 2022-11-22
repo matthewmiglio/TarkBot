@@ -40,7 +40,7 @@ def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main(logger)
     loops = 0
     while not on_main:
-        
+        orientate_terminal()
         logger.change_status(f"Waiting for tark main {loops}")
         loops = loops + 2
         time.sleep(2)
@@ -79,12 +79,14 @@ def restart_tarkov(logger):
     
     if len(tark_window) != 0:
         logger.change_status("Tarkov client detected. Closing it.")
+        orientate_terminal()
         close_tarkov_client(logger, tark_window)
         time.sleep(5)
 
     # if launcher open
     if len(tark_launcher) != 0:
         logger.change_status("Tarkov launcher detected. Closing it.")
+        orientate_terminal()
         close_launcher(logger, tark_launcher)
         time.sleep(5)
 
@@ -93,11 +95,13 @@ def restart_tarkov(logger):
     logger.change_status("Opening launcher.")
     try:
         with subprocess.Popen(bsg_launcher_path):
-            logger.change_status("Waiting for launcher to open.")
             
+            #Wait for launcher to open and load up
+            logger.change_status("Waiting for launcher to open.")
             index=0
             has_window=False
             while not has_window:
+                orientate_terminal()
                 time.sleep(1)
                 index+=1
                 if len(pygetwindow.getWindowsWithTitle("BsgLauncher"))>0:
@@ -111,6 +115,7 @@ def restart_tarkov(logger):
             # orientate launcher
             logger.change_status("orientating launcher")
             orientate_launcher()
+            orientate_terminal()
             time.sleep(3)
 
             # wait for launcher play button to appear
@@ -130,12 +135,13 @@ def restart_tarkov(logger):
             if wait_for_tarkov_to_open(logger) == "restart":
                 restart_tarkov(logger)
             for index in range(0, 30, 2):
-                
+                orientate_terminal()
                 logger.change_status(f"Manually giving tark time to load: {index}")
                 time.sleep(2)
             # orientate tark client
             
             orientate_tarkov_client(logger)
+            orientate_terminal()
             time.sleep(1)
 
             # wait for us to reach main menu
@@ -151,7 +157,7 @@ def wait_for_tarkov_to_open(logger):
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
     loops = 0
     while len(tark_window) == 0:
-        
+        orientate_terminal()
         logger.change_status(f"Waiting for tarkov to open {loops}")
         loops = loops + 2
         time.sleep(2)
