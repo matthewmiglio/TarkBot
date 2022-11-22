@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 from PIL import Image
 from screeninfo import get_monitors
 
-from pytarkbot.image_rec import (
+from pytarkbot.detection import (
     coords_is_equal,
     find_references,
     get_first_location,

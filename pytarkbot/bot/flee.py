@@ -5,7 +5,13 @@ import time
 import numpy
 import pyautogui
 
-from pytarkbot.client import (
+from pytarkbot.detection import (
+    check_for_location,
+    find_references,
+    get_first_location,
+    pixel_is_equal,
+)
+from pytarkbot.tarkov import (
     calculate_avg_pixel,
     check_quit_key_press,
     click,
@@ -14,12 +20,6 @@ from pytarkbot.client import (
     img_to_txt,
     img_to_txt_numbers_only,
     screenshot,
-)
-from pytarkbot.image_rec import (
-    check_for_location,
-    find_references,
-    get_first_location,
-    pixel_is_equal,
 )
 
 

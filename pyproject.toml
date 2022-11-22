@@ -26,7 +26,7 @@ classifiers = [
   "Topic :: Games/Entertainment",
 ]
 keywords = ["tarkov", "bot", "automation"]
-include = ["README.md", "pytarkbot/reference_images/**/*.png"]
+include = ["README.md", "pytarkbot/detection/reference_images/**/*.png"]
 
 
 [tool.poetry.dependencies]

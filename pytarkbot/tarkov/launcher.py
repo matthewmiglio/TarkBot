@@ -3,10 +3,10 @@ import sys
 import time
 
 import numpy
-import pyautogui
 import pygetwindow
 
-from pytarkbot.client import (
+from pytarkbot.detection import check_for_location, find_references, pixel_is_equal
+from pytarkbot.tarkov import (
     check_quit_key_press,
     click,
     orientate_launcher,
@@ -14,7 +14,6 @@ from pytarkbot.client import (
     screenshot,
     waiting_animation,
 )
-from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 
 
 def check_if_on_tark_main(logger):
