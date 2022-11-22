@@ -1,3 +1,8 @@
+from pytarkbot.utils import setup_tesseract
+
+setup_tesseract()
+
+# pylint: disable=C0413
 from .client import (
     calculate_avg_pixel,
     check_quit_key_press,
@@ -6,7 +11,6 @@ from .client import (
     find_all_pixels,
     img_to_txt,
     img_to_txt_numbers_only,
-    intro_printout,
     orientate_launcher,
     orientate_tarkov_client,
     orientate_terminal,
@@ -16,7 +20,6 @@ from .client import (
 from .launcher import restart_tarkov
 
 __all__ = [
-    "intro_printout",
     "orientate_terminal",
     "calculate_avg_pixel",
     "check_quit_key_press",

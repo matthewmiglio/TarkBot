@@ -1,104 +1,85 @@
 import time
+from functools import wraps
+from queue import Queue
 
 
 class Logger:
     """Handles creating and reading logs"""
 
-    def __init__(self):
+    def __init__(self, queue=None):
         """Logger init"""
+
+        self.queue: Queue[dict[str, str | int]] = Queue() if queue is None else queue
+
         self.start_time = time.time()
+        self.status = "Idle"
         self.restarts = 0
         self.roubles_made = 0
         self.sale_attempts = 0
         self.item_sold = 0
-        self.crafts_completed = 0
-        self.hideout_rotations = 0
 
-    def make_timestamp(self):
-        """creates a time stamp for log output
+    def _update_queue(self):
+        """updates the queue with a dictionary of mutable statistics"""
+        if self.queue is None:
+            return
 
-        Returns:
-            str: log time stamp
-        """
-        output_time = time.time() - self.start_time
-        output_time = int(output_time)
+        statistics: dict[str, str | int] = {
+            "current_status": self.status,
+            "time_since_start": self.calc_time_since_start(),
+            "restarts": self.restarts,
+            "item_sold": self.item_sold,
+            "roubles_made": self.roubles_made,
+            "sale_attempts": self.sale_attempts,
+            "success_rate": self.calc_success_rate(),
+        }
+        self.queue.put(statistics)
 
-        return str(self.convert_int_to_time(output_time))
+    @staticmethod
+    def _updates_queue(func):
+        """decorator to specify functions which update the queue with statistics"""
 
-    def make_output_string(self):
-        """creates scoreboard for log output
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self._update_queue()  # pylint: disable=protected-access
+            return func(self, *args, **kwargs)
 
-        Returns:
-            str: log scoreboard
-        """
+        return wrapper
 
-        restart_str = f"{str(self.restarts)} restarts"
-        roubles_made_str = f"{str(self.roubles_made)} profit"
-        items_sold_str = f"{str(self.item_sold)} items sold"
-        flea_success_str = (
-            f"{str(self.make_flea_success_rate())}% success rate fleaing items"
-        )
-
-        gap_str = "|"
-        return (
-            gap_str
-            + restart_str
-            + gap_str
-            + roubles_made_str
-            + gap_str
-            + items_sold_str
-            + gap_str
-            + flea_success_str
-            + gap_str
-        )
-
-    def convert_int_to_time(self, seconds):
-        """convert epoch to time
-
-        Args:
-            seconds (int): epoch time in int
-
-        Returns:
-            str: human readable time
-        """
-        seconds = seconds % (24 * 3600)
-        hour = seconds // 3600
-        seconds %= 3600
-        minutes = seconds // 60
-        seconds %= 60
-        return "%d:%02d:%02d" % (hour, minutes, seconds)
-
-    def log(self, message):
+    @_updates_queue
+    def change_status(self, message):
         """add message to log
 
         Args:
             message (str): message to add
         """
-        print(f"{self.make_timestamp()} - {self.make_output_string()} : {message}")
+        self.status = message
+        # print(f"{self.make_timestamp()} - {self.make_output_string()} : {message}")
 
+    @_updates_queue
     def add_restart(self):
         """add restart to log"""
         self.restarts += 1
 
+    @_updates_queue
     def add_roubles_made(self, amount):
         self.roubles_made = self.roubles_made + amount
 
+    @_updates_queue
     def add_item_sold(self):
         self.item_sold = self.item_sold + 1
 
-    def add_craft_completed(self):
-        self.crafts_completed = self.crafts_completed + 1
-
-    def add_hideout_rotation(self):
-        self.hideout_rotations = self.hideout_rotations + 1
-
-    def make_flea_success_rate(self):
-        if self.sale_attempts == 0:
-            return 0
-        if self.item_sold == 0:
-            return 0
-        calculation = (self.item_sold / self.sale_attempts) * 100
-        return int(calculation)
-
+    @_updates_queue
     def add_flea_sale_attempt(self):
         self.sale_attempts = self.sale_attempts + 1
+
+    def calc_success_rate(self):
+        if self.sale_attempts == 0 or self.item_sold == 0:
+            calculation = 0
+        else:
+            calculation = (self.item_sold / self.sale_attempts) * 100
+        return f"{str(calculation)}%"
+
+    def calc_time_since_start(self) -> str:
+        hours, remainder = divmod(time.time() - self.start_time, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"

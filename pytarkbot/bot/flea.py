@@ -210,7 +210,7 @@ def get_value_to_post_item():
     return [get_price_undercut(price), price]
 
 
-def find_coords_of_item_to_flee():
+def find_coords_of_item_to_flea():
     region = [16, 509, 407, 427]
     iar = numpy.asarray(screenshot(region))
     coords_list = [
@@ -243,19 +243,23 @@ def check_first_price(logger):
     avg_pix = calculate_avg_pixel(find_all_pixels(region))
     wrong_background_color = [29, 28, 21]
     if pixel_is_equal(wrong_background_color, avg_pix, tol=5):
-        logger.log("Top price failed availability check. Returning false for price.")
+        logger.change_status(
+            "Top price failed availability check. Returning false for price."
+        )
         return False
 
     # look for euro symbol near price
     if look_for_euro_symbol():
-        logger.log("Top price failed EURO check. Returning False for price.")
+        logger.change_status("Top price failed EURO check. Returning False for price.")
         return False
     # look for usd symbol near price
     if look_for_usd_symbol():
-        logger.log("Top price failed USD check. Returning False for price.")
+        logger.change_status("Top price failed USD check. Returning False for price.")
         return False
-    if check_if_item_to_flee_is_trader_item(logger):
-        logger.log("Top price failed TRADER check. Returning False for price.")
+    if check_if_item_to_flea_is_trader_item(logger):
+        logger.change_status(
+            "Top price failed TRADER check. Returning False for price."
+        )
         return False
 
     # digit check
@@ -268,22 +272,22 @@ def check_first_price(logger):
     image_rec_count = len(str(detected_price))
     # checks
     if post_price is None:
-        logger.log("Price read failed. Skipping")
+        logger.change_status("Price read failed. Skipping")
         return False
 
     if image_rec_count != digit_counter_count:
-        logger.log("Image rec price read failed digit check #1")
+        logger.change_status("Image rec price read failed digit check #1")
 
     if image_rec_count != digit_counter_count2:
-        logger.log("Image rec price read failed digit check #2")
+        logger.change_status("Image rec price read failed digit check #2")
 
-    logger.log(f"Found price: {post_price}")
+    logger.change_status(f"Found price: {post_price}")
     return post_price
 
 
-def check_if_item_to_flee_is_trader_item(logger):
+def check_if_item_to_flea_is_trader_item(logger):
     current_image = screenshot(region=[504, 130, 90, 45])
-    reference_folder = "check_if_item_to_flee_is_trader_item"
+    reference_folder = "check_if_item_to_flea_is_trader_item"
     references = [
         "1.png",
         "2.png",
@@ -312,7 +316,7 @@ def check_if_item_to_flee_is_trader_item(logger):
 
     truth = check_for_location(locations)
     if truth:
-        logger.log("Item is trader item")
+        logger.change_status("Item is trader item")
     return truth
 
 
@@ -372,11 +376,11 @@ def find_fbi_button():
     return get_first_location(locations)
 
 
-def get_to_flee_tab(logger):
-    on_flee = check_if_on_flee_page()
+def get_to_flea_tab(logger):
+    on_flea = check_if_on_flea_page()
     loops = 0
-    while not on_flee:
-        logger.log("Didnt find flea tab. Clicking flea tab.")
+    while not on_flea:
+        logger.change_status("Didnt find flea tab. Clicking flea tab.")
         if loops > 10:
             return "restart"
         loops = loops + 1
@@ -384,11 +388,11 @@ def get_to_flee_tab(logger):
         check_quit_key_press()
         click(829, 977)
         time.sleep(2)
-        on_flee = check_if_on_flee_page()
-    logger.log("Made it to flea tab.")
+        on_flea = check_if_on_flea_page()
+    logger.change_status("Made it to flea tab.")
 
 
-def check_if_on_flee_page():
+def check_if_on_flea_page():
     # sourcery skip: assign-if-exp, boolean-if-exp-identity, reintroduce-else, swap-if-expression
     iar = numpy.asarray(screenshot())
 
@@ -422,7 +426,7 @@ def check_if_can_add_offer(logger):
 
 
 def close_add_offer_window(logger):
-    # logger.log("Closing add offer window.")
+    logger.change_status("Closing add offer window.")
     orientate_add_offer_window(logger)
     click(732, 471)
 
@@ -456,7 +460,7 @@ def wait_till_can_add_another_offer(logger):
     loops = 0
     while not has_another_offer:
         if loops > 120:
-            return "remove_flee_offers"
+            return "remove_flea_offers"
 
         loops = loops + 1
         if loops % 2 == 0:
@@ -468,11 +472,11 @@ def wait_till_can_add_another_offer(logger):
         pyautogui.press("f5")
         time.sleep(1)
 
-        get_to_flee_tab(logger)
+        get_to_flea_tab(logger)
 
         has_another_offer = check_if_can_add_offer(logger)
 
-    logger.log("Done waiting for another offer.")
+    logger.change_status("Done waiting for another offer.")
 
 
 def orientate_add_offer_window(logger):
@@ -480,20 +484,20 @@ def orientate_add_offer_window(logger):
     orientated = check_add_offer_window_orientation()
     loops = 0
     while not orientated:
-        # logger.log(f"Orientating add offer window: {loops}.")
+        # logger.change_status(f"Orientating add offer window: {loops}.")
         if loops > 10:
             return "restart"
         loops = loops + 1
         check_quit_key_press()
         coords = find_add_offer_window()
         if coords is None:
-            # logger.log("Trouble orientating add offer window. Restarting.")
+            # logger.change_status("Trouble orientating add offer window. Restarting.")
             return "restart"
         pyautogui.moveTo(coords[0], coords[1], duration=0.4)
         time.sleep(1)
         pyautogui.dragTo(0, 980, duration=0.33)
         orientated = check_add_offer_window_orientation()
-    logger.log("Orientated add offer window.")
+    logger.change_status("Orientated add offer window.")
     time.sleep(0.17)
 
 
@@ -535,11 +539,13 @@ def orientate_add_requirement_window(logger):
     orientated = check_add_requirement_window_orientation()
     loops = 0
     while not orientated:
-        logger.log(f"Orientating add requirement window {loops}")
+        logger.change_status(f"Orientating add requirement window {loops}")
         loops = loops + 1
         window_coords = find_add_requirement_window()
         if window_coords is None:
-            logger.log("Trouble orientating add requirement window. Restarting.")
+            logger.change_status(
+                "Trouble orientating add requirement window. Restarting."
+            )
             return "restart"
         window_coords = [window_coords[0] + 10, window_coords[1]]
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
@@ -549,7 +555,7 @@ def orientate_add_requirement_window(logger):
         time.sleep(0.33)
         pyautogui.mouseUp(button="left")
         orientated = check_add_requirement_window_orientation()
-    logger.log("Orientated add requirement window.")
+    logger.change_status("Orientated add requirement window.")
     time.sleep(0.17)
 
 
@@ -565,22 +571,22 @@ def check_add_requirement_window_orientation():
 
 def click_fbi_button():
     check_quit_key_press()
-    # logger.log("Checking whether or not the fbi button shows for the selected item.")
+    # logger.change_status("Checking whether or not the fbi button shows for the selected item.")
     fbi_coords = find_fbi_button()
     if fbi_coords is None:
-        # logger.log("Found no fbi button for the selected item. Returning restart.")
+        # logger.change_status("Found no fbi button for the selected item. Returning restart.")
         return "restart"
 
     # click fbi button
     check_quit_key_press()
-    # logger.log("clicking fbi button for the selected item.")
+    # logger.change_status("clicking fbi button for the selected item.")
     click(fbi_coords[1], fbi_coords[0])
     time.sleep(0.33)
     return "continue"
 
 
 def open_add_offer_tab(logger):
-    logger.log("Clicking add offer button in the top")
+    logger.change_status("Clicking add offer button in the top")
 
     # handle popups
     pyautogui.click(50, 50)
@@ -592,7 +598,7 @@ def open_add_offer_tab(logger):
 
     # click add offer
     check_quit_key_press()
-    logger.log("Opening add offer window.")
+    logger.change_status("Opening add offer window.")
     click(850, 85)
     time.sleep(0.17)
 
@@ -605,15 +611,15 @@ def open_add_offer_tab(logger):
     orientate_add_offer_window(logger)
 
 
-def select_random_item_to_flee(logger):
-    logger.log("Selecting another random item to flea.")
-    has_item_to_flee = False
-    while not has_item_to_flee:
+def select_random_item_to_flea(logger):
+    logger.change_status("Selecting another random item to flea.")
+    has_item_to_flea = False
+    while not has_item_to_flea:
         # clicks the random item's FBI button
-        # click item to flee
+        # click item to flea
         check_quit_key_press()
 
-        item_coords = find_coords_of_item_to_flee()
+        item_coords = find_coords_of_item_to_flea()
         if item_coords is None:
             return
         click(item_coords[0], item_coords[1])
@@ -623,18 +629,18 @@ def select_random_item_to_flee(logger):
 
         # click this item's FBI button
         if click_fbi_button() != "restart":
-            logger.log("Found item to flee.")
-            has_item_to_flee = True
-            logger.log("Found a satisfactory item to flea.")
+            logger.change_status("Found item to flea.")
+            has_item_to_flea = True
+            logger.change_status("Found a satisfactory item to flea.")
         else:
-            logger.log(
+            logger.change_status(
                 "This item's filter by item button was unreadable this go-around. Finding another item."
             )
 
 
 def click_add_requirements_in_add_requirements_window(logger):
     check_quit_key_press()
-    logger.log("Adding requirements for offer..")
+    logger.change_status("Adding requirements for offer..")
     click(711, 710)
     time.sleep(0.17)
 
@@ -645,7 +651,7 @@ def write_post_price(logger, post_price):
     click(1162, 501)
 
     # write post_price
-    logger.log(f"Writing price of {post_price}.")
+    logger.change_status(f"Writing price of {post_price}.")
     type_string = str(post_price)
     pyautogui.typewrite(type_string, interval=0.02)
     time.sleep(0.17)
@@ -662,7 +668,7 @@ def post_item(logger, post_price):
 
     # click add in add requirements window
     check_quit_key_press()
-    logger.log("Adding this offer.")
+    logger.change_status("Adding this offer.")
     click(1169, 961, clicks=2)
     time.sleep(0.17)
 
@@ -737,7 +743,7 @@ def orientate_filters_window(logger):
 
     is_orientated = check_filters_window_orientation()
     while not is_orientated:
-        logger.log("Orientating filters window.")
+        logger.change_status("Orientating filters window.")
         coords = find_filters_window()
         if coords is not None:
             pyautogui.moveTo(coords[0], coords[1], duration=0.33)
@@ -745,7 +751,7 @@ def orientate_filters_window(logger):
             pyautogui.dragTo(3, 3, duration=0.33)
             time.sleep(0.33)
         is_orientated = check_filters_window_orientation()
-    logger.log("Orientated filters window.")
+    logger.change_status("Orientated filters window.")
 
 
 def open_filters_window(logger):
@@ -755,15 +761,15 @@ def open_filters_window(logger):
 
 
 def set_flea_filters(logger):  # sourcery skip: extract-duplicate-method
-    logger.log("Setting the flea filters for price undercut recognition")
+    logger.change_status("Setting the flea filters for price undercut recognition")
 
     # open filter window
-    logger.log("Opening the filters window")
+    logger.change_status("Opening the filters window")
     open_filters_window(logger)
     time.sleep(0.17)
 
     # click currency dropdown
-    logger.log("Filtering by roubles.")
+    logger.change_status("Filtering by roubles.")
     click(113, 62)
     time.sleep(0.17)
 
@@ -772,7 +778,7 @@ def set_flea_filters(logger):  # sourcery skip: extract-duplicate-method
     time.sleep(0.17)
 
     # click 'display offers from' dropdown
-    logger.log("Filtering by player sales only.")
+    logger.change_status("Filtering by player sales only.")
     click(171, 188)
     time.sleep(0.17)
 
@@ -781,7 +787,7 @@ def set_flea_filters(logger):  # sourcery skip: extract-duplicate-method
     time.sleep(0.17)
 
     # click OK
-    logger.log("Clicking OK in filters tab.")
+    logger.change_status("Clicking OK in filters tab.")
     click(83, 272)
     time.sleep(0.17)
 
@@ -811,7 +817,7 @@ def check_for_post_confirmation_popup():
 def handle_post_confirmation_popup(logger):
     check_quit_key_press()
     if check_for_post_confirmation_popup():
-        logger.log("Handling post confirmation popup")
+        logger.change_status("Handling post confirmation popup")
         pyautogui.click(50, 50)
         pyautogui.click(50, 50)
         pyautogui.press("n")
@@ -843,7 +849,7 @@ def check_for_purchase_confirmation_popup():
 def handle_purchase_confirmation_popup(logger):
     check_quit_key_press()
     if check_for_purchase_confirmation_popup():
-        logger.log("Handling purchase confirmation popup")
+        logger.change_status("Handling purchase confirmation popup")
         pyautogui.click(50, 50)
         pyautogui.click(50, 50)
         pyautogui.press("n")
@@ -880,7 +886,7 @@ def get_to_my_offers_tab(logger):
         click(269, 87)
         time.sleep(1)
         on_offers_tab = check_if_on_my_offers_tab()
-    logger.log("On my offers tab.")
+    logger.change_status("On my offers tab.")
 
 
 def remove_offers(logger):
@@ -889,7 +895,7 @@ def remove_offers(logger):
         # click red remove button
         remove_button_coords = look_for_remove_offer_button()
         if remove_button_coords is not None:
-            logger.log("Removing an offer.")
+            logger.change_status("Removing an offer.")
             click(remove_button_coords[0], remove_button_coords[1])
             pyautogui.press("y")
             time.sleep(0.33)
@@ -897,13 +903,13 @@ def remove_offers(logger):
         # offer.
         click(174, random.randint(136, 250))
         time.sleep(0.33)
-        logger.log("remove_offers alg is done.")
+        logger.change_status("remove_offers alg is done.")
 
 
-def get_to_flee_tab_from_my_offers_tab(logger):
+def get_to_flea_tab_from_my_offers_tab(logger):
     click(829, 977, clicks=2, interval=0.33)
     time.sleep(0.33)
-    get_to_flee_tab(logger)
+    get_to_flea_tab(logger)
 
 
 def look_for_remove_offer_button():
@@ -943,7 +949,7 @@ def splice_price_text(logger, price_text):
         if digit in ["e", "a", "o", "O", "B"]:
             out_string = f"{out_string}0"
     if len(out_string) != count_digits():
-        logger.log(
+        logger.change_status(
             f"Price check failed. Read price: {out_string}, digits: {count_digits()}"
         )
         return "fail"

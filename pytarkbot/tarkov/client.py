@@ -22,18 +22,8 @@ from pytarkbot.detection import (
 )
 
 
-def intro_printout(logger):
-    blank_line = "////////////////////////////////////////////////////////////////////////////////////"
-    name_line = "/////////////Python Tarkov flea sell bot // Matthew Miglio ~Aug 2022////////////////"
-    logger.log(blank_line)
-    logger.log(blank_line)
-    logger.log(name_line)
-    logger.log(blank_line)
-    logger.log(blank_line)
-
-
 def orientate_tarkov_client(title, logger):
-    logger.log("Orientating tarkov client.")
+    logger.change_status("Orientating tarkov client.")
 
     # change res
     resize = [1299, 999]
