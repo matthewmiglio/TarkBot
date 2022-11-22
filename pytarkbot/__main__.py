@@ -6,26 +6,33 @@ import pyperclip
 import PySimpleGUI as sg
 
 from pytarkbot.client import intro_printout, orientate_terminal
-from pytarkbot.configuration import load_user_config
-from pytarkbot.flee import (get_price_2, get_price_text, get_price_undercut,
-                            get_to_flee_tab,
-                            get_to_flee_tab_from_my_offers_tab,
-                            get_to_my_offers_tab, open_add_offer_tab,
-                            orientate_add_offer_window, post_item,
-                            remove_offers, select_random_item_to_flee,
-                            set_flea_filters, wait_till_can_add_another_offer)
+from pytarkbot.dependency import get_bsg_launcher_path, setup_tesseract
+from pytarkbot.flee import (
+    get_price_2,
+    get_price_undercut,
+    get_to_flee_tab,
+    get_to_flee_tab_from_my_offers_tab,
+    get_to_my_offers_tab,
+    orientate_add_offer_window,
+    post_item,
+    remove_offers,
+    select_random_item_to_flee,
+    set_flea_filters,
+    wait_till_can_add_another_offer,
+)
 from pytarkbot.hideout import manage_hideout
 from pytarkbot.launcher import restart_tarkov
 from pytarkbot.logger import Logger
-from pytarkbot.tesseract_install import setup_tesseract
 
-appdata_setttings = load_user_config()
-launcher_path = appdata_setttings["launcher_path"]
+
 pyautogui.FAILSAFE = False
+
+# setup dependency paths
+bsg_launcher_path = get_bsg_launcher_path()
+setup_tesseract()
 
 
 logger = Logger()
-setup_tesseract()
 
 
 def flea_items_main():
@@ -70,7 +77,7 @@ def state_intro():
     logger.log(blank_line)
     logger.log("")
 
-    restart_tarkov(logger, launcher_path)
+    restart_tarkov(logger, bsg_launcher_path)
 
 
 def state_remove_flee_offers():
@@ -160,7 +167,7 @@ def state_restart():
     # add to logger
     logger.add_restart()
 
-    restart_tarkov(logger, launcher_path)
+    restart_tarkov(logger, bsg_launcher_path)
 
     return "flee_mode"
 
