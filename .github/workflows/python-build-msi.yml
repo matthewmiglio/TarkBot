@@ -10,31 +10,35 @@ permissions:
 
 jobs:
   build:
-    name: Build packages
+    name: Build package
     runs-on: windows-latest
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            TARGET: windows
-            CMD_BUILD: python setup_msi.py bdist_msi
-            OUT_FILE_NAME: py-tarkbot.msi
     steps:
-      - uses: actions/checkout@v1
-      - uses: little-core-labs/get-git-tag@v3.0.1
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@master
+      - name: Install poetry
+        run: pipx install poetry
+      - name: Set up Python 3.11
+        uses: actions/setup-python@master
         with:
-          python-version: "3.10"
-      - name: Install dependencies
+          python-version: "3.11"
+          cache: "poetry"
+      - name: Install package and dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Build package for ${{matrix.TARGET}}
-        run: ${{matrix.CMD_BUILD}}
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+          poetry install --with build --without dev
+      - name: Build package for Windows
+        run: |
+          poetry run python setup_msi.py bdist_msi --target-version $(git describe --tags --abbrev=0)
+      - name: Publish Pre-Release
+        uses: softprops/action-gh-release@master
+        if: startsWith(github.ref, 'refs/tags/') && contains(github.ref, 'rc')
         with:
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            ./dist/py-tarkbot*.msi
+      - name: Publish Release
+        uses: softprops/action-gh-release@master
+        if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'rc')
+        with:
+          generate_release_notes: true
           files: |
             ./dist/py-tarkbot*.msi
