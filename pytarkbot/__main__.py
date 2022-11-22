@@ -15,7 +15,7 @@ pyautogui.FAILSAFE = False
 sg.theme(THEME)
 
 
-def start_button_event(logger: Logger, window,values):
+def start_button_event(logger: Logger, window, values):
     logger.change_status("Starting")
 
     for key in disable_keys:
@@ -59,7 +59,7 @@ def update_layout(window: sg.Window, logger: Logger):
 
 
 def main():
-    #orientate_terminal()
+    # orientate_terminal()
 
     thread: WorkerThread | None = None
     comm_queue: Queue[dict[str, str | int]] = Queue()
@@ -80,7 +80,7 @@ def main():
             break
 
         if event == "Start":
-            thread = start_button_event(logger, window,values)
+            thread = start_button_event(logger, window, values)
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)
@@ -125,7 +125,7 @@ class WorkerThread(StoppableThread):
             while not self.shutdown_flag.is_set():
                 # perform state transition
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
-                state = state_tree(self.logger, state,number_of_rows)
+                state = state_tree(self.logger, state, number_of_rows)
         except Exception as exc:  # pylint: disable=broad-except
             # we don't want the thread to crash the interface so we catch all exceptions and log
             # raise exc
