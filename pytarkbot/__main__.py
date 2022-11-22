@@ -23,7 +23,6 @@ from pytarkbot.flee import (
 from pytarkbot.launcher import restart_tarkov
 from pytarkbot.logger import Logger
 
-
 pyautogui.FAILSAFE = False
 
 # setup dependency paths

@@ -6,18 +6,31 @@ import numpy
 import pyautogui
 import pygetwindow
 
-from pytarkbot.client import (check_quit_key_press, click, orientate_launcher,
-                              orientate_tarkov_client, screenshot,
-                              waiting_animation)
-from pytarkbot.image_rec import (check_for_location, find_references,
-                                 pixel_is_equal)
+from pytarkbot.client import (
+    check_quit_key_press,
+    click,
+    orientate_launcher,
+    orientate_tarkov_client,
+    screenshot,
+    waiting_animation,
+)
+from pytarkbot.image_rec import check_for_location, find_references, pixel_is_equal
 
 
 def check_if_on_tark_main(logger):
-    iar=numpy.asarray(screenshot())
-    pix_list = [iar[613][762], iar[616][926], iar[611][294], iar[618][769], iar[651][427], iar[615][1010], iar[648][290]]
+    iar = numpy.asarray(screenshot())
+    pix_list = [
+        iar[613][762],
+        iar[616][926],
+        iar[611][294],
+        iar[618][769],
+        iar[651][427],
+        iar[615][1010],
+        iar[648][290],
+    ]
 
-    return all(pixel_is_equal(pix,[175,90,50],tol=100) for pix in pix_list)
+    return all(pixel_is_equal(pix, [175, 90, 50], tol=100) for pix in pix_list)
+
 
 def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main(logger)
@@ -81,16 +94,14 @@ def restart_tarkov(logger, launcher_path):
     logger.log("orientating launcher")
     orientate_launcher()
 
-    #wait for launcher play button to appear
-    if wait_for_play_button_in_launcher(logger)== "restart":
-        restart_tarkov(logger,launcher_path)
+    # wait for launcher play button to appear
+    if wait_for_play_button_in_launcher(logger) == "restart":
+        restart_tarkov(logger, launcher_path)
 
-
-    #click play
+    # click play
     check_quit_key_press()
-    click(942,558)
+    click(942, 558)
     time.sleep(20)
-
 
     # wait for client opening
     check_quit_key_press()
@@ -102,13 +113,13 @@ def restart_tarkov(logger, launcher_path):
         time.sleep(2)
     # orientate tark client
     check_quit_key_press()
-    orientate_tarkov_client("EscapeFromTarkov",logger)
+    orientate_tarkov_client("EscapeFromTarkov", logger)
     time.sleep(1)
 
     # wait for us to reach main menu
     check_quit_key_press()
-    if wait_for_tark_main(logger)=="restart":
-        restart_tarkov(logger,launcher_path)
+    if wait_for_tark_main(logger) == "restart":
+        restart_tarkov(logger, launcher_path)
 
 
 def wait_for_tarkov_to_open(logger):
@@ -161,15 +172,14 @@ def check_if_play_button_exists_in_launcher():
         screenshot=current_image,
         folder=reference_folder,
         names=references,
-        tolerance=0.99
+        tolerance=0.99,
     )
     return check_for_location(locations)
 
 
 def wait_for_play_button_in_launcher(logger):
     if len(pygetwindow.getWindowsWithTitle("BsgLauncher")) == 0:
-        logger.log(
-            "Launcher not detected while waiting for play button in launcher.")
+        logger.log("Launcher not detected while waiting for play button in launcher.")
         return "restart"
     loop = 0
     waiting = not (check_if_play_button_exists_in_launcher())
@@ -179,6 +189,5 @@ def wait_for_play_button_in_launcher(logger):
         waiting = not (check_if_play_button_exists_in_launcher())
         waiting_animation(2)
         if loop > 50:
-            logger.log(
-                "Spent too long waiting for launcher's play button. Restarting.")
+            logger.log("Spent too long waiting for launcher's play button. Restarting.")
             return "restart"
