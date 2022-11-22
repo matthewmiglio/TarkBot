@@ -6,6 +6,7 @@ import PySimpleGUI as sg
 
 from pytarkbot.bot import state_tree
 from pytarkbot.interface import THEME, disable_keys, main_layout, show_help_gui
+from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils import Logger
 from pytarkbot.utils.thread import StoppableThread
 
@@ -58,7 +59,7 @@ def update_layout(window: sg.Window, logger: Logger):
 
 
 def main():
-    # orientate_terminal()
+    #orientate_terminal()
 
     thread: WorkerThread | None = None
     comm_queue: Queue[dict[str, str | int]] = Queue()

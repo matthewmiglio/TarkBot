@@ -3,6 +3,7 @@ import time
 import pyautogui
 
 from pytarkbot.tarkov import restart_tarkov
+from pytarkbot.tarkov.client import click
 
 from .flea import (
     get_price_2,
@@ -77,8 +78,7 @@ def state_flea_mode(logger,number_of_rows):
 
         # click add offer
         logger.change_status("Adding another offer.")
-        pyautogui.moveTo(837, 82, duration=0.33)
-        pyautogui.click()
+        click(837, 82)
         time.sleep(0.33)
 
         logger.change_status("Orientating add offer window.")

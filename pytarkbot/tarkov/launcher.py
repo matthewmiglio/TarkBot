@@ -7,13 +7,14 @@ import pygetwindow
 
 from pytarkbot.detection import check_for_location, find_references, pixel_is_equal
 from pytarkbot.tarkov import (
-    check_quit_key_press,
+    
     click,
     orientate_launcher,
     orientate_tarkov_client,
     screenshot,
     
 )
+from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 
 bsg_launcher_path = get_bsg_launcher_path()
@@ -39,7 +40,7 @@ def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main(logger)
     loops = 0
     while not on_main:
-        check_quit_key_press()
+        
         logger.change_status(f"Waiting for tark main {loops}")
         loops = loops + 2
         time.sleep(2)
@@ -65,6 +66,8 @@ def close_launcher(logger, tark_launcher):
 
 
 def restart_tarkov(logger):
+    orientate_terminal()
+    
     # specify tark launcher path
     # launcher_path=r"B:\BsgLauncher\BsgLauncher.exe"
 
@@ -73,7 +76,7 @@ def restart_tarkov(logger):
     tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
 
     # if tark open
-    check_quit_key_press()
+    
     if len(tark_window) != 0:
         logger.change_status("Tarkov client detected. Closing it.")
         close_tarkov_client(logger, tark_window)
@@ -86,17 +89,29 @@ def restart_tarkov(logger):
         time.sleep(5)
 
     # open tark launcher
-    check_quit_key_press()
+    
     logger.change_status("Opening launcher.")
     try:
         with subprocess.Popen(bsg_launcher_path):
             logger.change_status("Waiting for launcher to open.")
+            
+            index=0
+            has_window=False
+            while not has_window:
+                time.sleep(1)
+                index+=1
+                if len(pygetwindow.getWindowsWithTitle("BsgLauncher"))>0:
+                    has_window=True
+                if index>25:
+                    logger.change_status("Launcher failed to open.")
+                    restart_tarkov(logger)
             time.sleep(5)
+            
 
             # orientate launcher
-            check_quit_key_press()
             logger.change_status("orientating launcher")
             orientate_launcher()
+            time.sleep(3)
 
             # wait for launcher play button to appear
             logger.change_status("Waiting for launcher's play button")
@@ -105,27 +120,27 @@ def restart_tarkov(logger):
 
             # click play
             logger.change_status("Clicking play.")
-            check_quit_key_press()
+            
             click(942, 558)
             time.sleep(20)
 
             # wait for client opening
             logger.change_status("Waiting for tarkov client to open.")
-            check_quit_key_press()
+            
             if wait_for_tarkov_to_open(logger) == "restart":
                 restart_tarkov(logger)
             for index in range(0, 30, 2):
-                check_quit_key_press()
+                
                 logger.change_status(f"Manually giving tark time to load: {index}")
                 time.sleep(2)
             # orientate tark client
-            check_quit_key_press()
-            orientate_tarkov_client("EscapeFromTarkov", logger)
+            
+            orientate_tarkov_client(logger)
             time.sleep(1)
 
             # wait for us to reach main menu
             logger.change_status("Waiting for tarkov client to reach main menu.")
-            check_quit_key_press()
+            
             if wait_for_tark_main(logger) == "restart":
                 restart_tarkov(logger)
     except FileNotFoundError:
@@ -136,7 +151,7 @@ def wait_for_tarkov_to_open(logger):
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
     loops = 0
     while len(tark_window) == 0:
-        check_quit_key_press()
+        
         logger.change_status(f"Waiting for tarkov to open {loops}")
         loops = loops + 2
         time.sleep(2)
@@ -167,7 +182,7 @@ def wait_for_tarkov_to_close(logger):
 
 
 def check_if_play_button_exists_in_launcher():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "check_if_play_button_exists_in_launcher2"
     references = [

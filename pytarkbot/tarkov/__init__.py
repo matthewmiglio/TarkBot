@@ -5,7 +5,7 @@ setup_tesseract()
 # pylint: disable=C0413
 from .client import (
     calculate_avg_pixel,
-    check_quit_key_press,
+    
     click,
     find_all_pixel_coords,
     find_all_pixels,
@@ -22,7 +22,7 @@ from .launcher import restart_tarkov
 __all__ = [
     "orientate_terminal",
     "calculate_avg_pixel",
-    "check_quit_key_press",
+
     "click",
     "find_all_pixel_coords",
     "find_all_pixels",

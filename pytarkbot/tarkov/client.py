@@ -22,23 +22,18 @@ from pytarkbot.detection import (
 )
 
 
-def orientate_tarkov_client(title, logger):
+def orientate_tarkov_client(logger) :
     logger.change_status("Orientating tarkov client.")
-
-    # change res
-    resize = [1299, 999]
-    resize_window(window_name=title, resize=resize)
-
-    # move window to top left
-    move_window_to_top_left("EscapeFromTarkov")
-    time.sleep(1)
+    tark_window=pygetwindow.getWindowsWithTitle("EscapeFromTarkov")[0]
+    tark_window.moveTo(0,0)
+    tark_window.resizeTo(1299, 999)
 
 
 def move_tarkov_client_to_topleft():
     for n in range(6):
         if (n % 2) == 0:
             print("Moving tark window")
-        check_quit_key_press()
+        
         current_coord = find_eft_window()
         if current_coord is None:
             return
@@ -55,13 +50,9 @@ def move_window_to_top_left(window_name):
 
 
 def orientate_launcher():
-    resize = [1100, 600]
-    title = "BsgLauncher"
-    resize_window(window_name=title, resize=resize)
-    time.sleep(1)
-    move_window(window_name=title, coord=[0, 0])
-    time.sleep(1)
-
+    launcher_window=pygetwindow.getWindowsWithTitle("BsgLauncher")[0]
+    launcher_window.moveTo(0,0)
+    launcher_window.resizeTo(1122,744)
 
 def get_screen_resolution():
     monitor_1 = get_monitors()[0]
@@ -72,50 +63,10 @@ def get_screen_resolution():
 
 def orientate_terminal():
     try:
-        terminal_window = pygetwindow.getWindowsWithTitle("py-tarkbot v")[0]
-        terminal_window.minimize()
-        terminal_window.restore()
-
-        # resize according to monitor size
-        monitor_width = get_screen_resolution()[0]
-        moitor_height = get_screen_resolution()[1]
-
-        terminal_width = monitor_width - 1290
-        terminal_height = moitor_height - 100
-
-        terminal_window.resizeTo(terminal_width, terminal_height)
-
-        # move window
-        terminal_window.moveTo(970, 5)
-        time.sleep(0.33)
-
-        terminal_window.moveTo(1285, 5)
-        time.sleep(0.33)
-    except BaseException:
-        print("Couldn't orientate terminal using name 'pytarkbot'")
-
-    try:
-        terminal_window = pygetwindow.getWindowsWithTitle("__main__.py")[0]
-        terminal_window.minimize()
-        terminal_window.restore()
-
-        # resize according to monitor size
-        monitor_width = get_screen_resolution()[0]
-        moitor_height = get_screen_resolution()[1]
-
-        terminal_width = monitor_width - 1290
-        terminal_height = moitor_height - 100
-
-        terminal_window.resizeTo(terminal_width, terminal_height)
-
-        # move window
-        terminal_window.moveTo(970, 5)
-        time.sleep(0.33)
-
-        terminal_window.moveTo(1285, 5)
-        time.sleep(0.33)
-    except BaseException:
-        print("Couldn't orientate terminal using name '__main__.py'")
+        terminal_window=pygetwindow.getWindowsWithTitle("Py-TarkBot")[0]
+        terminal_window.moveTo(1292,0)
+    except:
+        print("Couldnt orientate terminal.")
 
 
 def combine_duplicate_coords(coords_list, tolerance=5):
@@ -235,32 +186,22 @@ def string_to_chars_only(string):
 
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
+    #get current moust position
+    origin=pyautogui.position()
+    
     # move the mouse to the spot
     pyautogui.moveTo(x, y, duration=duration)
 
     # click it as many times as ur suppsoed to
     loops = 0
     while loops < clicks:
-        check_quit_key_press()
+        
         pyautogui.click(x=x, y=y, button=button)
         loops += 1
         time.sleep(interval)
 
-
-def check_quit_key_press():
-    if keyboard.is_pressed("space"):
-        print("Space is held. Quitting the program")
-        sys.exit()
-    if keyboard.is_pressed("pause"):
-        print("Pausing program until pause is held again")
-        time.sleep(5)
-        pressed = False
-        while not pressed:
-            time.sleep(0.05)
-            if keyboard.is_pressed("pause"):
-                print("Pause held again. Resuming program.")
-                time.sleep(3)
-                pressed = True
+    #move mouse back to original position
+    pyautogui.moveTo(origin[0],origin[1])
 
 
 def get_image(folder, name):
@@ -386,7 +327,7 @@ def move_window(window_name, coord):
 
 
 def find_eft_window():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "find_eft_window"
     references = [
@@ -420,9 +361,3 @@ def img_to_txt_single_char(image):
     # config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
     return pytesseract.image_to_string(image, config="--psm 10")
 
-
-def smooth_click(x_coord, y_coord, button="left", duration=0.33):
-    pyautogui.moveTo(x_coord, y_coord, duration=duration)
-    time.sleep(0.1)
-    pyautogui.click(button=button)
-    time.sleep(0.1)

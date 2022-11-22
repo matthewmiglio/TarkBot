@@ -13,7 +13,7 @@ from pytarkbot.detection import (
 )
 from pytarkbot.tarkov import (
     calculate_avg_pixel,
-    check_quit_key_press,
+    
     click,
     find_all_pixel_coords,
     find_all_pixels,
@@ -211,7 +211,7 @@ def get_value_to_post_item():
 
 
 def find_coords_of_item_to_flea(rows_to_target):
-    check_quit_key_press()
+    
     positive_pixel_list=[]
     iar=numpy.asarray(screenshot())
     y_pixel_maximum=int(520+(rows_to_target-1)*42)
@@ -375,7 +375,7 @@ def get_to_flea_tab(logger):
             return "restart"
         loops = loops + 1
 
-        check_quit_key_press()
+        
         click(829, 977)
         time.sleep(2)
         on_flea = check_if_on_flea_page()
@@ -426,7 +426,7 @@ def close_add_offer_window(logger):
 
 
 def find_add_offer_window():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "find_add_offer_window"
     references = [
@@ -474,7 +474,7 @@ def wait_till_can_add_another_offer(logger):
 
 
 def orientate_add_offer_window(logger):
-    check_quit_key_press()
+    
     orientated = check_add_offer_window_orientation()
     loops = 0
     while not orientated:
@@ -482,14 +482,16 @@ def orientate_add_offer_window(logger):
         if loops > 10:
             return "restart"
         loops = loops + 1
-        check_quit_key_press()
+        
         coords = find_add_offer_window()
         if coords is None:
             # logger.change_status("Trouble orientating add offer window. Restarting.")
             return "restart"
+        origin=pyautogui.position()
         pyautogui.moveTo(coords[0], coords[1], duration=0.4)
         time.sleep(1)
         pyautogui.dragTo(0, 980, duration=0.33)
+        pyautogui.moveTo(origin[0],origin[1])
         orientated = check_add_offer_window_orientation()
     logger.change_status("Orientated add offer window.")
     time.sleep(0.17)
@@ -505,7 +507,7 @@ def check_add_offer_window_orientation():
 
 
 def find_add_requirement_window():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "find_add_requirement_window"
     references = [
@@ -542,10 +544,12 @@ def orientate_add_requirement_window(logger):
             )
             return "restart"
         window_coords = [window_coords[0] + 10, window_coords[1]]
+        origin=pyautogui.position()
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
         pyautogui.mouseDown(button="left")
         time.sleep(0.33)
         pyautogui.dragTo(1300, 1000, duration=0.33)
+        pyautogui.moveTo(origin[0],origin[1])
         time.sleep(0.33)
         pyautogui.mouseUp(button="left")
         orientated = check_add_requirement_window_orientation()
@@ -564,7 +568,7 @@ def check_add_requirement_window_orientation():
 
 
 def click_fbi_button():
-    check_quit_key_press()
+    
     # logger.change_status("Checking whether or not the fbi button shows for the selected item.")
     fbi_coords = find_fbi_button()
     if fbi_coords is None:
@@ -572,7 +576,7 @@ def click_fbi_button():
         return "restart"
 
     # click fbi button
-    check_quit_key_press()
+    
     # logger.change_status("clicking fbi button for the selected item.")
     click(fbi_coords[1], fbi_coords[0])
     time.sleep(0.33)
@@ -583,7 +587,7 @@ def open_add_offer_tab(logger):
     logger.change_status("Clicking add offer button in the top")
 
     # handle popups
-    pyautogui.click(50, 50)
+    click(50, 50)
     pyautogui.press("n")
 
     # closing add offer window if it exists
@@ -591,7 +595,7 @@ def open_add_offer_tab(logger):
     time.sleep(0.17)
 
     # click add offer
-    check_quit_key_press()
+    
     logger.change_status("Opening add offer window.")
     click(850, 85)
     time.sleep(0.17)
@@ -615,7 +619,7 @@ def select_random_item_to_flea(logger,rows_to_target):
     while not has_item_to_flea:
         # clicks the random item's FBI button
         # click item to flea
-        check_quit_key_press()
+        
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
         if item_coords is None:
@@ -637,7 +641,7 @@ def select_random_item_to_flea(logger,rows_to_target):
 
 
 def click_add_requirements_in_add_requirements_window(logger):
-    check_quit_key_press()
+    
     logger.change_status("Adding requirements for offer..")
     click(711, 710)
     time.sleep(0.17)
@@ -645,7 +649,7 @@ def click_add_requirements_in_add_requirements_window(logger):
 
 def write_post_price(logger, post_price):
     # open rouble input region
-    check_quit_key_press()
+    
     click(1162, 501)
 
     # write post_price
@@ -665,10 +669,12 @@ def post_item(logger, post_price):
     write_post_price(logger, post_price)
 
     # click add in add requirements window
-    check_quit_key_press()
+    
     logger.change_status("Adding this offer.")
     click(1169, 961, clicks=2)
-    time.sleep(0.17)
+    time.sleep(1)
+    click(1169, 961, clicks=2)
+    time.sleep(1)
 
     # click place offer in add offer window
     click(596, 954)
@@ -688,7 +694,7 @@ def post_item(logger, post_price):
 
 
 def find_filters_window():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "find_filters_tab"
     references = [
@@ -744,9 +750,11 @@ def orientate_filters_window(logger):
         logger.change_status("Orientating filters window.")
         coords = find_filters_window()
         if coords is not None:
+            origin=pyautogui.position()
             pyautogui.moveTo(coords[0], coords[1], duration=0.33)
             time.sleep(0.33)
             pyautogui.dragTo(3, 3, duration=0.33)
+            pyautogui.moveTo(origin[0],origin[1])
             time.sleep(0.33)
         is_orientated = check_filters_window_orientation()
     logger.change_status("Orientated filters window.")
@@ -791,7 +799,7 @@ def set_flea_filters(logger):  # sourcery skip: extract-duplicate-method
 
 
 def check_for_post_confirmation_popup():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "check_for_post_confirmation_popup"
     references = [
@@ -813,17 +821,17 @@ def check_for_post_confirmation_popup():
 
 
 def handle_post_confirmation_popup(logger):
-    check_quit_key_press()
+    
     if check_for_post_confirmation_popup():
         logger.change_status("Handling post confirmation popup")
-        pyautogui.click(50, 50)
-        pyautogui.click(50, 50)
+        click(50, 50, clicks=2)
+
         pyautogui.press("n")
         time.sleep(0.33)
 
 
 def check_for_purchase_confirmation_popup():
-    check_quit_key_press()
+    
     current_image = screenshot()
     reference_folder = "check_for_purchase_confirmation_popup"
     references = [
@@ -845,17 +853,16 @@ def check_for_purchase_confirmation_popup():
 
 
 def handle_purchase_confirmation_popup(logger):
-    check_quit_key_press()
+    
     if check_for_purchase_confirmation_popup():
         logger.change_status("Handling purchase confirmation popup")
-        pyautogui.click(50, 50)
-        pyautogui.click(50, 50)
+        click(50,50,clicks=2)
         pyautogui.press("n")
         time.sleep(0.33)
 
 
 def check_if_on_my_offers_tab():
-    check_quit_key_press()
+    
     iar = numpy.asarray(screenshot())
 
     pix1 = iar[77][255]
@@ -872,7 +879,7 @@ def check_if_on_my_offers_tab():
 
 
 def get_to_my_offers_tab(logger):
-    check_quit_key_press()
+    
     on_offers_tab = check_if_on_my_offers_tab()
 
     loops = 0
@@ -888,7 +895,7 @@ def get_to_my_offers_tab(logger):
 
 
 def remove_offers(logger):
-    check_quit_key_press()
+    
     for _ in range(10):
         # click red remove button
         remove_button_coords = look_for_remove_offer_button()
@@ -1264,7 +1271,7 @@ def check_for_9_in_image(current_image):
 
 
 def check_for_0_in_image(current_image):
-    check_quit_key_press()
+    
     # show_image(current_image)
     reference_folder = "check_for_0_in_image"
     references = [
@@ -1288,14 +1295,12 @@ def check_for_0_in_image(current_image):
 
 
 def get_to_wishlist():
-    check_quit_key_press()
-    pyautogui.moveTo(164, 85)
-    pyautogui.click()
+    click(164, 85)
     time.sleep(0.5)
 
 
 def find_dorm_room_314_in_wishlist():
-    check_quit_key_press()
+    
 
     current_image = screenshot(region=[39, 121, 400, 600])
     reference_folder = "find_dorm_room_314_in_wishlist"
@@ -1328,7 +1333,7 @@ def find_dorm_room_314_in_wishlist():
 
 
 def check_if_has_offer():
-    check_quit_key_press()
+    
     iar = numpy.asarray(screenshot())
     pix_list = [
         iar[134][605],
@@ -1341,9 +1346,9 @@ def check_if_has_offer():
 
 
 def purchase_first_offer():
-    check_quit_key_press()
-    pyautogui.moveTo(1193, 150)
-    pyautogui.click()
+    
+
+    click(1193, 150)
     time.sleep(0.5)
 
     pyautogui.press("y")
