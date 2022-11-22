@@ -110,7 +110,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7
 name = "contourpy"
 version = "1.0.6"
 description = "Python library for calculating contours of 2D quadrilateral grids"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -155,7 +155,7 @@ python-versions = ">=3.7"
 name = "cycler"
 version = "0.11.0"
 description = "Composable style cycles"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.6"
 
@@ -226,7 +226,7 @@ testing = ["covdefaults (>=2.2)", "coverage (>=6.4.2)", "pytest (>=7.1.2)", "pyt
 name = "fonttools"
 version = "4.38.0"
 description = "Tools to manipulate font files"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -385,21 +385,10 @@ traitlets = "*"
 test = ["ipykernel", "pre-commit", "pytest", "pytest-cov", "pytest-timeout"]
 
 [[package]]
-name = "keyboard"
-version = "0.13.5"
-description = "Hook and simulate keyboard events on Windows and Linux"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-pyobjc = {version = "*", markers = "sys_platform == \"darwin\""}
-
-[[package]]
 name = "kiwisolver"
 version = "1.4.4"
 description = "A fast implementation of the Cassowary constraint solver"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -429,7 +418,7 @@ source = ["Cython (>=0.29.7)"]
 name = "matplotlib"
 version = "3.6.2"
 description = "Python plotting package"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.8"
 
@@ -2858,7 +2847,7 @@ pyobjc-framework-Cocoa = {version = "*", markers = "sys_platform == \"darwin\""}
 name = "setuptools"
 version = "65.6.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -2871,7 +2860,7 @@ testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (
 name = "setuptools-scm"
 version = "7.0.5"
 description = "the blessed package to manage your versions by scm tags"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -2921,7 +2910,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -2966,7 +2955,7 @@ test = ["pre-commit", "pytest"]
 name = "typing-extensions"
 version = "4.4.0"
 description = "Backported and Experimental Type Hints for Python 3.7+"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -3011,7 +3000,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10.0"
-content-hash = "d13bcd7aeea318c7c24e3d8f4c47b5b334eec391719532271a39d989fda4cd61"
+content-hash = "202e805242137462a7a909b439e67c4ebc2dbfe07196a7dce304a4eccf2be2e3"
 
 [metadata.files]
 appnope = [
@@ -3387,10 +3376,6 @@ jupyter-client = [
 jupyter-core = [
     {file = "jupyter_core-5.0.0-py3-none-any.whl", hash = "sha256:6da1fae48190da8551e1b5dbbb19d51d00b079d59a073c7030407ecaf96dbb1e"},
     {file = "jupyter_core-5.0.0.tar.gz", hash = "sha256:4ed68b7c606197c7e344a24b7195eef57898157075a69655a886074b6beb7043"},
-]
-keyboard = [
-    {file = "keyboard-0.13.5-py3-none-any.whl", hash = "sha256:8e9c2422f1217e0bd84489b9ecd361027cc78415828f4fe4f88dd4acd587947b"},
-    {file = "keyboard-0.13.5.zip", hash = "sha256:63ed83305955939ca5c9a73755e5cc43e8242263f5ad5fd3bb7e0b032f3d308b"},
 ]
 kiwisolver = [
     {file = "kiwisolver-1.4.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:2f5e60fabb7343a836360c4f0919b8cd0d6dbf08ad2ca6b9cf90bf0c76a3c4f6"},
