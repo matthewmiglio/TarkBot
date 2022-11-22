@@ -40,8 +40,9 @@ class Logger:
 
         @wraps(func)
         def wrapper(self, *args, **kwargs):
+            result = func(self, *args, **kwargs)
             self._update_queue()  # pylint: disable=protected-access
-            return func(self, *args, **kwargs)
+            return result
 
         return wrapper
 
