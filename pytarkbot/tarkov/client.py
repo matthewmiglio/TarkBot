@@ -1,16 +1,13 @@
-import sys
 import time
 from os import environ
 from os.path import dirname, join
 
-import keyboard
 import numpy
 import pyautogui
 import pygetwindow
 import pytesseract
 import win32com.client as win32
 import win32gui
-from matplotlib import pyplot as plt
 from PIL import Image
 from screeninfo import get_monitors
 
@@ -22,10 +19,10 @@ from pytarkbot.detection import (
 )
 
 
-def orientate_tarkov_client(logger) :
+def orientate_tarkov_client(logger):
     logger.change_status("Orientating tarkov client.")
-    tark_window=pygetwindow.getWindowsWithTitle("EscapeFromTarkov")[0]
-    tark_window.moveTo(0,0)
+    tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")[0]
+    tark_window.moveTo(0, 0)
     tark_window.resizeTo(1299, 999)
 
 
@@ -33,7 +30,7 @@ def move_tarkov_client_to_topleft():
     for n in range(6):
         if (n % 2) == 0:
             print("Moving tark window")
-        
+
         current_coord = find_eft_window()
         if current_coord is None:
             return
@@ -50,9 +47,10 @@ def move_window_to_top_left(window_name):
 
 
 def orientate_launcher():
-    launcher_window=pygetwindow.getWindowsWithTitle("BsgLauncher")[0]
-    launcher_window.moveTo(0,0)
-    launcher_window.resizeTo(1122,744)
+    launcher_window = pygetwindow.getWindowsWithTitle("BsgLauncher")[0]
+    launcher_window.moveTo(0, 0)
+    launcher_window.resizeTo(1122, 744)
+
 
 def get_screen_resolution():
     monitor_1 = get_monitors()[0]
@@ -63,8 +61,8 @@ def get_screen_resolution():
 
 def orientate_terminal():
     try:
-        terminal_window=pygetwindow.getWindowsWithTitle("Py-TarkBot")[0]
-        terminal_window.moveTo(1292,0)
+        terminal_window = pygetwindow.getWindowsWithTitle("Py-TarkBot")[0]
+        terminal_window.moveTo(1292, 0)
     except:
         print("Couldnt orientate terminal.")
 
@@ -166,11 +164,6 @@ def find_all_pixel_colors(region, color, image=None):
     return colors_list
 
 
-def show_image(image):
-    plt.imshow(numpy.asarray(image))
-    plt.show()
-
-
 def screenshot(region=(0, 0, 1400, 1400)):
     if region is None:
         return pyautogui.screenshot()  # type: ignore
@@ -186,22 +179,22 @@ def string_to_chars_only(string):
 
 
 def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
-    #get current moust position
-    origin=pyautogui.position()
-    
+    # get current moust position
+    origin = pyautogui.position()
+
     # move the mouse to the spot
     pyautogui.moveTo(x, y, duration=duration)
 
     # click it as many times as ur suppsoed to
     loops = 0
     while loops < clicks:
-        
+
         pyautogui.click(x=x, y=y, button=button)
         loops += 1
         time.sleep(interval)
 
-    #move mouse back to original position
-    pyautogui.moveTo(origin[0],origin[1])
+    # move mouse back to original position
+    pyautogui.moveTo(origin[0], origin[1])
 
 
 def get_image(folder, name):
@@ -327,7 +320,7 @@ def move_window(window_name, coord):
 
 
 def find_eft_window():
-    
+
     current_image = screenshot()
     reference_folder = "find_eft_window"
     references = [
@@ -360,4 +353,3 @@ def img_to_txt_single_char(image):
     pytesseract.pytesseract.tesseract_cmd = environ["TESSERACT_PATH"]
     # config = ('--oem 3 --psm 10 tessedict_char_whitelist=0123456789P')
     return pytesseract.image_to_string(image, config="--psm 10")
-

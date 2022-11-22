@@ -38,19 +38,23 @@ main_layout = [
                 ],
                 [
                     sg.Column(
-                        [[
-                            sg.Button("Start"),
-                            sg.Button("Stop", disabled=True),
-                        ]],
+                        [
+                            [
+                                sg.Button("Start"),
+                                sg.Button("Stop", disabled=True),
+                            ]
+                        ],
                         element_justification="left",
                         expand_x=True,
                     ),
                     sg.Column(
-                        [[
-                            sg.Button("Help"),
-                            sg.Button("Issues?", key="issues-link"),
-                            sg.Button("Donate"),
-                        ]],
+                        [
+                            [
+                                sg.Button("Help"),
+                                sg.Button("Issues?", key="issues-link"),
+                                sg.Button("Donate"),
+                            ]
+                        ],
                         element_justification="right",
                         expand_x=True,
                     ),

@@ -20,13 +20,13 @@ from .flea import (
 )
 
 
-def state_tree(logger, state,number_of_rows):
+def state_tree(logger, state, number_of_rows):
     if state == "restart":
         state_restart(logger)
         state = "flea_mode"
 
     elif state == "flea_mode":
-        state = state_flea_mode(logger,number_of_rows)
+        state = state_flea_mode(logger, number_of_rows)
 
     elif state == "remove_flea_offers":
         state = state_remove_flea_offers(logger)
@@ -61,7 +61,7 @@ def state_remove_flea_offers(logger):
     return "flea_mode"
 
 
-def state_flea_mode(logger,number_of_rows):
+def state_flea_mode(logger, number_of_rows):
     logger.change_status("Beginning flea alg.\n")
     while True:
         # open flea
@@ -87,7 +87,7 @@ def state_flea_mode(logger,number_of_rows):
         orientate_add_offer_window(logger)
         time.sleep(1)
 
-        select_random_item_to_flea(logger,number_of_rows)
+        select_random_item_to_flea(logger, number_of_rows)
         time.sleep(1)
 
         # set flea filter
