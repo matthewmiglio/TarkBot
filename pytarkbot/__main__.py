@@ -19,8 +19,8 @@ from pytarkbot.launcher import restart_tarkov
 from pytarkbot.logger import Logger
 from pytarkbot.tesseract_install import setup_tesseract
 
-user_settings = load_user_config()
-launcher_path = user_settings["launcher_path"]
+appdata_setttings = load_user_config()
+launcher_path = appdata_setttings["launcher_path"]
 pyautogui.FAILSAFE = False
 
 
