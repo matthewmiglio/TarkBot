@@ -35,8 +35,6 @@ class Logger:
         restart_str = f"{str(self.restarts)} restarts"
         roubles_made_str = f"{str(self.roubles_made)} profit"
         items_sold_str = f"{str(self.item_sold)} items sold"
-        crafts_completed_str = f"{str(self.crafts_completed)} crafts completed"
-        hideout_rotations_str = str(self.hideout_rotations) + " hideout rotations"
         flea_success_str = (
             f"{str(self.make_flea_success_rate())}% success rate fleaing items"
         )

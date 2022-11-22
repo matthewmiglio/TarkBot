@@ -114,7 +114,7 @@ def state_flea_mode(logger):
         logger.log("Doing price check.")
         # logger.add_flea_sale_attempt()
         detected_price = get_price_2()
-        if detected_price != None:
+        if detected_price is not None:
             logger.log(f"Price of {detected_price} passed check.")
 
             # get undercut

@@ -74,7 +74,7 @@ def count_digits3():
     short_english_list = []
     for color in english_list:
         if (
-            short_english_list != []
+            short_english_list
             and short_english_list[-1] != color
             or not short_english_list
         ):
@@ -100,8 +100,8 @@ def count_digits2():
         pixel_list.append(pixel)
 
     ####Turn pix list into english list
-    color_tan = [196, 193, 173]
-    color_black = [37, 36, 31]
+    # color_tan = [196, 193, 173]
+    # color_black = [37, 36, 31]
     color_white = [190, 196, 193]
     english_list = []
     for pixel in pixel_list:
@@ -114,7 +114,7 @@ def count_digits2():
     short_english_list = []
     for color in english_list:
         if (
-            short_english_list != []
+            short_english_list
             and short_english_list[-1] != color
             or not short_english_list
         ):
@@ -156,15 +156,6 @@ def splice_color_list_for_count_digits(color_list):
     return returnPixlist
 
 
-def check_price_string(price_string):
-    index = 0
-    for element in price_string:
-        # print(f"index{index}||element{element}")
-        index = index + 1
-        if element not in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]:
-            return None
-
-
 def adjust_price_string(price_string):
     output_string = ""
     for element in price_string:
@@ -179,7 +170,7 @@ def adjust_price_string(price_string):
         return None
 
     second_char_string = output_string[1]
-    second_char_int = int(second_char_string)
+    # second_char_int = int(second_char_string)
 
     if second_char_string == 5:
         print("Treertet")
@@ -229,7 +220,7 @@ def find_coords_of_item_to_flee():
     ]
 
     has_item = False
-    while not (has_item):
+    while not has_item:
         # select one of those random coords
         random_coord_index = random.randint(0, len(coords_list) - 1)
         coord = coords_list[random_coord_index]
@@ -278,7 +269,7 @@ def check_first_price(logger):
     # checks
     if post_price is None:
         logger.log("Price read failed. Skipping")
-        return
+        return False
 
     if image_rec_count != digit_counter_count:
         logger.log("Image rec price read failed digit check #1")
@@ -384,7 +375,7 @@ def find_fbi_button():
 def get_to_flee_tab(logger):
     on_flee = check_if_on_flee_page()
     loops = 0
-    while not (on_flee):
+    while not on_flee:
         logger.log("Didnt find flea tab. Clicking flea tab.")
         if loops > 10:
             return "restart"
@@ -408,13 +399,13 @@ def check_if_on_flee_page():
 
     COLOR_TAN = [159, 157, 144]
 
-    if not (pixel_is_equal(pix1, COLOR_TAN, tol=25)):
+    if not pixel_is_equal(pix1, COLOR_TAN, tol=25):
         return False
-    if not (pixel_is_equal(pix2, COLOR_TAN, tol=25)):
+    if not pixel_is_equal(pix2, COLOR_TAN, tol=25):
         return False
-    if not (pixel_is_equal(pix3, COLOR_TAN, tol=25)):
+    if not pixel_is_equal(pix3, COLOR_TAN, tol=25):
         return False
-    if not (pixel_is_equal(pix4, COLOR_TAN, tol=25)):
+    if not pixel_is_equal(pix4, COLOR_TAN, tol=25):
         return False
     return True
 
@@ -427,7 +418,7 @@ def check_if_can_add_offer(logger):
     color = [215, 209, 182]
     pix_coords = find_all_pixel_coords(region, color, tol=25)
 
-    return pix_coords is not None and pix_coords != []
+    return pix_coords is not None and pix_coords
 
 
 def close_add_offer_window(logger):
@@ -463,7 +454,7 @@ def find_add_offer_window():
 def wait_till_can_add_another_offer(logger):
     has_another_offer = check_if_can_add_offer(logger)
     loops = 0
-    while not (has_another_offer):
+    while not has_another_offer:
         if loops > 120:
             return "remove_flee_offers"
 
@@ -488,7 +479,7 @@ def orientate_add_offer_window(logger):
     check_quit_key_press()
     orientated = check_add_offer_window_orientation()
     loops = 0
-    while not (orientated):
+    while not orientated:
         # logger.log(f"Orientating add offer window: {loops}.")
         if loops > 10:
             return "restart"
@@ -543,7 +534,7 @@ def find_add_requirement_window():
 def orientate_add_requirement_window(logger):
     orientated = check_add_requirement_window_orientation()
     loops = 0
-    while not (orientated):
+    while not orientated:
         logger.log(f"Orientating add requirement window {loops}")
         loops = loops + 1
         window_coords = find_add_requirement_window()
@@ -585,6 +576,7 @@ def click_fbi_button():
     # logger.log("clicking fbi button for the selected item.")
     click(fbi_coords[1], fbi_coords[0])
     time.sleep(0.33)
+    return "continue"
 
 
 def open_add_offer_tab(logger):
@@ -616,12 +608,14 @@ def open_add_offer_tab(logger):
 def select_random_item_to_flee(logger):
     logger.log("Selecting another random item to flea.")
     has_item_to_flee = False
-    while not (has_item_to_flee):
+    while not has_item_to_flee:
         # clicks the random item's FBI button
         # click item to flee
         check_quit_key_press()
 
         item_coords = find_coords_of_item_to_flee()
+        if item_coords is None:
+            return
         click(item_coords[0], item_coords[1])
         time.sleep(0.17)
         click(item_coords[0], item_coords[1], button="right")
@@ -742,7 +736,7 @@ def check_filters_window_orientation():
 def orientate_filters_window(logger):
 
     is_orientated = check_filters_window_orientation()
-    while not (is_orientated):
+    while not is_orientated:
         logger.log("Orientating filters window.")
         coords = find_filters_window()
         if coords is not None:
@@ -878,7 +872,7 @@ def get_to_my_offers_tab(logger):
     on_offers_tab = check_if_on_my_offers_tab()
 
     loops = 0
-    while not (on_offers_tab):
+    while not on_offers_tab:
         if loops > 10:
             return "restart"
         loops = loops + 1
@@ -921,13 +915,13 @@ def look_for_remove_offer_button():
     loops = 0
     while pix_list is None:
         if loops > 10:
-            return
+            return None
         loops = loops + 1
         click(x=127, y=random.randint(143, 300))
         time.sleep(1)
         pix_list = find_all_pixel_coords(region=region, color=color_red)
 
-    return None if (pix_list is None) or (pix_list == []) else pix_list[0]
+    return None if (pix_list is None) or (not pix_list) else pix_list[0]
 
 
 def get_price_text():
@@ -958,20 +952,22 @@ def splice_price_text(logger, price_text):
 
 def get_price_2():
     # returns digits and the significant figures of the price
+    num = None
+
     digit_ch_1 = count_digits()
     digit_ch_2 = count_digits2()
     digit_ch_3 = count_digits2()
 
     if not digit_ch_1 == digit_ch_2 == digit_ch_3:
         print("Failed digit checking. Returning.")
-        return
+        return None
 
     digits = digit_ch_1
 
     print("Digits: ", digits)
     if (digits == 0) or (digits == 1) or (digits == 2) or (digits is None):
         print("Digits are too low. Returning.")
-        return
+        return None
     if digits == 3:
         image = screenshot([928, 137, 10, 16])
         num = get_number_from_image(image)
@@ -996,7 +992,7 @@ def get_price_2():
         if (digit1 is None) or (digit2 is None):
             print("One of the digits is empty.\nBot thinks this is a 5 digit number.")
             print("First two read digits: ", digit1, digit2)
-            return
+            return None
         num = digit1 + digit2 + "500"
     if digits == 6:
         image1 = screenshot([909, 139, 11, 14])
@@ -1012,7 +1008,7 @@ def get_price_2():
         if (digit1 is None) or (digit2 is None) or (digit3 is None):
             print("One of the digits is empty. Bot thinkgs this is a 6 digit number.")
             print("First three read digits: ", digit1, digit2, digit3)
-            return
+            return None
         num = digit1 + digit2 + digit3 + "500"
 
     return num

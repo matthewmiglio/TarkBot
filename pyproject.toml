@@ -105,3 +105,4 @@ disable = [
   "C0301", # line-too-long
   "C0103", # invalid-name
 ]
+extension-pkg-whitelist = "win32gui"

@@ -50,6 +50,8 @@ def move_tarkov_client_to_topleft():
             print("Moving tark window")
         check_quit_key_press()
         current_coord = find_eft_window()
+        if current_coord is None:
+            return
         current_coord = [current_coord[0] + 18, current_coord[1] - 2]
         pyautogui.moveTo(current_coord[0], current_coord[1], duration=0.33)
         time.sleep(0.33)
@@ -58,7 +60,7 @@ def move_tarkov_client_to_topleft():
 
 
 def move_window_to_top_left(window_name):
-    window = pyautogui.getWindowsWithTitle(window_name)[0]
+    window = pyautogui.getWindowsWithTitle(window_name)[0]  # type: ignore
     window.moveTo(0, 0)
 
 
@@ -230,9 +232,8 @@ def show_image(image):
 
 def screenshot(region=(0, 0, 1400, 1400)):
     if region is None:
-        return pyautogui.screenshot()
-    else:
-        return pyautogui.screenshot(region=region)
+        return pyautogui.screenshot()  # type: ignore
+    return pyautogui.screenshot(region=region)  # type: ignore
 
 
 def string_to_chars_only(string):
@@ -264,7 +265,7 @@ def check_quit_key_press():
         print("Pausing program until pause is held again")
         time.sleep(5)
         pressed = False
-        while not (pressed):
+        while not pressed:
             time.sleep(0.05)
             if keyboard.is_pressed("pause"):
                 print("Pause held again. Resuming program.")
@@ -278,9 +279,9 @@ def get_image(folder, name):
     return Image.open(join(reference_folder, folder, name))
 
 
-def waiting_animation(time):
+def waiting_animation(wait_time):
 
-    for _ in range(time):
+    for _ in range(wait_time):
         pyautogui.moveTo(1270, 271, duration=0.1)
         pyautogui.moveTo(1414, 554, duration=0.1)
         pyautogui.moveTo(1737, 603, duration=0.1)
@@ -312,7 +313,7 @@ def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
         y_coord = 0
         while y_coord < height:
             current_pixel = iar[y_coord][x_coord]
-            if not (pixel_is_equal(current_pixel, sentinel, tol=tol)):
+            if not pixel_is_equal(current_pixel, sentinel, tol=tol):
                 current_coord = [x_coord, y_coord]
                 coords_list.append(current_coord)
 
@@ -377,7 +378,7 @@ def get_window_size(window_name):
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys("%")  # Alt key,  send key
-    rect = win32gui.GetWindowRect(hwnd)
+    # rect = win32gui.GetWindowRect(hwnd)
     x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
     w = x1 - x0
     h = y1 - y0
@@ -396,10 +397,10 @@ def resize_window(window_name, resize):
     hwnd = winlst[0][0]  # first window with title, get hwnd id
     shell = win32.Dispatch("WScript.Shell")  # set focus on desktop
     shell.SendKeys("%")  # Alt key,  send key
-    rect = win32gui.GetWindowRect(hwnd)
-    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
-    w = x1 - x0
-    h = y1 - y0
+    # rect = win32gui.GetWindowRect(hwnd)
+    x0, y0, _, _ = win32gui.GetWindowRect(hwnd)
+    # w = x1 - x0
+    # h = y1 - y0
 
     win32gui.MoveWindow(hwnd, x0, y0, resize[0], resize[1], True)
 
@@ -446,7 +447,7 @@ def img_to_txt_single_char(image):
 
 
 def smooth_click(x_coord, y_coord, button="left", duration=0.33):
-    pyautogui.moveTo(x_coord, y_coord, duration=0.33)
+    pyautogui.moveTo(x_coord, y_coord, duration=duration)
     time.sleep(0.1)
     pyautogui.click(button=button)
     time.sleep(0.1)

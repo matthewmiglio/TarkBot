@@ -17,6 +17,7 @@ from pytarkbot.tarkov import (
 
 
 def check_if_on_tark_main(logger):
+    logger.log("Checking if on tark main")
     iar = numpy.asarray(screenshot())
     pix_list = [
         iar[613][762],
@@ -34,7 +35,7 @@ def check_if_on_tark_main(logger):
 def wait_for_tark_main(logger):
     on_main = check_if_on_tark_main(logger)
     loops = 0
-    while not (on_main):
+    while not on_main:
         check_quit_key_press()
         logger.log(f"Waiting for tark main {loops}")
         loops = loops + 2
@@ -83,42 +84,42 @@ def restart_tarkov(logger, launcher_path):
     check_quit_key_press()
     logger.log("Opening launcher.")
     try:
-        subprocess.Popen(launcher_path)
+        with subprocess.Popen(launcher_path):
+            time.sleep(10)
+
+            # orientate launcher
+            check_quit_key_press()
+            logger.log("orientating launcher")
+            orientate_launcher()
+
+            # wait for launcher play button to appear
+            if wait_for_play_button_in_launcher(logger) == "restart":
+                restart_tarkov(logger, launcher_path)
+
+            # click play
+            check_quit_key_press()
+            click(942, 558)
+            time.sleep(20)
+
+            # wait for client opening
+            check_quit_key_press()
+            if wait_for_tarkov_to_open(logger) == "restart":
+                restart_tarkov(logger, launcher_path)
+            for index in range(0, 30, 2):
+                check_quit_key_press()
+                logger.log(f"Giving tark time to load: {index}")
+                time.sleep(2)
+            # orientate tark client
+            check_quit_key_press()
+            orientate_tarkov_client("EscapeFromTarkov", logger)
+            time.sleep(1)
+
+            # wait for us to reach main menu
+            check_quit_key_press()
+            if wait_for_tark_main(logger) == "restart":
+                restart_tarkov(logger, launcher_path)
     except FileNotFoundError:
         sys.exit("Launcher path not found")
-    time.sleep(10)
-
-    # orientate launcher
-    check_quit_key_press()
-    logger.log("orientating launcher")
-    orientate_launcher()
-
-    # wait for launcher play button to appear
-    if wait_for_play_button_in_launcher(logger) == "restart":
-        restart_tarkov(logger, launcher_path)
-
-    # click play
-    check_quit_key_press()
-    click(942, 558)
-    time.sleep(20)
-
-    # wait for client opening
-    check_quit_key_press()
-    if wait_for_tarkov_to_open(logger) == "restart":
-        restart_tarkov(logger, launcher_path)
-    for index in range(0, 30, 2):
-        check_quit_key_press()
-        logger.log(f"Giving tark time to load: {index}")
-        time.sleep(2)
-    # orientate tark client
-    check_quit_key_press()
-    orientate_tarkov_client("EscapeFromTarkov", logger)
-    time.sleep(1)
-
-    # wait for us to reach main menu
-    check_quit_key_press()
-    if wait_for_tark_main(logger) == "restart":
-        restart_tarkov(logger, launcher_path)
 
 
 def wait_for_tarkov_to_open(logger):
@@ -181,11 +182,11 @@ def wait_for_play_button_in_launcher(logger):
         logger.log("Launcher not detected while waiting for play button in launcher.")
         return "restart"
     loop = 0
-    waiting = not (check_if_play_button_exists_in_launcher())
+    waiting = not check_if_play_button_exists_in_launcher()
     while waiting:
         logger.log(f"Waiting for play button to appear in launcher {loop}")
         loop = loop + 2
-        waiting = not (check_if_play_button_exists_in_launcher())
+        waiting = not check_if_play_button_exists_in_launcher()
         waiting_animation(2)
         if loop > 50:
             logger.log("Spent too long waiting for launcher's play button. Restarting.")
