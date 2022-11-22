@@ -4,7 +4,7 @@ from queue import Queue
 
 
 class Logger:
-    """Handles creating and reading logs"""
+    """Handles logging statistics"""
 
     def __init__(self, queue=None):
         """Logger init"""
@@ -28,7 +28,7 @@ class Logger:
             "time_since_start": self.calc_time_since_start(),
             "restarts": self.restarts,
             "item_sold": self.item_sold,
-            "roubles_made": self.roubles_made,
+            "roubles_made": self.format_roubles_made(),
             "sale_attempts": self.sale_attempts,
             "success_rate": self.calc_success_rate(),
         }
@@ -40,24 +40,19 @@ class Logger:
 
         @wraps(func)
         def wrapper(self, *args, **kwargs):
+            result = func(self, *args, **kwargs)
             self._update_queue()  # pylint: disable=protected-access
-            return func(self, *args, **kwargs)
+            return result
 
         return wrapper
 
     @_updates_queue
     def change_status(self, message):
-        """add message to log
-
-        Args:
-            message (str): message to add
-        """
         self.status = message
         print(message)
 
     @_updates_queue
     def add_restart(self):
-        """add restart to log"""
         self.restarts += 1
 
     @_updates_queue
@@ -72,12 +67,19 @@ class Logger:
     def add_flea_sale_attempt(self):
         self.sale_attempts = self.sale_attempts + 1
 
+    def format_roubles_made(self) -> str:
+        if self.roubles_made < 1000:
+            return str(self.roubles_made)
+        if self.roubles_made < 1000000:
+            return f"{(self.roubles_made / 1000):.0f}k"
+        return f"{(self.roubles_made / 1000000):.2f}m"
+
     def calc_success_rate(self):
         if self.sale_attempts == 0 or self.item_sold == 0:
             calculation = 0
         else:
             calculation = (self.item_sold / self.sale_attempts) * 100
-        return f"{str(calculation)}%"
+        return f"{calculation:.1f}%"
 
     def calc_time_since_start(self) -> str:
         hours, remainder = divmod(time.time() - self.start_time, 3600)
