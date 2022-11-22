@@ -1,9 +1,11 @@
 import sys
 import time
+from typing import Union
 
 import pyautogui
 import pyperclip
 import PySimpleGUI as sg
+from pytarkbot.caching import check_user_settings, read_user_settings
 
 from pytarkbot.client import intro_printout, orientate_terminal
 from pytarkbot.dependency import get_bsg_launcher_path, setup_tesseract
@@ -262,6 +264,91 @@ def end_loop():
             pass
     except KeyboardInterrupt:
         sys.exit()
+
+
+def read_window(
+    window: sg.Window, timeout: int = 10
+) -> tuple[str, dict[str, Union[str, int]]]:
+    # Method for reading the attributes of the window
+    # have a timeout so the output can be updated when no events are happening
+    read_result = window.read(timeout=timeout)  # ms
+    if read_result is None:
+        print("Window not found")
+        sys.exit()
+    return read_result
+
+
+
+def load_last_settings(window):
+    if check_user_settings():
+        read_window(window)  # read the window to edit the layout
+        user_settings = read_user_settings()
+        if user_settings is not None:
+            for key in user_config_keys:
+                if key in user_settings:
+                    window[key].update(user_settings[key])
+        window.refresh()  # refresh the window to update the layout
+
+
+
+
+def main_gui():
+    console_log = True  # enable/disable console logging
+
+    window = sg.Window("Py-ClashBot", main_layout)
+
+    load_last_settings(window)
+
+    # track worker thread, communication queue and logger
+    thread: Union[WorkerThread, None] = None
+    statistics_q: Queue[dict[str, Union[str, int]]] = Queue()
+    logger = Logger(statistics_q, console_log=console_log)
+
+    # run the gui
+    while True:
+        event, values = read_window(window, timeout=10)
+
+        if event in [sg.WIN_CLOSED, "Exit"]:
+            # shut down the thread if it is still running
+            shutdown_thread(thread)
+            break
+
+        if event == "Start":
+            thread = start_button_event(logger, window, values)
+
+        elif event == "Stop" and thread is not None:
+            stop_button_event(logger, window, thread)
+            # reset the logger and communication queue after thread has been stopped
+            statistics_q = Queue()
+            logger = Logger(statistics_q, console_log=console_log)
+
+        elif event in user_config_keys:
+            save_current_settings(values)
+
+        elif event == "Donate":
+            webbrowser.open(
+                "https://www.paypal.com/donate/"
+                + "?business=YE72ZEB3KWGVY"
+                + "&no_recurring=0"
+                + "&item_name=Support+my+projects%21"
+                + "&currency_code=USD"
+            )
+
+        elif event == "Help":
+            show_help_gui()
+
+        elif event == "issues-link":
+            webbrowser.open(
+                "https://github.com/matthewmiglio/py-clash-bot/issues/new/choose"
+            )
+
+        update_layout(window, statistics_q)
+
+    # shut down the thread if it is still running
+    shutdown_thread(thread)
+
+    window.close()
+
 
 
 if __name__ == "__main__":

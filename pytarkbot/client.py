@@ -293,6 +293,7 @@ def waiting_animation(time):
         pyautogui.moveTo(1140, 534, duration=0.1)
 
 
+
 def find_all_pixels_not_equal_to(region, color, image=None, tol=15):
     # make iar
     if image is None:
