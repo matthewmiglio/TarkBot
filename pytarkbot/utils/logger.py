@@ -4,7 +4,7 @@ from queue import Queue
 
 
 class Logger:
-    """Handles creating and reading logs"""
+    """Handles logging statistics"""
 
     def __init__(self, queue=None):
         """Logger init"""
@@ -48,17 +48,11 @@ class Logger:
 
     @_updates_queue
     def change_status(self, message):
-        """add message to log
-
-        Args:
-            message (str): message to add
-        """
         self.status = message
         print(message)
 
     @_updates_queue
     def add_restart(self):
-        """add restart to log"""
         self.restarts += 1
 
     @_updates_queue
