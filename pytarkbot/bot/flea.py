@@ -17,7 +17,7 @@ pyautogui.FAILSAFE = False
 
 
 
-#digit check methods
+#digit count methods
 def get_color_list_of_current_price(image):
     # make numpy iar
     iar = numpy.asarray(image)
@@ -107,15 +107,6 @@ def splice_color_list_for_count_digits(color_list):
     return pix_list
 
 
-#price methods
-def get_price_undercut(found_price):
-    if (found_price is None) or (found_price == ""):
-        return None
-    found_price = int(found_price)
-
-    undercut_option_1 = found_price - 1900
-    undercut_option_2 = int(found_price * 0.85)
-    return max(undercut_option_2, undercut_option_1)
 
 
 #item interaction methods
@@ -690,6 +681,15 @@ def look_for_remove_offer_button():
 
 
 # price detection methods
+def get_price_undercut(found_price):
+    if (found_price is None) or (found_price == ""):
+        return None
+    found_price = int(found_price)
+
+    undercut_option_1 = found_price - 1900
+    undercut_option_2 = int(found_price * 0.85)
+    return max(undercut_option_2, undercut_option_1)
+
 def get_price_2():
     # returns digits and the significant figures of the price
     num = None
