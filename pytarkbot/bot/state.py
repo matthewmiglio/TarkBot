@@ -1,7 +1,5 @@
 import time
 
-import pyautogui
-
 from pytarkbot.tarkov import restart_tarkov
 from pytarkbot.tarkov.client import click
 
@@ -31,11 +29,6 @@ def state_tree(logger, state, number_of_rows):
     elif state == "remove_flea_offers":
         state = state_remove_flea_offers(logger)
     return state
-
-
-def state_intro(logger):
-    logger.change_status("State==Intro")
-    restart_tarkov(logger)
 
 
 def state_remove_flea_offers(logger):

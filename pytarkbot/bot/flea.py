@@ -10,11 +10,9 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
-from pytarkbot.tarkov import (
-    click,
-    find_all_pixel_coords,
-    screenshot,
-)
+from pytarkbot.tarkov import click, find_all_pixel_coords, screenshot
+
+pyautogui.FAILSAFE = False
 
 
 def get_color_list_of_current_price(image):
@@ -98,15 +96,15 @@ def count_digits():
 
 
 def splice_color_list_for_count_digits(color_list):
-    returnPixlist = [None]
+    pix_list = [None]
 
     for pixel in color_list:
-        if (returnPixlist[-1] is not None) and (pixel is None):
-            returnPixlist.append(pixel)
-        if (returnPixlist[-1] != "tan") and (pixel == "tan"):
-            returnPixlist.append(pixel)
+        if (pix_list[-1] is not None) and (pixel is None):
+            pix_list.append(pixel)
+        if (pix_list[-1] != "tan") and (pixel == "tan"):
+            pix_list.append(pixel)
 
-    return returnPixlist
+    return pix_list
 
 
 def get_price_undercut(found_price):
@@ -129,7 +127,7 @@ def find_coords_of_item_to_flea(rows_to_target):
     for x in range(15, 420, 3):
         for y in range(510, y_pixel_maximum, 3):
             this_pixel = iar[y][x]
-            if not (pixel_is_equal(this_pixel, empty_color, tol=45)):
+            if not pixel_is_equal(this_pixel, empty_color, tol=45):
                 positive_pixel_list.append([x, y])
     # return a random pixel from the list
     return random.choice(positive_pixel_list)
@@ -218,9 +216,7 @@ def check_if_can_add_offer():
             current_pix = iar[y][x]
             if pixel_is_equal(current_pix, positive_pixel, tol=35):
                 pix_list.append(current_pix)
-    if len(pix_list) > 25:
-        return True
-    return False
+    return len(pix_list) > 25
 
 
 def close_add_offer_window(logger):

@@ -1,5 +1,4 @@
-from os.path import abspath, pardir, join
-
+from os.path import abspath, join, pardir
 from winreg import HKEY_LOCAL_MACHINE, ConnectRegistry, OpenKey, QueryValueEx
 
 

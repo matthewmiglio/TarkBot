@@ -165,8 +165,6 @@ def wait_for_tarkov_to_open(logger):
     logger.change_status("Tarkov client detected. Done waiting")
 
 
-
-
 def check_if_play_button_exists_in_launcher():
 
     current_image = screenshot()

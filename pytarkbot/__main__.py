@@ -1,16 +1,12 @@
 import webbrowser
 from queue import Queue
 
-import pyautogui
 import PySimpleGUI as sg
 
 from pytarkbot.bot import state_tree
 from pytarkbot.interface import THEME, disable_keys, main_layout, show_help_gui
-from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils import Logger
 from pytarkbot.utils.thread import StoppableThread
-
-pyautogui.FAILSAFE = False
 
 sg.theme(THEME)
 

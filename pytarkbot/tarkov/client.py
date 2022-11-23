@@ -4,8 +4,9 @@ import numpy
 import pyautogui
 import pygetwindow
 
-
 from pytarkbot.detection import pixel_is_equal
+
+pyautogui.FAILSAFE = False
 
 
 def orientate_tarkov_client(logger):
