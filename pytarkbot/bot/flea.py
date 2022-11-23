@@ -10,7 +10,7 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
-from pytarkbot.tarkov import click, find_all_pixel_coords, screenshot
+from pytarkbot.tarkov import click,  screenshot
 
 pyautogui.FAILSAFE = False
 
@@ -654,10 +654,6 @@ def remove_offers(logger):
             time.sleep(1)
             pyautogui.press('y')
             
-        
-        
-            
-
 def get_to_flea_tab_from_my_offers_tab(logger):
     click(829, 977, clicks=2, interval=0.33)
     time.sleep(0.33)

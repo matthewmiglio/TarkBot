@@ -1,7 +1,7 @@
 from .client import (
     
     click,
-    find_all_pixel_coords,
+
 
     orientate_launcher,
     orientate_tarkov_client,
@@ -14,7 +14,7 @@ __all__ = [
     "orientate_terminal",
 
     "click",
-    "find_all_pixel_coords",
+
 
     "screenshot",
     "orientate_launcher",
