@@ -642,20 +642,21 @@ def get_to_my_offers_tab(logger):
     logger.change_status("On my offers tab.")
 
 def remove_offers(logger):
-
+    logger.change_status("Removing offers.")
     for _ in range(10):
-        # click red remove button
-        remove_button_coords = look_for_remove_offer_button()
-        if remove_button_coords is not None:
-            logger.change_status("Removing an offer.")
-            click(remove_button_coords[0], remove_button_coords[1])
-            pyautogui.press("y")
-            time.sleep(0.33)
-        # click item filters on left to assure not systematically missing an
-        # offer.
-        click(174, random.randint(136, 250))
-        time.sleep(0.33)
-        logger.change_status("remove_offers alg is done.")
+        #click random tab on left side
+        for _ in range(10):click(x=227,y=random.randint(137,375))
+        
+        #find remove
+        coord=look_for_remove_offer_button()
+        if coord is not None: 
+            click(coord[0],coord[1])
+            time.sleep(1)
+            pyautogui.press('y')
+            
+        
+        
+            
 
 def get_to_flea_tab_from_my_offers_tab(logger):
     click(829, 977, clicks=2, interval=0.33)
@@ -663,21 +664,14 @@ def get_to_flea_tab_from_my_offers_tab(logger):
     get_to_flea_tab(logger)
 
 def look_for_remove_offer_button():
-    # looks for red remove button in my offers tab and returns the coord
-    region = [1150, 136, 90, 530]
-    color_red = [185, 6, 7]
-    pix_list = find_all_pixel_coords(region=region, color=color_red)
-
-    loops = 0
-    while pix_list is None:
-        if loops > 10:
-            return None
-        loops = loops + 1
-        click(x=127, y=random.randint(143, 300))
-        time.sleep(1)
-        pix_list = find_all_pixel_coords(region=region, color=color_red)
-
-    return None if (pix_list is None) or (not pix_list) else pix_list[0]
+    #find red remove button coord on this page
+    color_red=[185, 6, 7]
+    iar=numpy.asarray(screenshot())
+    for y_coord in range(120,430):
+        this_pixel = iar[y_coord][1190]
+        if pixel_is_equal(this_pixel,color_red,tol=35):
+            return [1190,y_coord]
+    return None
 
 
 # price detection methods
