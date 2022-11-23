@@ -18,6 +18,8 @@ class Logger:
         self.sale_attempts = 0
         self.item_sold = 0
 
+        self.errored = False
+
     def _update_queue(self):
         """updates the queue with a dictionary of mutable statistics"""
         if self.queue is None:
@@ -49,6 +51,7 @@ class Logger:
     @_updates_queue
     def error(self, message: str):
         """logs an error"""
+        self.errored = True
         self.status = f"Error: {message}"
         print(f"Error: {message}")
 

@@ -104,10 +104,13 @@ def main():
             # enable the start button and configuration after the thread is stopped
             for key in disable_keys:
                 window[key].update(disabled=False)
-            # reset the communication queue and logger
-            comm_queue = Queue()
-            logger = Logger(comm_queue, timed=False)
-            thread = None
+            if thread.logger.errored:
+                window["Stop"].update(disabled=True)
+            else:
+                # reset the communication queue and logger
+                comm_queue = Queue()
+                logger = Logger(comm_queue, timed=False)
+                thread = None
 
         update_layout(window, logger)
 
