@@ -59,7 +59,7 @@ def main():
 
     thread: WorkerThread | None = None
     comm_queue: Queue[dict[str, str | int]] = Queue()
-    logger = Logger(comm_queue)
+    logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
     window = sg.Window("Py-TarkBot", main_layout)
@@ -76,13 +76,16 @@ def main():
             break
 
         if event == "Start":
+            # start the bot with new queue and logger
+            comm_queue = Queue()
+            logger = Logger(comm_queue)
             thread = start_button_event(logger, window, values)
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)
             # reset the logger and communication queue after thread has been stopped
             comm_queue = Queue()
-            logger = Logger(comm_queue)
+            logger = Logger(comm_queue, timed=False)
 
         elif event == "Help":
             show_help_gui()

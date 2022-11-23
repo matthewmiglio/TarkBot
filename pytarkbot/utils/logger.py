@@ -6,12 +6,12 @@ from queue import Queue
 class Logger:
     """Handles logging statistics"""
 
-    def __init__(self, queue=None):
+    def __init__(self, queue=None, timed=True):
         """Logger init"""
 
         self.queue: Queue[dict[str, str | int]] = Queue() if queue is None else queue
 
-        self.start_time = time.time()
+        self.start_time = time.time() if timed else None
         self.status = "Idle"
         self.restarts = 0
         self.roubles_made = 0
@@ -74,7 +74,7 @@ class Logger:
             return f"{(self.roubles_made / 1000):.0f}k"
         return f"{(self.roubles_made / 1000000):.2f}m"
 
-    def calc_success_rate(self):
+    def calc_success_rate(self) -> str:
         if self.sale_attempts == 0 or self.item_sold == 0:
             calculation = 0
         else:
@@ -82,6 +82,9 @@ class Logger:
         return f"{calculation:.1f}%"
 
     def calc_time_since_start(self) -> str:
-        hours, remainder = divmod(time.time() - self.start_time, 3600)
-        minutes, seconds = divmod(remainder, 60)
+        if self.start_time is not None:
+            hours, remainder = divmod(time.time() - self.start_time, 3600)
+            minutes, seconds = divmod(remainder, 60)
+        else:
+            hours, minutes, seconds = 0, 0, 0
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
