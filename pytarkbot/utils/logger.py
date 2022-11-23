@@ -47,6 +47,12 @@ class Logger:
         return wrapper
 
     @_updates_queue
+    def error(self, message: str):
+        """logs an error"""
+        self.status = f"Error: {message}"
+        print(f"Error: {message}")
+
+    @_updates_queue
     def change_status(self, message):
         self.status = message
         print(message)
