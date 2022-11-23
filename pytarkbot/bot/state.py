@@ -21,7 +21,7 @@ from .flea import (
 def state_tree(logger, state, number_of_rows):
     if state == "restart":
         state_restart(logger)
-        state = "flea_mode"
+        return "flea_mode"
 
     elif state == "flea_mode":
         state = state_flea_mode(logger, number_of_rows)

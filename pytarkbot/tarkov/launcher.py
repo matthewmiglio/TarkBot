@@ -137,7 +137,7 @@ def restart_tarkov(logger):
                 time.sleep(2)
             # orientate tark client
 
-            orientate_tarkov_client(logger)
+            orientate_tarkov_client()
             orientate_terminal()
             time.sleep(1)
 
