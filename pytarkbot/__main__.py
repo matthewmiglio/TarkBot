@@ -1,21 +1,17 @@
 import webbrowser
 from queue import Queue
 
-import pyautogui
 import PySimpleGUI as sg
 
 from pytarkbot.bot import state_tree
 from pytarkbot.interface import THEME, disable_keys, main_layout, show_help_gui
-from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils import Logger
 from pytarkbot.utils.thread import StoppableThread
-
-pyautogui.FAILSAFE = False
 
 sg.theme(THEME)
 
 
-def start_button_event(logger: Logger, window,values):
+def start_button_event(logger: Logger, window, values):
     logger.change_status("Starting")
 
     for key in disable_keys:
@@ -59,11 +55,11 @@ def update_layout(window: sg.Window, logger: Logger):
 
 
 def main():
-    #orientate_terminal()
+    # orientate_terminal()
 
     thread: WorkerThread | None = None
     comm_queue: Queue[dict[str, str | int]] = Queue()
-    logger = Logger(comm_queue)
+    logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
     window = sg.Window("Py-TarkBot", main_layout)
@@ -80,13 +76,16 @@ def main():
             break
 
         if event == "Start":
-            thread = start_button_event(logger, window,values)
+            # start the bot with new queue and logger
+            comm_queue = Queue()
+            logger = Logger(comm_queue)
+            thread = start_button_event(logger, window, values)
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)
             # reset the logger and communication queue after thread has been stopped
             comm_queue = Queue()
-            logger = Logger(comm_queue)
+            logger = Logger(comm_queue, timed=False)
 
         elif event == "Help":
             show_help_gui()
@@ -125,7 +124,7 @@ class WorkerThread(StoppableThread):
             while not self.shutdown_flag.is_set():
                 # perform state transition
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
-                state = state_tree(self.logger, state,number_of_rows)
+                state = state_tree(self.logger, state, number_of_rows)
         except Exception as exc:  # pylint: disable=broad-except
             # we don't want the thread to crash the interface so we catch all exceptions and log
             # raise exc

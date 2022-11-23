@@ -1,4 +1,3 @@
-import itertools
 import random
 import time
 
@@ -11,16 +10,9 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
-from pytarkbot.tarkov import (
-    calculate_avg_pixel,
-    
-    click,
-    find_all_pixel_coords,
-    find_all_pixels,
-    img_to_txt,
-    img_to_txt_numbers_only,
-    screenshot,
-)
+from pytarkbot.tarkov import click, find_all_pixel_coords, screenshot
+
+pyautogui.FAILSAFE = False
 
 
 
@@ -104,15 +96,15 @@ def count_digits():
     return tan_count - 1
 
 def splice_color_list_for_count_digits(color_list):
-    returnPixlist = [None]
+    pix_list = [None]
 
     for pixel in color_list:
-        if (returnPixlist[-1] is not None) and (pixel is None):
-            returnPixlist.append(pixel)
-        if (returnPixlist[-1] != "tan") and (pixel == "tan"):
-            returnPixlist.append(pixel)
+        if (pix_list[-1] is not None) and (pixel is None):
+            pix_list.append(pixel)
+        if (pix_list[-1] != "tan") and (pixel == "tan"):
+            pix_list.append(pixel)
 
-    return returnPixlist
+    return pix_list
 
 
 #price methods
@@ -128,19 +120,18 @@ def get_price_undercut(found_price):
 
 #item interaction methods
 def find_coords_of_item_to_flea(rows_to_target):
-    
-    positive_pixel_list=[]
-    iar=numpy.asarray(screenshot())
-    y_pixel_maximum=int(520+(rows_to_target-1)*42)
 
-    
-    empty_color=[45,45,45]
-    for x in range(15,420,3):
-        for y in range(510,y_pixel_maximum,3):
-            this_pixel=iar[y][x]
-            if not (pixel_is_equal(this_pixel,empty_color,tol=45)):
-                positive_pixel_list.append([x,y])
-    #return a random pixel from the list
+    positive_pixel_list = []
+    iar = numpy.asarray(screenshot())
+    y_pixel_maximum = int(520 + (rows_to_target - 1) * 42)
+
+    empty_color = [45, 45, 45]
+    for x in range(15, 420, 3):
+        for y in range(510, y_pixel_maximum, 3):
+            this_pixel = iar[y][x]
+            if not pixel_is_equal(this_pixel, empty_color, tol=45):
+                positive_pixel_list.append([x, y])
+    # return a random pixel from the list
     return random.choice(positive_pixel_list)
 
 def find_fbi_button():
@@ -230,12 +221,11 @@ def get_to_flea_tab(logger):
     on_flea = check_if_on_flea_page()
     loops = 0
     while not on_flea:
-        #logger.change_status("Didnt find flea tab. Clicking flea tab.")
+        # logger.change_status("Didnt find flea tab. Clicking flea tab.")
         if loops > 10:
             return "restart"
         loops = loops + 1
 
-        
         click(829, 977)
         time.sleep(2)
         on_flea = check_if_on_flea_page()
@@ -263,26 +253,24 @@ def check_if_on_flea_page():
     return True
 
 def check_if_can_add_offer():
-    pix_list=[]
-    iar=numpy.asarray(screenshot())
-    positive_pixel=[220,215,190]
-    for x in range(780,870):
-        for y in range(75,90):
-            current_pix=iar[y][x]
-            if pixel_is_equal(current_pix,positive_pixel,tol=35):
+    pix_list = []
+    iar = numpy.asarray(screenshot())
+    positive_pixel = [220, 215, 190]
+    for x in range(780, 870):
+        for y in range(75, 90):
+            current_pix = iar[y][x]
+            if pixel_is_equal(current_pix, positive_pixel, tol=35):
                 pix_list.append(current_pix)
-    if len(pix_list)>25:
-        return True
-    return False
+    return len(pix_list) > 25
 
 def close_add_offer_window(logger):
     logger.change_status("Closing add offer window.")
     orientate_add_offer_window(logger)
-    #click dead space
+    # click dead space
     click(732, 471)
 
 def find_add_offer_window():
-    
+
     current_image = screenshot()
     reference_folder = "find_add_offer_window"
     references = [
@@ -433,7 +421,7 @@ def handle_purchase_confirmation_popup(logger):
 
 #flea add offer window
 def orientate_add_offer_window(logger):
-    
+
     orientated = check_add_offer_window_orientation()
     loops = 0
     while not orientated:
@@ -441,16 +429,16 @@ def orientate_add_offer_window(logger):
         if loops > 10:
             return "restart"
         loops = loops + 1
-        
+
         coords = find_add_offer_window()
         if coords is None:
             # logger.change_status("Trouble orientating add offer window. Restarting.")
             return "restart"
-        origin=pyautogui.position()
+        origin = pyautogui.position()
         pyautogui.moveTo(coords[0], coords[1], duration=0.4)
         time.sleep(1)
         pyautogui.dragTo(0, 980, duration=0.33)
-        pyautogui.moveTo(origin[0],origin[1])
+        pyautogui.moveTo(origin[0], origin[1])
         orientated = check_add_offer_window_orientation()
     logger.change_status("Orientated add offer window.")
     time.sleep(0.17)
@@ -464,7 +452,7 @@ def check_add_offer_window_orientation():
     return value1 <= 3 and value2 <= 3
 
 def find_add_requirement_window():
-    
+
     current_image = screenshot()
     reference_folder = "find_add_requirement_window"
     references = [
@@ -500,12 +488,12 @@ def orientate_add_requirement_window(logger):
             )
             return "restart"
         window_coords = [window_coords[0] + 10, window_coords[1]]
-        origin=pyautogui.position()
+        origin = pyautogui.position()
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
         pyautogui.mouseDown(button="left")
         time.sleep(0.33)
         pyautogui.dragTo(1300, 1000, duration=0.33)
-        pyautogui.moveTo(origin[0],origin[1])
+        pyautogui.moveTo(origin[0], origin[1])
         time.sleep(0.33)
         pyautogui.mouseUp(button="left")
         orientated = check_add_requirement_window_orientation()
@@ -522,7 +510,7 @@ def check_add_requirement_window_orientation():
     return value1 <= 3 and value2 <= 3
 
 def click_add_requirements_in_add_requirements_window(logger):
-    
+
     logger.change_status("Adding requirements for offer..")
     click(711, 710)
     time.sleep(0.17)
@@ -530,7 +518,7 @@ def click_add_requirements_in_add_requirements_window(logger):
 
 #flea filters window
 def find_filters_window():
-    
+
     current_image = screenshot()
     reference_folder = "find_filters_tab"
     references = [
@@ -584,11 +572,11 @@ def orientate_filters_window(logger):
         logger.change_status("Orientating filters window.")
         coords = find_filters_window()
         if coords is not None:
-            origin=pyautogui.position()
+            origin = pyautogui.position()
             pyautogui.moveTo(coords[0], coords[1], duration=0.33)
             time.sleep(0.33)
             pyautogui.dragTo(3, 3, duration=0.33)
-            pyautogui.moveTo(origin[0],origin[1])
+            pyautogui.moveTo(origin[0], origin[1])
             time.sleep(0.33)
         is_orientated = check_filters_window_orientation()
     logger.change_status("Orientated filters window.")
@@ -632,7 +620,7 @@ def set_flea_filters(logger):
 
 # removing offers methods
 def check_if_on_my_offers_tab():
-    
+
     iar = numpy.asarray(screenshot())
 
     pix1 = iar[77][255]
@@ -648,7 +636,7 @@ def check_if_on_my_offers_tab():
     return all(total >= 500 for total in pixel_totals)
 
 def get_to_my_offers_tab(logger):
-    
+
     on_offers_tab = check_if_on_my_offers_tab()
 
     loops = 0
@@ -663,7 +651,7 @@ def get_to_my_offers_tab(logger):
     logger.change_status("On my offers tab.")
 
 def remove_offers(logger):
-    
+
     for _ in range(10):
         # click red remove button
         remove_button_coords = look_for_remove_offer_button()
@@ -1001,7 +989,7 @@ def check_for_9_in_image(current_image):
     return check_for_location(locations)
 
 def check_for_0_in_image(current_image):
-    
+
     # show_image(current_image)
     reference_folder = "check_for_0_in_image"
     references = [
