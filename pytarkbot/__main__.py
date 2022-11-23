@@ -32,16 +32,14 @@ def stop_button_event(logger: Logger, window, thread):
     logger.change_status("Stopping")
     window["Stop"].update(disabled=True)
     shutdown_thread(thread)  # send the shutdown flag to the thread
-    # enable the start button and configuration after the thread is stopped
-    for key in disable_keys:
-        window[key].update(disabled=False)
 
 
-def shutdown_thread(thread):
+def shutdown_thread(thread, join=False):
     if thread is not None:
         thread.shutdown_flag.set()
-        # wait for the thread to close
-        thread.join()
+        if join:
+            # wait for the thread to close
+            thread.join()  # this will block the gui
 
 
 def update_layout(window: sg.Window, logger: Logger):
@@ -83,9 +81,6 @@ def main():
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)
-            # reset the logger and communication queue after thread has been stopped
-            comm_queue = Queue()
-            logger = Logger(comm_queue, timed=False)
 
         elif event == "Help":
             show_help_gui()
@@ -104,9 +99,22 @@ def main():
                 "https://github.com/matthewmiglio/py-tarkbot/issues/new/choose"
             )
 
+        # handle when thread is finished
+        if thread is not None and not thread.is_alive():
+            # enable the start button and configuration after the thread is stopped
+            for key in disable_keys:
+                window[key].update(disabled=False)
+            if thread.logger.errored:
+                window["Stop"].update(disabled=True)
+            else:
+                # reset the communication queue and logger
+                comm_queue = Queue()
+                logger = Logger(comm_queue, timed=False)
+                thread = None
+
         update_layout(window, logger)
 
-    shutdown_thread(thread)
+    shutdown_thread(thread, join=True)
 
     window.close()
 
@@ -126,9 +134,8 @@ class WorkerThread(StoppableThread):
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
                 state = state_tree(self.logger, state, number_of_rows)
         except Exception as exc:  # pylint: disable=broad-except
-            # we don't want the thread to crash the interface so we catch all exceptions and log
-            # raise exc
-            print(str(exc))
+            # catch exceptions and log to not crash the main thread
+            self.logger.error(str(exc))
 
 
 if __name__ == "__main__":

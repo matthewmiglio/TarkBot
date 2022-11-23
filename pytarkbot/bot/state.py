@@ -23,7 +23,7 @@ def state_tree(logger, state, number_of_rows):
         state_restart(logger)
         return "flea_mode"
 
-    elif state == "flea_mode":
+    if state == "flea_mode":
         state = state_flea_mode(logger, number_of_rows)
 
     elif state == "remove_flea_offers":
