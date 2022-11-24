@@ -17,6 +17,7 @@ class Logger:
         self.roubles_made = 0
         self.sale_attempts = 0
         self.item_sold = 0
+        self.offers_removed = 0
 
         self.errored = False
 
@@ -67,6 +68,10 @@ class Logger:
     @_updates_queue
     def add_roubles_made(self, amount):
         self.roubles_made = self.roubles_made + amount
+
+    @_updates_queue
+    def add_offer_removed(self):
+        self.offers_removed +=1
 
     @_updates_queue
     def add_item_sold(self):

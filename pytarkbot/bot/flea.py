@@ -645,14 +645,18 @@ def remove_offers(logger):
     logger.change_status("Removing offers.")
     for _ in range(10):
         #click random tab on left side
-        for _ in range(10):click(x=227,y=random.randint(137,375))
+        for _ in range(4):click(x=227,y=random.randint(131,211))
         
-        #find remove
-        coord=look_for_remove_offer_button()
-        if coord is not None: 
-            click(coord[0],coord[1])
-            time.sleep(1)
+        #if remove exists click it, then press Y to confirm it
+        if check_if_remove_offer_button_exists():
+            #increment the remove offer counter
+            logger.add_offers_removed()
+            
+            #click remove button, then confirm it
+            click(1185,150,clicks=2)
+            time.sleep(0.17)
             pyautogui.press('y')
+            
             
 def get_to_flea_tab_from_my_offers_tab(logger):
     click(829, 977, clicks=2, interval=0.33)
@@ -668,6 +672,20 @@ def look_for_remove_offer_button():
         if pixel_is_equal(this_pixel,color_red,tol=35):
             return [1190,y_coord]
     return None
+
+
+def check_if_remove_offer_button_exists():
+    red_pix_list=[]
+    color_red=[185, 6, 7]
+    iar=numpy.asarray(screenshot())
+    for x_coord in range(1160,1225):
+        this_pixel=iar[152][x_coord]
+        if pixel_is_equal(this_pixel,color_red,tol=35):
+            red_pix_list.append(x_coord)
+
+    if (len(red_pix_list))>5:return True
+    return False
+
 
 
 # price detection methods
