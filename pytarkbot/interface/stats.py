@@ -26,6 +26,10 @@ stats_title = [
         sg.Text("Sale Attempts: "),
     ],
     [
+        sg.Text("Offers Removed: "),
+    ],
+    
+    [
         sg.Text("Success Rate: "),
     ],
     [
@@ -42,6 +46,9 @@ stats_values = [
     ],
     [
         stat_box("sale_attempts"),
+    ],
+    [
+        stat_box("offers_removed"),
     ],
     [
         stat_box("success_rate"),
