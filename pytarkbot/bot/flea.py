@@ -604,7 +604,7 @@ def set_flea_filters(logger):
     time.sleep(0.17)
 
     #click 'condition from:' text input box
-    click(143,102)
+    click(131,123)
     time.sleep(0.17)
     
     #write 100 in 'condition from:' text box
