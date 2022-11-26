@@ -603,6 +603,14 @@ def set_flea_filters(logger):
     click(179, 250)
     time.sleep(0.17)
 
+    #click 'condition from:' text input box
+    click(143,102)
+    time.sleep(0.17)
+    
+    #write 100 in 'condition from:' text box
+    pyautogui.typewrite('100')
+    time.sleep(0.17)
+
     # click OK
     logger.change_status("Clicking OK in filters tab.")
     click(83, 272)
@@ -626,6 +634,7 @@ def check_if_on_my_offers_tab():
 
     return all(total >= 500 for total in pixel_totals)
 
+
 def get_to_my_offers_tab(logger):
 
     on_offers_tab = check_if_on_my_offers_tab()
@@ -640,6 +649,7 @@ def get_to_my_offers_tab(logger):
         time.sleep(1)
         on_offers_tab = check_if_on_my_offers_tab()
     logger.change_status("On my offers tab.")
+
 
 def remove_offers(logger):
     logger.change_status("Removing offers.")
@@ -657,11 +667,12 @@ def remove_offers(logger):
             time.sleep(0.17)
             pyautogui.press('y')
             
-            
+        
 def get_to_flea_tab_from_my_offers_tab(logger):
     click(829, 977, clicks=2, interval=0.33)
     time.sleep(0.33)
     get_to_flea_tab(logger)
+
 
 def look_for_remove_offer_button():
     #find red remove button coord on this page
