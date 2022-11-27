@@ -71,7 +71,7 @@ class Logger:
 
     @_updates_queue
     def add_offer_removed(self):
-        self.offers_removed +=1
+        self.offers_removed += 1
 
     @_updates_queue
     def add_item_sold(self):
