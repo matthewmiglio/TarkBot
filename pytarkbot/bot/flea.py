@@ -10,14 +10,12 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
-from pytarkbot.tarkov import click,  screenshot
+from pytarkbot.tarkov import click, screenshot
 
 pyautogui.FAILSAFE = False
 
 
-
-
-#digit count methods
+# digit count methods
 def get_color_list_of_current_price(image):
     # make numpy iar
     iar = numpy.asarray(image)
@@ -41,6 +39,7 @@ def get_color_list_of_current_price(image):
             english_color_list.append(None)
 
     return english_color_list
+
 
 def count_digits2():
     ####get pix list of pixels from (900,141) -> (1000,141)
@@ -81,6 +80,7 @@ def count_digits2():
 
     return white_count - 2
 
+
 def count_digits():
     # region = [896, 126, 115, 47]
     image = screenshot()
@@ -95,6 +95,7 @@ def count_digits():
 
     return tan_count - 1
 
+
 def splice_color_list_for_count_digits(color_list):
     pix_list = [None]
 
@@ -107,9 +108,7 @@ def splice_color_list_for_count_digits(color_list):
     return pix_list
 
 
-
-
-#item interaction methods
+# item interaction methods
 def find_coords_of_item_to_flea(rows_to_target):
 
     positive_pixel_list = []
@@ -124,6 +123,7 @@ def find_coords_of_item_to_flea(rows_to_target):
                 positive_pixel_list.append([x, y])
     # return a random pixel from the list
     return random.choice(positive_pixel_list)
+
 
 def find_fbi_button():
     current_image = screenshot()
@@ -160,8 +160,9 @@ def find_fbi_button():
 
     return get_first_location(locations)
 
+
 def click_fbi_button():
-    
+
     # logger.change_status("Checking whether or not the fbi button shows for the selected item.")
     fbi_coords = find_fbi_button()
     if fbi_coords is None:
@@ -169,23 +170,23 @@ def click_fbi_button():
         return "restart"
 
     # click fbi button
-    
+
     # logger.change_status("clicking fbi button for the selected item.")
     click(fbi_coords[1], fbi_coords[0])
     time.sleep(0.33)
     return "continue"
 
-def select_random_item_to_flea(logger,rows_to_target):
-    #ROWS TO TARGET MUST BE AN INT 1-11 THAT WILL BE GIVEN THRUGH THE GUI
-    #Rows just means the amt of rows it'll attempt to target when selecting an item to flea in the 
-    #add offer tab
-    
+
+def select_random_item_to_flea(logger, rows_to_target):
+    # ROWS TO TARGET MUST BE AN INT 1-11 THAT WILL BE GIVEN THRUGH THE GUI
+    # Rows just means the amt of rows it'll attempt to target when selecting an item to flea in the
+    # add offer tab
+
     logger.change_status("Selecting another random item to flea.")
     has_item_to_flea = False
     while not has_item_to_flea:
         # clicks the random item's FBI button
         # click item to flea
-        
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
         if item_coords is None:
@@ -206,7 +207,7 @@ def select_random_item_to_flea(logger,rows_to_target):
             )
 
 
-#flea interaction methods
+# flea interaction methods
 def get_to_flea_tab(logger):
     logger.change_status("Getting to flea tab")
     on_flea = check_if_on_flea_page()
@@ -221,6 +222,7 @@ def get_to_flea_tab(logger):
         time.sleep(2)
         on_flea = check_if_on_flea_page()
     logger.change_status("Made it to flea tab.")
+
 
 def check_if_on_flea_page():
     # sourcery skip: assign-if-exp, boolean-if-exp-identity, reintroduce-else, swap-if-expression
@@ -243,6 +245,7 @@ def check_if_on_flea_page():
         return False
     return True
 
+
 def check_if_can_add_offer():
     pix_list = []
     iar = numpy.asarray(screenshot())
@@ -254,11 +257,13 @@ def check_if_can_add_offer():
                 pix_list.append(current_pix)
     return len(pix_list) > 25
 
+
 def close_add_offer_window(logger):
     logger.change_status("Closing add offer window.")
     orientate_add_offer_window(logger)
     # click dead space
     click(732, 471)
+
 
 def find_add_offer_window():
 
@@ -283,6 +288,7 @@ def find_add_offer_window():
     coords = get_first_location(locations)
     return None if coords is None else [coords[1], coords[0] - 13]
 
+
 def wait_till_can_add_another_offer(logger):
     has_another_offer = check_if_can_add_offer()
     loops = 0
@@ -306,9 +312,10 @@ def wait_till_can_add_another_offer(logger):
 
     logger.change_status("Done waiting for another offer.")
 
+
 def write_post_price(logger, post_price):
     # open rouble input region
-    
+
     click(1162, 501)
 
     # write post_price
@@ -316,6 +323,7 @@ def write_post_price(logger, post_price):
     type_string = str(post_price)
     pyautogui.typewrite(type_string, interval=0.02)
     time.sleep(0.17)
+
 
 def post_item(logger, post_price):
     orientate_add_offer_window(logger)
@@ -327,7 +335,7 @@ def post_item(logger, post_price):
     write_post_price(logger, post_price)
 
     # click add in add requirements window
-    
+
     logger.change_status("Adding this offer.")
     click(1169, 961, clicks=2)
     time.sleep(1)
@@ -350,8 +358,9 @@ def post_item(logger, post_price):
     pyautogui.press("f5")
     time.sleep(0.17)
 
+
 def check_for_post_confirmation_popup():
-    
+
     current_image = screenshot()
     reference_folder = "check_for_post_confirmation_popup"
     references = [
@@ -371,8 +380,9 @@ def check_for_post_confirmation_popup():
 
     return check_for_location(locations)
 
+
 def handle_post_confirmation_popup(logger):
-    
+
     if check_for_post_confirmation_popup():
         logger.change_status("Handling post confirmation popup")
         click(50, 50, clicks=2)
@@ -380,8 +390,9 @@ def handle_post_confirmation_popup(logger):
         pyautogui.press("n")
         time.sleep(0.33)
 
+
 def check_for_purchase_confirmation_popup():
-    
+
     current_image = screenshot()
     reference_folder = "check_for_purchase_confirmation_popup"
     references = [
@@ -401,16 +412,17 @@ def check_for_purchase_confirmation_popup():
 
     return check_for_location(locations)
 
+
 def handle_purchase_confirmation_popup(logger):
-    
+
     if check_for_purchase_confirmation_popup():
         logger.change_status("Handling purchase confirmation popup")
-        click(50,50,clicks=2)
+        click(50, 50, clicks=2)
         pyautogui.press("n")
         time.sleep(0.33)
 
 
-#flea add offer window
+# flea add offer window
 def orientate_add_offer_window(logger):
 
     orientated = check_add_offer_window_orientation()
@@ -434,6 +446,7 @@ def orientate_add_offer_window(logger):
     logger.change_status("Orientated add offer window.")
     time.sleep(0.17)
 
+
 def check_add_offer_window_orientation():
     coords = find_add_offer_window()
     if coords is None:
@@ -441,6 +454,7 @@ def check_add_offer_window_orientation():
     value1 = abs(coords[0] - 20)
     value2 = abs(coords[1] - 471)
     return value1 <= 3 and value2 <= 3
+
 
 def find_add_requirement_window():
 
@@ -465,6 +479,7 @@ def find_add_requirement_window():
 
     coords = get_first_location(locations)
     return None if coords is None else [coords[1], coords[0]]
+
 
 def orientate_add_requirement_window(logger):
     orientated = check_add_requirement_window_orientation()
@@ -491,6 +506,7 @@ def orientate_add_requirement_window(logger):
     logger.change_status("Orientated add requirement window.")
     time.sleep(0.17)
 
+
 def check_add_requirement_window_orientation():
     coords = find_add_requirement_window()
     # print(coords)
@@ -500,6 +516,7 @@ def check_add_requirement_window_orientation():
     value2 = abs(coords[1] - 471)
     return value1 <= 3 and value2 <= 3
 
+
 def click_add_requirements_in_add_requirements_window(logger):
 
     logger.change_status("Adding requirements for offer..")
@@ -507,7 +524,7 @@ def click_add_requirements_in_add_requirements_window(logger):
     time.sleep(0.17)
 
 
-#flea filters window
+# flea filters window
 def find_filters_window():
 
     current_image = screenshot()
@@ -547,6 +564,7 @@ def find_filters_window():
     coords = get_first_location(locations)
     return None if coords is None else [coords[1] + 3, coords[0] + 3]
 
+
 def check_filters_window_orientation():
     coords = find_filters_window()
     # print(coords)
@@ -555,6 +573,7 @@ def check_filters_window_orientation():
     value1 = abs(coords[0] - 24)
     value2 = abs(coords[1] - 35)
     return value1 <= 3 and value2 <= 3
+
 
 def orientate_filters_window(logger):
 
@@ -572,12 +591,14 @@ def orientate_filters_window(logger):
         is_orientated = check_filters_window_orientation()
     logger.change_status("Orientated filters window.")
 
+
 def open_filters_window(logger):
     click(328, 87)
     time.sleep(0.33)
     orientate_filters_window(logger)
 
-def set_flea_filters(logger):  
+
+def set_flea_filters(logger):
     logger.change_status("Setting the flea filters for price undercut recognition")
 
     # open filter window
@@ -603,12 +624,12 @@ def set_flea_filters(logger):
     click(179, 250)
     time.sleep(0.17)
 
-    #click 'condition from:' text input box
-    click(131,123)
+    # click 'condition from:' text input box
+    click(131, 123)
     time.sleep(0.17)
-    
-    #write 100 in 'condition from:' text box
-    pyautogui.typewrite('100')
+
+    # write 100 in 'condition from:' text box
+    pyautogui.typewrite("100")
     time.sleep(0.17)
 
     # click OK
@@ -654,20 +675,21 @@ def get_to_my_offers_tab(logger):
 def remove_offers(logger):
     logger.change_status("Removing offers.")
     for _ in range(10):
-        #click random tab on left side
-        for _ in range(4):click(x=227,y=random.randint(131,211))
-        
-        #if remove exists click it, then press Y to confirm it
+        # click random tab on left side
+        for _ in range(4):
+            click(x=227, y=random.randint(131, 211))
+
+        # if remove exists click it, then press Y to confirm it
         if check_if_remove_offer_button_exists():
-            #increment the remove offer counter
+            # increment the remove offer counter
             logger.add_offer_removed()
-            
-            #click remove button, then confirm it
-            click(1185,150,clicks=2)
+
+            # click remove button, then confirm it
+            click(1185, 150, clicks=2)
             time.sleep(0.17)
-            pyautogui.press('y')
-            
-        
+            pyautogui.press("y")
+
+
 def get_to_flea_tab_from_my_offers_tab(logger):
     click(829, 977, clicks=2, interval=0.33)
     time.sleep(0.33)
@@ -675,28 +697,28 @@ def get_to_flea_tab_from_my_offers_tab(logger):
 
 
 def look_for_remove_offer_button():
-    #find red remove button coord on this page
-    color_red=[185, 6, 7]
-    iar=numpy.asarray(screenshot())
-    for y_coord in range(120,430):
+    # find red remove button coord on this page
+    color_red = [185, 6, 7]
+    iar = numpy.asarray(screenshot())
+    for y_coord in range(120, 430):
         this_pixel = iar[y_coord][1190]
-        if pixel_is_equal(this_pixel,color_red,tol=35):
-            return [1190,y_coord]
+        if pixel_is_equal(this_pixel, color_red, tol=35):
+            return [1190, y_coord]
     return None
 
 
 def check_if_remove_offer_button_exists():
-    red_pix_list=[]
-    color_red=[185, 6, 7]
-    iar=numpy.asarray(screenshot())
-    for x_coord in range(1160,1225):
-        this_pixel=iar[152][x_coord]
-        if pixel_is_equal(this_pixel,color_red,tol=35):
+    red_pix_list = []
+    color_red = [185, 6, 7]
+    iar = numpy.asarray(screenshot())
+    for x_coord in range(1160, 1225):
+        this_pixel = iar[152][x_coord]
+        if pixel_is_equal(this_pixel, color_red, tol=35):
             red_pix_list.append(x_coord)
 
-    if (len(red_pix_list))>5:return True
+    if (len(red_pix_list)) > 5:
+        return True
     return False
-
 
 
 # price detection methods
@@ -708,6 +730,7 @@ def get_price_undercut(found_price):
     undercut_option_1 = found_price - 2700
     undercut_option_2 = int(found_price * 0.75)
     return max(undercut_option_2, undercut_option_1)
+
 
 def get_price_2():
     # returns digits and the significant figures of the price
@@ -772,6 +795,7 @@ def get_price_2():
 
     return num
 
+
 def get_number_from_image(image):
     # sourcery skip: assign-if-exp, reintroduce-else
     if check_for_1_in_image(image):
@@ -797,6 +821,7 @@ def get_number_from_image(image):
 
     return None
 
+
 def check_for_1_in_image(current_image):
     reference_folder = "check_for_1_in_image"
     references = [
@@ -817,6 +842,7 @@ def check_for_1_in_image(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
+
 
 def check_for_2_in_image(current_image):
     reference_folder = "check_for_2_in_image"
@@ -841,6 +867,7 @@ def check_for_2_in_image(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
+
 
 def check_for_3_in_image(current_image):
     # show_image(current_image)
@@ -867,6 +894,7 @@ def check_for_3_in_image(current_image):
     )
     return check_for_location(locations)
 
+
 def check_for_4_in_image(current_image):
     # show_image(current_image)
     reference_folder = "check_for_4_in_image"
@@ -892,6 +920,7 @@ def check_for_4_in_image(current_image):
     )
     return check_for_location(locations)
 
+
 def check_for_5_in_image(current_image):
     # show_image(current_image)
     reference_folder = "check_for_5_in_image"
@@ -913,6 +942,7 @@ def check_for_5_in_image(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
+
 
 def check_for_6_in_image(current_image):
     # show_image(current_image)
@@ -937,6 +967,7 @@ def check_for_6_in_image(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
+
 
 def check_for_7_in_image(current_image):
     # show_image(current_image)
@@ -963,6 +994,7 @@ def check_for_7_in_image(current_image):
     )
     return check_for_location(locations)
 
+
 def check_for_8_in_image(current_image):
     # show_image(current_image)
     reference_folder = "check_for_8_in_image"
@@ -987,6 +1019,7 @@ def check_for_8_in_image(current_image):
     )
     return check_for_location(locations)
 
+
 def check_for_9_in_image(current_image):
     # show_image(current_image)
     reference_folder = "check_for_9_in_image"
@@ -1006,6 +1039,7 @@ def check_for_9_in_image(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
+
 
 def check_for_0_in_image(current_image):
 
@@ -1029,6 +1063,3 @@ def check_for_0_in_image(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
-
-
-

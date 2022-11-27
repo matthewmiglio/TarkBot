@@ -52,4 +52,3 @@ def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
 
     # move mouse back to original position
     pyautogui.moveTo(origin[0], origin[1])
-

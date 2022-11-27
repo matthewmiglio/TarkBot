@@ -28,7 +28,6 @@ stats_title = [
     [
         sg.Text("Offers Removed: "),
     ],
-    
     [
         sg.Text("Success Rate: "),
     ],
