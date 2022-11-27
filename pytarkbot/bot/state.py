@@ -18,13 +18,13 @@ from .flea import (
 )
 
 
-def state_tree(logger, state, number_of_rows):
+def state_tree(logger, state, number_of_rows,remove_offers_timer):
     if state == "restart":
         state_restart(logger)
         return "flea_mode"
 
     if state == "flea_mode":
-        state = state_flea_mode(logger, number_of_rows)
+        state = state_flea_mode(logger, number_of_rows,remove_offers_timer)
 
     elif state == "remove_flea_offers":
         state = state_remove_flea_offers(logger)
@@ -54,7 +54,7 @@ def state_remove_flea_offers(logger):
     return "flea_mode"
 
 
-def state_flea_mode(logger, number_of_rows):
+def state_flea_mode(logger, number_of_rows,remove_offers_timer):
     logger.change_status("Beginning flea alg.\n")
     while True:
         # open flea
@@ -65,7 +65,7 @@ def state_flea_mode(logger, number_of_rows):
 
         # wait for another add offer
         logger.change_status("Waiting for another flea offer slot.")
-        if wait_till_can_add_another_offer(logger) == "remove_flea_offers":
+        if wait_till_can_add_another_offer(logger,remove_offers_timer) == "remove_flea_offers":
             return "remove_flea_offers"
         time.sleep(1)
 

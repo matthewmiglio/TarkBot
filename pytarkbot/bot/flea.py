@@ -288,11 +288,14 @@ def find_add_offer_window():
     return None if coords is None else [coords[1], coords[0] - 13]
 
 
-def wait_till_can_add_another_offer(logger):
+def wait_till_can_add_another_offer(logger,remove_offers_timer):
+    time_in_seconds=convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer)
+    max_loops=time_in_seconds/2
+    
     has_another_offer = check_if_can_add_offer()
     loops = 0
     while not has_another_offer:
-        if loops > 120:
+        if loops > max_loops:
             return "remove_flea_offers"
 
         loops = loops + 1
@@ -310,6 +313,14 @@ def wait_till_can_add_another_offer(logger):
         has_another_offer = check_if_can_add_offer()
 
     logger.change_status("Done waiting for another offer.")
+
+def convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer):
+    if remove_offers_timer=="1m":return 60
+    if remove_offers_timer=="2m":return 120
+    if remove_offers_timer=="5m":return 300
+    if remove_offers_timer=="10m":return 600
+    
+
 
 
 def write_post_price(logger, post_price):
@@ -817,7 +828,7 @@ def get_number_from_image(image):
 
     return None
 
-def check_for_1_in_image(current_image):
+def check_for_1_in_image_for_selling_price(current_image):
     reference_folder = "check_for_1_in_image"
     references = [
         "1.png",
@@ -838,7 +849,7 @@ def check_for_1_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_2_in_image(current_image):
+def check_for_2_in_image_for_selling_price(current_image):
     reference_folder = "check_for_2_in_image"
     references = [
         "1.png",
@@ -862,7 +873,7 @@ def check_for_2_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_3_in_image(current_image):
+def check_for_3_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_3_in_image"
     references = [
@@ -887,7 +898,7 @@ def check_for_3_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_4_in_image(current_image):
+def check_for_4_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_4_in_image"
     references = [
@@ -912,7 +923,7 @@ def check_for_4_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_5_in_image(current_image):
+def check_for_5_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_5_in_image"
     references = [
@@ -934,7 +945,7 @@ def check_for_5_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_6_in_image(current_image):
+def check_for_6_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_6_in_image"
     references = [
@@ -958,7 +969,7 @@ def check_for_6_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_7_in_image(current_image):
+def check_for_7_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_7_in_image"
     references = [
@@ -983,7 +994,7 @@ def check_for_7_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_8_in_image(current_image):
+def check_for_8_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_8_in_image"
     references = [
@@ -1007,7 +1018,7 @@ def check_for_8_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_9_in_image(current_image):
+def check_for_9_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_9_in_image"
     references = [
@@ -1027,7 +1038,7 @@ def check_for_9_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_0_in_image(current_image):
+def check_for_0_in_image_for_selling_price(current_image):
 
     # show_image(current_image)
     reference_folder = "check_for_0_in_image"

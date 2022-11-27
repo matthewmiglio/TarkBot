@@ -18,7 +18,7 @@ def start_button_event(logger: Logger, window, values):
         window[key].update(disabled=True)
 
     # setup thread and start it
-    args = values["rows_to_target"]
+    args = (values["rows_to_target"],values["remove_offers_timer"])
     thread = WorkerThread(logger, args)
     thread.start()
 
@@ -126,13 +126,15 @@ class WorkerThread(StoppableThread):
 
     def run(self):
         try:
-            number_of_rows = self.args  # parse thread args
+            number_of_rows,remove_offers_timer = self.args  # parse thread args
+            
             state = "restart"
+            
             # loop until shutdown flag is set
             while not self.shutdown_flag.is_set():
                 # perform state transition
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
-                state = state_tree(self.logger, state, number_of_rows)
+                state = state_tree(self.logger, state, number_of_rows,remove_offers_timer)
         except Exception as exc:  # pylint: disable=broad-except
             # catch exceptions and log to not crash the main thread
             self.logger.error(str(exc))
