@@ -4,7 +4,7 @@ from pytarkbot.tarkov import restart_tarkov
 from pytarkbot.tarkov.client import click
 
 from .flea import (
-    get_price_2,
+    get_price_of_first_seller_in_flea_items_table,
     get_price_undercut,
     get_to_flea_tab,
     get_to_flea_tab_from_my_offers_tab,
@@ -91,7 +91,7 @@ def state_flea_mode(logger, number_of_rows):
         # get/check price
         logger.change_status("Doing price check.")
         # logger.add_flea_sale_attempt()
-        detected_price = get_price_2()
+        detected_price = get_price_of_first_seller_in_flea_items_table()
         if detected_price is not None:
             logger.change_status(f"Price of {detected_price} passed check.")
 

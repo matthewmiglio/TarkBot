@@ -709,7 +709,7 @@ def get_price_undercut(found_price):
     undercut_option_2 = int(found_price * 0.75)
     return max(undercut_option_2, undercut_option_1)
 
-def get_price_2():
+def get_price_of_first_seller_in_flea_items_table():
     # returns digits and the significant figures of the price
     num = None
 
@@ -774,30 +774,30 @@ def get_price_2():
 
 def get_number_from_image(image):
     # sourcery skip: assign-if-exp, reintroduce-else
-    if check_for_1_in_image(image):
+    if check_for_1_in_image_for_selling_price(image):
         return "1"
-    if check_for_2_in_image(image):
+    if check_for_2_in_image_for_selling_price(image):
         return "2"
-    if check_for_3_in_image(image):
+    if check_for_3_in_image_for_selling_price(image):
         return "3"
-    if check_for_4_in_image(image):
+    if check_for_4_in_image_for_selling_price(image):
         return "4"
-    if check_for_5_in_image(image):
+    if check_for_5_in_image_for_selling_price(image):
         return "5"
-    if check_for_6_in_image(image):
+    if check_for_6_in_image_for_selling_price(image):
         return "6"
-    if check_for_7_in_image(image):
+    if check_for_7_in_image_for_selling_price(image):
         return "7"
-    if check_for_8_in_image(image):
+    if check_for_8_in_image_for_selling_price(image):
         return "8"
-    if check_for_9_in_image(image):
+    if check_for_9_in_image_for_selling_price(image):
         return "9"
-    if check_for_0_in_image(image):
+    if check_for_0_in_image_for_selling_price(image):
         return "0"
 
     return None
 
-def check_for_1_in_image(current_image):
+def check_for_1_in_image_for_selling_price(current_image):
     reference_folder = "check_for_1_in_image"
     references = [
         "1.png",
@@ -818,7 +818,7 @@ def check_for_1_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_2_in_image(current_image):
+def check_for_2_in_image_for_selling_price(current_image):
     reference_folder = "check_for_2_in_image"
     references = [
         "1.png",
@@ -842,7 +842,7 @@ def check_for_2_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_3_in_image(current_image):
+def check_for_3_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_3_in_image"
     references = [
@@ -867,7 +867,7 @@ def check_for_3_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_4_in_image(current_image):
+def check_for_4_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_4_in_image"
     references = [
@@ -892,7 +892,7 @@ def check_for_4_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_5_in_image(current_image):
+def check_for_5_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_5_in_image"
     references = [
@@ -914,7 +914,7 @@ def check_for_5_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_6_in_image(current_image):
+def check_for_6_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_6_in_image"
     references = [
@@ -938,7 +938,7 @@ def check_for_6_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_7_in_image(current_image):
+def check_for_7_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_7_in_image"
     references = [
@@ -963,7 +963,7 @@ def check_for_7_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_8_in_image(current_image):
+def check_for_8_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_8_in_image"
     references = [
@@ -987,7 +987,7 @@ def check_for_8_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_9_in_image(current_image):
+def check_for_9_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_9_in_image"
     references = [
@@ -1007,7 +1007,7 @@ def check_for_9_in_image(current_image):
     )
     return check_for_location(locations)
 
-def check_for_0_in_image(current_image):
+def check_for_0_in_image_for_selling_price(current_image):
 
     # show_image(current_image)
     reference_folder = "check_for_0_in_image"
