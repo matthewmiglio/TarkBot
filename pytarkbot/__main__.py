@@ -1,3 +1,4 @@
+import time
 import webbrowser
 from queue import Queue
 
@@ -62,11 +63,16 @@ def main():
     # window layout
     window = sg.Window("Py-TarkBot", main_layout)
 
+
     # run the gui
     while True:
+        
+        
         # get gui vars
         read = window.read(timeout=100)
         event, values = read or (None, None)
+
+
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
