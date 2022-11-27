@@ -1,3 +1,4 @@
+import itertools
 import random
 import time
 
@@ -116,11 +117,10 @@ def find_coords_of_item_to_flea(rows_to_target):
     y_pixel_maximum = int(520 + (rows_to_target - 1) * 42)
 
     empty_color = [45, 45, 45]
-    for x in range(15, 420, 3):
-        for y in range(510, y_pixel_maximum, 3):
-            this_pixel = iar[y][x]
-            if not pixel_is_equal(this_pixel, empty_color, tol=45):
-                positive_pixel_list.append([x, y])
+    for x, y in itertools.product(range(15, 420, 3), range(510, y_pixel_maximum, 3)):
+        this_pixel = iar[y][x]
+        if not pixel_is_equal(this_pixel, empty_color, tol=45):
+            positive_pixel_list.append([x, y])
     # return a random pixel from the list
     return random.choice(positive_pixel_list)
 
@@ -250,11 +250,10 @@ def check_if_can_add_offer():
     pix_list = []
     iar = numpy.asarray(screenshot())
     positive_pixel = [220, 215, 190]
-    for x in range(780, 870):
-        for y in range(75, 90):
-            current_pix = iar[y][x]
-            if pixel_is_equal(current_pix, positive_pixel, tol=35):
-                pix_list.append(current_pix)
+    for x, y in itertools.product(range(780, 870), range(75, 90)):
+        current_pix = iar[y][x]
+        if pixel_is_equal(current_pix, positive_pixel, tol=35):
+            pix_list.append(current_pix)
     return len(pix_list) > 25
 
 
@@ -716,9 +715,7 @@ def check_if_remove_offer_button_exists():
         if pixel_is_equal(this_pixel, color_red, tol=35):
             red_pix_list.append(x_coord)
 
-    if (len(red_pix_list)) > 5:
-        return True
-    return False
+    return len(red_pix_list) > 5
 
 
 # price detection methods
