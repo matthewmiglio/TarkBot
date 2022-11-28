@@ -1,5 +1,5 @@
-import os
 import multiprocessing
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os.path import dirname, join
 from typing import Union
@@ -197,6 +197,7 @@ def make_reference_image_list(size):
 
     return reference_image_list
 
+
 def get_file_count(folder):
     """Method to return the amount of a files in a given directory
 
@@ -206,7 +207,6 @@ def get_file_count(folder):
     Returns:
         int: Amount of files in the given directory
     """
-    directory = join(dirname(__file__),  "reference_images", folder)
+    directory = join(dirname(__file__), "reference_images", folder)
 
     return sum(len(files) for root_dir, cur_dir, files in os.walk(directory))
-
