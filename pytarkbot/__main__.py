@@ -1,3 +1,4 @@
+import time
 import webbrowser
 from queue import Queue
 
@@ -93,11 +94,28 @@ def main():
 
     load_last_settings(window)
 
+    # start timer for autostart
+    start_time = time.time()
+    auto_start_time = 30  # seconds
+    auto_started = False
+
     # run the gui
     while True:
         # get gui vars
         read = window.read(timeout=100)
         event, values = read or (None, None)
+
+        if event == "autostart":
+            start_time = time.time()
+
+        # check if bot should be autostarted
+        if (
+            values["autostart"]
+            and not auto_started
+            and time.time() - start_time > auto_start_time
+        ):
+            auto_started = True
+            event = "Start"
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
