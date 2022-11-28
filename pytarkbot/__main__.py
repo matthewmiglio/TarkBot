@@ -1,15 +1,43 @@
-import time
 import webbrowser
 from queue import Queue
 
 import PySimpleGUI as sg
 
 from pytarkbot.bot import state_tree
-from pytarkbot.interface import THEME, disable_keys, main_layout, show_help_gui
+from pytarkbot.interface import (
+    THEME,
+    disable_keys,
+    main_layout,
+    show_help_gui,
+    user_config_keys,
+)
 from pytarkbot.utils import Logger
+from pytarkbot.utils.caching import (
+    cache_user_settings,
+    check_user_settings,
+    read_user_settings,
+)
 from pytarkbot.utils.thread import StoppableThread
 
 sg.theme(THEME)
+
+
+def save_current_settings(values):
+    # read the currently selected values for each key in user_coinfig_keys
+    user_settings = {key: values[key] for key in user_config_keys if key in values}
+    # cache the user settings
+    cache_user_settings(user_settings)
+
+
+def load_last_settings(window):
+    if check_user_settings():
+        window.read(timeout=10)  # read the window to edit the layout
+        user_settings = read_user_settings()
+        if user_settings is not None:
+            for key in user_config_keys:
+                if key in user_settings:
+                    window[key].update(user_settings[key])
+        window.refresh()  # refresh the window to update the layout
 
 
 def start_button_event(logger: Logger, window, values):
@@ -19,7 +47,7 @@ def start_button_event(logger: Logger, window, values):
         window[key].update(disabled=True)
 
     # setup thread and start it
-    args = (values["rows_to_target"],values["remove_offers_timer"])
+    args = (values["rows_to_target"], values["remove_offers_timer"])
     thread = WorkerThread(logger, args)
     thread.start()
 
@@ -63,16 +91,13 @@ def main():
     # window layout
     window = sg.Window("Py-TarkBot", main_layout)
 
+    load_last_settings(window)
 
     # run the gui
     while True:
-        
-        
         # get gui vars
         read = window.read(timeout=100)
         event, values = read or (None, None)
-
-
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
@@ -105,6 +130,9 @@ def main():
                 "https://github.com/matthewmiglio/py-tarkbot/issues/new/choose"
             )
 
+        elif event in user_config_keys:
+            save_current_settings(values)
+
         # handle when thread is finished
         if thread is not None and not thread.is_alive():
             # enable the start button and configuration after the thread is stopped
@@ -132,15 +160,17 @@ class WorkerThread(StoppableThread):
 
     def run(self):
         try:
-            number_of_rows,remove_offers_timer = self.args  # parse thread args
-            
+            number_of_rows, remove_offers_timer = self.args  # parse thread args
+
             state = "restart"
-            
+
             # loop until shutdown flag is set
             while not self.shutdown_flag.is_set():
                 # perform state transition
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
-                state = state_tree(self.logger, state, number_of_rows,remove_offers_timer)
+                state = state_tree(
+                    self.logger, state, number_of_rows, remove_offers_timer
+                )
         except Exception as exc:  # pylint: disable=broad-except
             # catch exceptions and log to not crash the main thread
             self.logger.error(str(exc))

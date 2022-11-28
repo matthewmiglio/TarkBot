@@ -34,11 +34,17 @@ main_layout = [
                         orientation="horizontal",
                         size=(26, None),
                         relief=sg.RELIEF_FLAT,
+                        enable_events=True,
                     ),
                 ],
                 [
                     sg.Text("Remove Offers Timer:"),
-                    sg.Combo(["1m", "2m", "5m", "10m"], key="remove_offers_timer"),
+                    sg.Combo(
+                        ["1m", "2m", "5m", "10m"],
+                        key="remove_offers_timer",
+                        default_value="5m",
+                        enable_events=True,
+                    ),
                 ],
                 [
                     sg.Column(
@@ -84,7 +90,7 @@ main_layout = [
 ]
 
 # a list of all the keys that contain user configuration
-user_config_keys = ["rows_to_target","remove_offers_timer"]
+user_config_keys = ["rows_to_target", "remove_offers_timer"]
 
 # list of button and checkbox keys to disable when the bot is running
 disable_keys = user_config_keys + ["Start"]
