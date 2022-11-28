@@ -52,6 +52,12 @@ main_layout = [
                             [
                                 sg.Button("Start"),
                                 sg.Button("Stop", disabled=True),
+                                sg.Checkbox(
+                                    text="Auto-start",
+                                    key="autostart",
+                                    default=False,
+                                    enable_events=True,
+                                ),
                             ]
                         ],
                         element_justification="left",
@@ -90,7 +96,7 @@ main_layout = [
 ]
 
 # a list of all the keys that contain user configuration
-user_config_keys = ["rows_to_target", "remove_offers_timer"]
+user_config_keys = ["rows_to_target", "remove_offers_timer", "autostart"]
 
 # list of button and checkbox keys to disable when the bot is running
 disable_keys = user_config_keys + ["Start"]
