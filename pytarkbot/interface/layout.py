@@ -84,7 +84,7 @@ main_layout = [
 ]
 
 # a list of all the keys that contain user configuration
-user_config_keys = ["rows_to_target","remove_offers_timer"]
+user_config_keys = ["rows_to_target", "remove_offers_timer"]
 
 # list of button and checkbox keys to disable when the bot is running
 disable_keys = user_config_keys + ["Start"]
