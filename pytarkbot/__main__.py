@@ -105,8 +105,8 @@ def main():
         read = window.read(timeout=100)
         event, values = read or (None, None)
 
-        if event == "autostart":
-            start_time = time.time()
+        # if event == "autostart":
+        #     start_time = time.time()
 
         # check if bot should be autostarted
         # if (
