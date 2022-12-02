@@ -105,8 +105,8 @@ def main():
         read = window.read(timeout=100)
         event, values = read or (None, None)
 
-        if event == "autostart":
-            start_time = time.time()
+        # if event == "autostart":
+        #     start_time = time.time()
 
         # check if bot should be autostarted
         if (
@@ -184,8 +184,13 @@ class WorkerThread(StoppableThread):
 
             state = "restart"
 
+            loops = 0
             # loop until shutdown flag is set
             while not self.shutdown_flag.is_set():
+                loops += 1
+                print("STATE LOOP ", loops)
+                print("State is ", state)
+
                 # perform state transition
                 # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
                 state = state_tree(
