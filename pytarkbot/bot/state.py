@@ -1,9 +1,6 @@
 import time
 
-from pytarkbot.tarkov import restart_tarkov
-from pytarkbot.tarkov.client import click
-
-from .flea import (
+from pytarkbot.bot.flea import (
     get_price_of_first_seller_in_flea_items_table,
     get_price_undercut,
     get_to_flea_tab,
@@ -16,6 +13,8 @@ from .flea import (
     set_flea_filters,
     wait_till_can_add_another_offer,
 )
+from pytarkbot.tarkov import restart_tarkov
+from pytarkbot.tarkov.client import click
 
 
 def state_tree(logger, state, number_of_rows, remove_offers_timer):
@@ -57,6 +56,7 @@ def state_remove_flea_offers(logger):
             logger.change_status(
                 f"Waiting {sleep_time-n} seconds to restart after removing offers."
             )
+        time.sleep(1)
     return "restart"
 
 

@@ -701,6 +701,7 @@ def remove_offers(logger):
             click(1185, 150, clicks=2)
             time.sleep(0.17)
             pyautogui.press("y")
+            logger.add_offer_removed()
 
 
 def get_to_flea_tab_from_my_offers_tab(logger):

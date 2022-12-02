@@ -187,20 +187,12 @@ def check_if_play_button_exists_in_launcher():
 
 
 def wait_for_play_button_in_launcher(logger):
-    if len(pygetwindow.getWindowsWithTitle("BsgLauncher")) == 0:
-        logger.change_status(
-            "Launcher not detected while waiting for play button in launcher."
-        )
-        return "restart"
-    loop = 0
-    waiting = not check_if_play_button_exists_in_launcher()
-    while waiting:
-        logger.change_status(f"Waiting for play button to appear in launcher {loop}")
-        loop = loop + 2
-        waiting = not check_if_play_button_exists_in_launcher()
-        time.sleep(2)
-        if loop > 50:
-            logger.change_status(
-                "Spent too long waiting for launcher's play button. Restarting."
-            )
+    loops = 0
+    logger.change_status("Waiting for play button to appear.")
+    while not check_if_play_button_exists_in_launcher():
+        loops += 1
+        if loops > 20:
             return "restart"
+        time.sleep(1)
+
+    logger.change_status("Done waiting for play button to appear.")
