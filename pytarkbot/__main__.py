@@ -110,7 +110,9 @@ def main():
 
         # check if bot should be autostarted
         if (
-            values["autostart"]
+            thread is None
+            and values is not None
+            and values["autostart"]
             and not auto_started
             and time.time() - start_time > auto_start_time
         ):
