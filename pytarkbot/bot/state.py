@@ -18,6 +18,8 @@ from pytarkbot.tarkov.client import click
 
 
 def state_tree(logger, state, number_of_rows, remove_offers_timer):
+    
+    
     if state == "restart":
         state_restart(logger)
         return "flea_mode"
