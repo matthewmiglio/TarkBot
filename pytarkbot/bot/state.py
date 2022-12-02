@@ -51,7 +51,13 @@ def state_remove_flea_offers(logger):
     logger.change_status("Returning to browse page in the flea.")
     get_to_flea_tab_from_my_offers_tab(logger)
 
-    return "flea_mode"
+    sleep_time = 90
+    for n in range(sleep_time):
+        if n % 5 == 0:
+            logger.change_status(
+                f"Waiting {sleep_time-n} seconds to restart after removing offers."
+            )
+    return "restart"
 
 
 def state_flea_mode(logger, number_of_rows, remove_offers_timer):
