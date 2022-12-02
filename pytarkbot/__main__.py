@@ -109,13 +109,13 @@ def main():
             start_time = time.time()
 
         # check if bot should be autostarted
-        if (
-            values["autostart"]
-            and not auto_started
-            and time.time() - start_time > auto_start_time
-        ):
-            auto_started = True
-            event = "Start"
+        # if (
+        #     values["autostart"]
+        #     and not auto_started
+        #     and time.time() - start_time > auto_start_time
+        # ):
+        #     auto_started = True
+        #     event = "Start"
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
