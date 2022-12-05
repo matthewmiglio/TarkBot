@@ -362,8 +362,9 @@ def post_item(logger, post_price):
     # handle post/purchase confirmation popup
     handle_post_confirmation_popup(logger)
     handle_purchase_confirmation_popup(logger)
+    pyautogui.press("n")
 
-    # logger stuff
+    # logger stats stuff
     logger.add_roubles_made(post_price)
     logger.add_item_sold()
 
@@ -690,7 +691,8 @@ def remove_offers(logger):
     for _ in range(10):
         # click random tab on left side
         for _ in range(4):
-            click(x=227, y=random.randint(131, 211))
+            click(x=227, y=random.randint(131, 311))
+        time.sleep(0.33)
 
         # if remove exists click it, then press Y to confirm it
         if check_if_remove_offer_button_exists():
@@ -699,6 +701,7 @@ def remove_offers(logger):
             time.sleep(0.17)
             pyautogui.press("y")
             logger.add_offer_removed()
+            print("offers_removed", logger.offers_removed)
 
 
 def get_to_flea_tab_from_my_offers_tab(logger):
