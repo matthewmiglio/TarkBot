@@ -52,12 +52,12 @@ main_layout = [
                             [
                                 sg.Button("Start"),
                                 sg.Button("Stop", disabled=True),
-                                # sg.Checkbox(
-                                #     text="Auto-start",
-                                #     key="autostart",
-                                #     default=False,
-                                #     enable_events=True,
-                                # ),
+                                sg.Checkbox(
+                                    text="Auto-start",
+                                    key="autostart",
+                                    default=False,
+                                    enable_events=True,
+                                ),
                             ]
                         ],
                         element_justification="left",

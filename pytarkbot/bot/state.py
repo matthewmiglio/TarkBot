@@ -18,8 +18,7 @@ from pytarkbot.tarkov.client import click
 
 
 def state_tree(logger, state, number_of_rows, remove_offers_timer):
-    
-    
+
     if state == "restart":
         state_restart(logger)
         return "flea_mode"
@@ -52,7 +51,7 @@ def state_remove_flea_offers(logger):
     logger.change_status("Returning to browse page in the flea.")
     get_to_flea_tab_from_my_offers_tab(logger)
 
-    sleep_time = 90
+    sleep_time = 30
     for n in range(sleep_time):
         if n % 5 == 0:
             logger.change_status(

@@ -694,9 +694,6 @@ def remove_offers(logger):
 
         # if remove exists click it, then press Y to confirm it
         if check_if_remove_offer_button_exists():
-            # increment the remove offer counter
-            logger.add_offer_removed()
-
             # click remove button, then confirm it
             click(1185, 150, clicks=2)
             time.sleep(0.17)
