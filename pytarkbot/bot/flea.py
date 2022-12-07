@@ -115,6 +115,8 @@ def find_coords_of_item_to_flea(rows_to_target):
     positive_pixel_list = []
     iar = numpy.asarray(screenshot())
     y_pixel_maximum = int(520 + (rows_to_target - 1) * 42)
+    if y_pixel_maximum > 915:
+        y_pixel_maximum = 915
 
     empty_color = [45, 45, 45]
     for x, y in itertools.product(range(15, 420, 3), range(510, y_pixel_maximum, 3)):
