@@ -83,7 +83,6 @@ def count_digits2():
 
 
 def count_digits():
-    # region = [896, 126, 115, 47]
     image = screenshot()
 
     color_list = get_color_list_of_current_price(image)
@@ -689,21 +688,43 @@ def get_to_my_offers_tab(logger):
 
 
 def remove_offers(logger):
+    # Begins on MY OFFERS tab on the flea market page
+
     logger.change_status("Removing offers.")
-    for _ in range(10):
+    print("Starting loop")
+    for remove_offer_loop_index in range(10):
+        print("\nDoing remove offer loop #", remove_offer_loop_index)
+
         # click random tab on left side
         for _ in range(4):
+            print("Clicking random category of offer on left side.")
             click(x=227, y=random.randint(131, 311))
         time.sleep(0.33)
 
-        # if remove exists click it, then press Y to confirm it
-        if check_if_remove_offer_button_exists():
-            # click remove button, then confirm it
-            click(1185, 150, clicks=2)
-            time.sleep(0.17)
+        # check the top slot for a remove offer button
+        if check_if_remove_offer_button_exists_for_item_index_1():
+            print("Found a remove offer button in the top slot")
+            click(1200, 150)
+            time.sleep(0.33)
             pyautogui.press("y")
+
+            # increment logger
             logger.add_offer_removed()
-            print("offers_removed", logger.offers_removed)
+            print("Incremented offers removed to", logger.offers_removed)
+
+        # check the next slot for a remove offer button
+        elif check_if_remove_offer_button_exists_for_item_index_2():
+            print("Found a remove offer button in the second slot")
+            click(1185, 200)
+            time.sleep(0.33)
+            pyautogui.press("y")
+
+            # increment logger
+            logger.add_offer_removed()
+            print("Incremented offers removed to", logger.offers_removed)
+
+        else:
+            print("No remove offer button found.")
 
 
 def get_to_flea_tab_from_my_offers_tab(logger):
@@ -1077,3 +1098,34 @@ def check_for_0_in_image_for_selling_price(current_image):
         tolerance=0.99,
     )
     return check_for_location(locations)
+
+
+###TO SORT
+
+
+def check_if_remove_offer_button_exists_for_item_index_1():
+    # if this is true click (1200,150)
+
+    red_pix_list = []
+    color_red = [185, 6, 7]
+    iar = numpy.asarray(screenshot())
+    for x_coord in range(1160, 1225):
+        this_pixel = iar[152][x_coord]
+        if pixel_is_equal(this_pixel, color_red, tol=35):
+            red_pix_list.append(x_coord)
+
+    return len(red_pix_list) > 5
+
+
+def check_if_remove_offer_button_exists_for_item_index_2():
+    # if this is true click (1185,200)
+
+    red_pix_list = []
+    color_red = [185, 6, 7]
+    iar = numpy.asarray(screenshot())
+    for x_coord in range(1160, 1225):
+        this_pixel = iar[200][x_coord]
+        if pixel_is_equal(this_pixel, color_red, tol=35):
+            red_pix_list.append(x_coord)
+
+    return len(red_pix_list) > 5

@@ -191,8 +191,6 @@ class WorkerThread(StoppableThread):
                 print("STATE LOOP ", loops)
                 print("State is ", state)
 
-                # perform state transition
-                # (state, ssid) = state_tree(jobs, self.logger, ssid_max, ssid, state)
                 state = state_tree(
                     self.logger, state, number_of_rows, remove_offers_timer
                 )
