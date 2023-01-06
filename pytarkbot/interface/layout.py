@@ -5,7 +5,6 @@ from .stats import stat_box, stats
 out_text = """Tarkov settings must match the following:
     - windowed mode
     - 4:3 aspect ratio
-    - smaller than 1280x960 resolution
 Program must be run as administrator.
 
 Matthew Miglio, Martin Miglio - Nov 2022"""

@@ -72,6 +72,7 @@ if __name__ == "__main__":
             statistics["roubles_made"] += 1
             statistics["sale_attempts"] += 1
             statistics["success_rate"] += 1
+            statistics["success_rate"] += 1
 
         # update the statistics
         window["current_status"].update(statistics["current_status"])  # type: ignore

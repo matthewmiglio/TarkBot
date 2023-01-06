@@ -12,7 +12,7 @@ from pytarkbot.interface import (
     show_help_gui,
     user_config_keys,
 )
-from pytarkbot.utils import Logger
+from pytarkbot.utils import Logger, admin_check
 from pytarkbot.utils.caching import (
     cache_user_settings,
     check_user_settings,
