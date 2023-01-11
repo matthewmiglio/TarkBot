@@ -66,9 +66,6 @@ def close_launcher(logger, tark_launcher):
 def restart_tarkov(logger):
     orientate_terminal()
 
-    # specify tark launcher path
-    # launcher_path=r"B:\BsgLauncher\BsgLauncher.exe"
-
     # check if tarkov is open
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
     tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
