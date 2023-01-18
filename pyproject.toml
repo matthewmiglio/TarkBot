@@ -58,7 +58,7 @@ pre-commit = "^2.20"
 black = "^22.10.0"
 ipykernel = "^6.17.1"
 matplotlib = "^3.4.3"
-vulture = "^2.6"
+vulture = "^2.7"
 
 
 [tool.black]
