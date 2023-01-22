@@ -24,7 +24,7 @@ sg.theme(THEME)
 
 
 def save_current_settings(values):
-    # read the currently selected values for each key in user_coinfig_keys
+    # read the currently selected values for each key in user_config_keys
     user_settings = {key: values[key] for key in user_config_keys if key in values}
     # cache the user settings
     cache_user_settings(user_settings)
