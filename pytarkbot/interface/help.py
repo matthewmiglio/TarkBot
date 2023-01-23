@@ -5,11 +5,11 @@ from .theme import THEME
 
 def show_help_gui():
     out_text = (
-        "Debugging Information\n\n"
-        + "    2. If window resizing is your issue, try to start the tarkov client with a resolution smaller than 1280x960 (something like 1154x900).\n"
-        + "\n\nFlea Mode Information:\n\n"
-        + "     Bot will sell items from the top of your inventory down to as many rows specified in the GUI\n"
-        + "     Non-FIR items in this section will obstruct the bot, but wont cause any real issues.\n"
+        "Controls Information\n"
+        + "    1. Rows to target: Bot will sell items from the top of your inventory down to as many rows as you choose\n"
+        + "    2. Remove offers timer: How long the bot will wait for another flee slot before removing existing offers\n"
+        + "    3. Auto-start: Automatically begin the bot 1m after opening the program\n\n"
+        + "*Non-FIR items in this section will obstruct the bot, but wont cause any real issues.*\n\n"
         + "You can share any failures (or successes?) of the bot on the github @ github.com/matthewmiglio/py-tarkBot\n"
     )
 

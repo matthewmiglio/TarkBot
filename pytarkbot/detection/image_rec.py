@@ -210,3 +210,31 @@ def get_file_count(folder):
     directory = join(dirname(__file__), "reference_images", folder)
 
     return sum(len(files) for root_dir, cur_dir, files in os.walk(directory))
+
+
+def make_reference_image_list(file_name):
+    # Method to make a reference array of a given size
+    reference_image_list = []
+
+    size = get_file_count(file_name)
+
+    for n in range(size):
+        n = n + 1
+        image_name = f"{n}.png"
+        reference_image_list.append(image_name)
+
+    return reference_image_list
+
+
+def get_file_count(folder):
+    """Method to return the amount of a files in a given directory
+
+    Args:
+        directory (str): Directory to count files in
+
+    Returns:
+        int: Amount of files in the given directory
+    """
+    directory = join(dirname(__file__)[:-4], "detection", "reference_images", folder)
+
+    return sum(len(files) for root_dir, cur_dir, files in os.walk(directory))

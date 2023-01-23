@@ -11,6 +11,7 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
+from pytarkbot.detection.image_rec import make_reference_image_list
 from pytarkbot.tarkov import click, screenshot
 
 pyautogui.FAILSAFE = False
@@ -132,28 +133,7 @@ def find_coords_of_item_to_flea(rows_to_target):
 def find_fbi_button():
     current_image = screenshot()
     reference_folder = "filter_by_item_button"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-        "12.png",
-        "13.png",
-        "14.png",
-        "15.png",
-        "16.png",
-        "17.png",
-        "18.png",
-        "19.png",
-        "20.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -290,14 +270,7 @@ def find_add_offer_window():
 
     current_image = screenshot()
     reference_folder = "find_add_offer_window"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -406,13 +379,7 @@ def check_for_post_confirmation_popup():
 
     current_image = screenshot()
     reference_folder = "check_for_post_confirmation_popup"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -438,13 +405,7 @@ def check_for_purchase_confirmation_popup():
 
     current_image = screenshot()
     reference_folder = "check_for_purchase_confirmation_popup"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -503,15 +464,7 @@ def find_add_requirement_window():
 
     current_image = screenshot()
     reference_folder = "find_add_requirement_window"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -572,30 +525,7 @@ def find_filters_window():
 
     current_image = screenshot()
     reference_folder = "find_filters_tab"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-        "12.png",
-        "13.png",
-        "14.png",
-        "15.png",
-        "16.png",
-        "17.png",
-        "18.png",
-        "19.png",
-        "20.png",
-        "21.png",
-        "22.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -829,11 +759,8 @@ def get_price_of_first_seller_in_flea_items_table():
     if digits == 5:
         image_1 = screenshot([916, 137, 12, 18])
         image_2 = screenshot([926, 137, 12, 18])
-        # show_image(image_1)
-        # show_image(image_2)
         digit1 = get_number_from_image(image_1)
         digit2 = get_number_from_image(image_2)
-        # print(digit1,digit2)
         if (digit1 is None) or (digit2 is None):
             print("One of the digits is empty.\nBot thinks this is a 5 digit number.")
             print("First two read digits: ", digit1, digit2)
@@ -843,9 +770,6 @@ def get_price_of_first_seller_in_flea_items_table():
         image1 = screenshot([909, 139, 11, 14])
         image2 = screenshot([918, 139, 11, 14])
         image3 = screenshot([928, 139, 11, 14])
-        # show_image(image1)
-        # show_image(image2)
-        # show_image(image3)
         digit1 = get_number_from_image(image1)
         digit2 = get_number_from_image(image2)
         digit3 = get_number_from_image(image3)
@@ -887,16 +811,7 @@ def get_number_from_image(image):
 
 def check_for_1_in_image_for_selling_price(current_image):
     reference_folder = "check_for_1_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -909,19 +824,7 @@ def check_for_1_in_image_for_selling_price(current_image):
 
 def check_for_2_in_image_for_selling_price(current_image):
     reference_folder = "check_for_2_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -935,19 +838,7 @@ def check_for_2_in_image_for_selling_price(current_image):
 def check_for_3_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_3_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -961,19 +852,7 @@ def check_for_3_in_image_for_selling_price(current_image):
 def check_for_4_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_4_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -987,16 +866,7 @@ def check_for_4_in_image_for_selling_price(current_image):
 def check_for_5_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_5_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -1010,18 +880,7 @@ def check_for_5_in_image_for_selling_price(current_image):
 def check_for_6_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_6_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -1035,19 +894,7 @@ def check_for_6_in_image_for_selling_price(current_image):
 def check_for_7_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_7_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-        "11.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -1061,18 +908,7 @@ def check_for_7_in_image_for_selling_price(current_image):
 def check_for_8_in_image_for_selling_price(current_image):
     # show_image(current_image)
     reference_folder = "check_for_8_in_image"
-    references = [
-        "1.png",
-        "2.png",
-        "3.png",
-        "4.png",
-        "5.png",
-        "6.png",
-        "7.png",
-        "8.png",
-        "9.png",
-        "10.png",
-    ]
+    references = make_reference_image_list(reference_folder)
 
     locations = find_references(
         screenshot=current_image,
@@ -1179,10 +1015,6 @@ def check_if_has_item_to_flea_selected():
         this_pixel = iar[910][x]
         if pixel_is_equal(this_pixel, [190, 188, 171], tol=45):
             fee_text_exists = True
-
-    # print('requirements_text_exists',requirements_text_exists)
-    # print('expires_in_text_exists',expires_in_text_exists)
-    # print('fee_text_exists',fee_text_exists)
 
     if requirements_text_exists and expires_in_text_exists and fee_text_exists:
         return True

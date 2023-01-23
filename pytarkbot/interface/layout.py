@@ -2,9 +2,8 @@ import PySimpleGUI as sg
 
 from .stats import stat_box, stats
 
-info_text = """Tarkov settings must match the following:
-    - windowed mode
-Program must be run as administrator.
+info_text = """1. Tarkov must be set to windowed mode
+2. Program must be run as administrator.
 
 Matthew Miglio, Martin Miglio - Nov 2022"""
 

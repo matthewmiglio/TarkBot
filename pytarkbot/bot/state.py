@@ -30,7 +30,8 @@ def state_tree(logger, state, number_of_rows, remove_offers_timer):
             sys.exit()
 
     elif state == "remove_flea_offers":
-        state = state_remove_flea_offers(logger)
+        state_remove_flea_offers(logger)
+        state = "restart"
     return state
 
 
@@ -61,7 +62,7 @@ def state_remove_flea_offers(logger):
                 f"Waiting {sleep_time-n} seconds to restart after removing offers."
             )
         time.sleep(1)
-    return "restart"
+    return None
 
 
 def state_flea_mode(logger, number_of_rows, remove_offers_timer):
