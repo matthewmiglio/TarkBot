@@ -2,9 +2,8 @@ import PySimpleGUI as sg
 
 from .stats import stat_box, stats
 
-out_text = """Tarkov settings must match the following:
+info_text = """Tarkov settings must match the following:
     - windowed mode
-    - 4:3 aspect ratio
 Program must be run as administrator.
 
 Matthew Miglio, Martin Miglio - Nov 2022"""
@@ -13,7 +12,7 @@ Matthew Miglio, Martin Miglio - Nov 2022"""
 main_layout = [
     [
         sg.Frame(
-            layout=[[sg.Text(out_text, size=(35, 7))]],
+            layout=[[sg.Text(info_text, size=(35, 7))]],
             title="Info",
             relief=sg.RELIEF_SUNKEN,
             expand_y=True,
