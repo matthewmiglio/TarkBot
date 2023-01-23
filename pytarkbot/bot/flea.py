@@ -189,6 +189,9 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
     # if this method recursively looped too many times,
     # then the flea pile is (probably) empty
     if loops > 3:
+        logger.change_status(
+            "Selected a non-FIR item more than 3 times in a row. Stopping sell algorithm..."
+        )
         return "Done"
 
     logger.change_status("Selecting another random item to flea.")
@@ -199,6 +202,7 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
         if item_coords is None:
+            logger.change_status("No items found in region stopping sell algorithm...")
             return "Done"
         if item_coords is None:
             return
@@ -277,9 +281,8 @@ def check_if_can_add_offer():
 
 
 def close_add_offer_window(logger):
-    logger.change_status("Closing add offer window.")
+    # logger.change_status("Closing add offer window.")
     orientate_add_offer_window(logger)
-    # click dead space
     click(732, 471)
 
 
@@ -308,27 +311,34 @@ def find_add_offer_window():
 
 
 def wait_till_can_add_another_offer(logger, remove_offers_timer):
+    # calculate how long to wait for
     time_in_seconds = convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer)
     max_loops = time_in_seconds / 2
 
+    # wait until limit or has_another_offer
     has_another_offer = check_if_can_add_offer()
     loops = 0
     while not has_another_offer:
+        # if past loop: return
         if loops > max_loops:
             return "remove_flea_offers"
 
         loops = loops + 1
-        if loops % 2 == 0:
-            print(f"Waiting for another offer: {loops}")
+        logger.change_status(f"Waiting for another offer: {loops}")
 
+        # close add offer window that may be obstructing the bot right now
         close_add_offer_window(logger)
         time.sleep(1)
 
+        # refresh current flea page
         pyautogui.press("f5")
         time.sleep(1)
 
+        # get to flea tab if not already there
         get_to_flea_tab(logger)
+        logger.change_status(f"Waiting for another offer: {loops}")
 
+        # check if has_another_offer
         has_another_offer = check_if_can_add_offer()
 
     logger.change_status("Done waiting for another offer.")
