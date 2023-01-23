@@ -4,7 +4,7 @@ Automated Flee Market for Escape from Tarkov
 
 ## Install
 
-[Download and run the latest windows installer](https://github.com/matthewmiglio/py-TarkBot/releases)
+[Download and run the latest windows installer](https://github.com/matthewmiglio/py-TarkBot/releases/latest)
 
 ## Bug report
 
