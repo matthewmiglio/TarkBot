@@ -19,6 +19,10 @@ class Logger:
         self.item_sold = 0
         self.offers_removed = 0
 
+        self.starting_money = 0
+        self.current_money = 0
+        self.fee_total = 0
+
         self.errored = False
 
     def _update_queue(self):
@@ -80,6 +84,23 @@ class Logger:
     @_updates_queue
     def add_flea_sale_attempt(self):
         self.sale_attempts = self.sale_attempts + 1
+
+    @_updates_queue
+    def set_starting_money(self, starting_money):
+        self.starting_money = starting_money
+        self.update_fee_total()
+
+    @_updates_queue
+    def set_current_money(self, current_money):
+        self.current_money = current_money
+        self.update_fee_total()
+
+    @_updates_queue
+    def update_fee_total(self):
+        if (self.current_money == 0) or (self.starting_money == 0):
+            self.fee_total = 0
+        else:
+            self.fee_total = (self.starting_money) - (self.current_money)
 
     def format_roubles_made(self) -> str:
         if self.roubles_made < 1000:
