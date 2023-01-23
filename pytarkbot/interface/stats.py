@@ -17,6 +17,15 @@ def stat_box(stat_name: str, size=(5, 1)):
 
 stats_title = [
     [
+        sg.Text("Starting Money: "),
+    ],
+    [
+        sg.Text("Current Money: "),
+    ],
+    [
+        sg.Text("Fee Total: "),
+    ],
+    [
         sg.Text("Items Sold: "),
     ],
     [
@@ -37,6 +46,15 @@ stats_title = [
 ]
 
 stats_values = [
+    [
+        stat_box("starting_money"),
+    ],
+    [
+        stat_box("current_money"),
+    ],
+    [
+        stat_box("fee_total"),
+    ],
     [
         stat_box("item_sold"),
     ],
