@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+import tkinter.messagebox
 
 import numpy
 import pygetwindow
@@ -14,8 +15,6 @@ from pytarkbot.tarkov import (
 )
 from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils.dependency import get_bsg_launcher_path
-
-bsg_launcher_path = get_bsg_launcher_path()
 
 
 def check_if_on_tark_main(logger):
@@ -89,7 +88,7 @@ def restart_tarkov(logger):
 
     logger.change_status("Opening launcher.")
     try:
-        with subprocess.Popen(bsg_launcher_path):
+        with subprocess.Popen(get_bsg_launcher_path()):
 
             # Wait for launcher to open and load up
             logger.change_status("Waiting for launcher to open.")
@@ -144,6 +143,10 @@ def restart_tarkov(logger):
             if wait_for_tark_main(logger) == "restart":
                 restart_tarkov(logger)
     except FileNotFoundError:
+        tkinter.messagebox.showinfo(
+            "CRITICAL ERROR",
+            "Could not start launcher. Open a bug report on github and share your BSGlauncher install path.",
+        )
         sys.exit("Launcher path not found")
 
 
