@@ -2,6 +2,8 @@
 
 Automated Flee Market for Escape from Tarkov
 
+Join the [Discord server](https://discord.gg/Cf8fXtayXA)!
+
 ## Install
 
 [Download and run the latest windows installer](https://github.com/matthewmiglio/py-TarkBot/releases/latest)
