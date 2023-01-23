@@ -181,10 +181,15 @@ def click_fbi_button():
     return "continue"
 
 
-def select_random_item_to_flea(logger, rows_to_target):
+def select_random_item_to_flea(logger, rows_to_target, loops=0):
     # ROWS TO TARGET MUST BE AN INT 1-11 THAT WILL BE GIVEN THRUGH THE GUI
     # Rows just means the amt of rows it'll attempt to target when selecting an item to flea in the
     # add offer tab
+
+    # if this method recursively looped too many times,
+    # then the flea pile is (probably) empty
+    if loops > 3:
+        return "Done"
 
     logger.change_status("Selecting another random item to flea.")
     has_item_to_flea = False
@@ -218,7 +223,7 @@ def select_random_item_to_flea(logger, rows_to_target):
             logger.change_status(
                 "Selected a non-FIR item. Recursively redoing select_random_item_to_flea()"
             )
-            return select_random_item_to_flea(logger, rows_to_target)
+            return select_random_item_to_flea(logger, rows_to_target, loops=loops + 1)
 
 
 # flea interaction methods
