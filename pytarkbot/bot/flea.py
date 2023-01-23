@@ -123,6 +123,9 @@ def find_coords_of_item_to_flea(rows_to_target):
         if not pixel_is_equal(this_pixel, empty_color, tol=45):
             positive_pixel_list.append([x, y])
     # return a random pixel from the list
+
+    if positive_pixel_list == []:
+        return None
     return random.choice(positive_pixel_list)
 
 
@@ -191,6 +194,8 @@ def select_random_item_to_flea(logger, rows_to_target):
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
         if item_coords is None:
+            return "Done"
+        if item_coords is None:
             return
         click(item_coords[0], item_coords[1])
         time.sleep(0.17)
@@ -206,6 +211,14 @@ def select_random_item_to_flea(logger, rows_to_target):
             logger.change_status(
                 "This item's filter by item button was unreadable this go-around. Finding another item."
             )
+        time.sleep(1)
+
+        # if an item isn't selected by now then return
+        if not check_if_has_item_to_flea_selected():
+            logger.change_status(
+                "Selected a non-FIR item. Recursively redoing select_random_item_to_flea()"
+            )
+            return select_random_item_to_flea(logger, rows_to_target)
 
 
 # flea interaction methods
@@ -1129,3 +1142,33 @@ def check_if_remove_offer_button_exists_for_item_index_2():
             red_pix_list.append(x_coord)
 
     return len(red_pix_list) > 5
+
+
+def check_if_has_item_to_flea_selected():
+    iar = numpy.asarray(screenshot())
+
+    requirements_text_exists = False
+    for x in range(460, 500):
+        this_pixel = iar[680][x]
+        if pixel_is_equal(this_pixel, [165, 163, 149], tol=45):
+            requirements_text_exists = True
+
+    expires_in_text_exists = False
+    for x in range(460, 480):
+        this_pixel = iar[820][x]
+        if pixel_is_equal(this_pixel, [180, 179, 163], tol=45):
+            expires_in_text_exists = True
+
+    fee_text_exists = False
+    for x in range(455, 480):
+        this_pixel = iar[910][x]
+        if pixel_is_equal(this_pixel, [190, 188, 171], tol=45):
+            fee_text_exists = True
+
+    # print('requirements_text_exists',requirements_text_exists)
+    # print('expires_in_text_exists',expires_in_text_exists)
+    # print('fee_text_exists',fee_text_exists)
+
+    if requirements_text_exists and expires_in_text_exists and fee_text_exists:
+        return True
+    return False

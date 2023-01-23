@@ -188,12 +188,11 @@ class WorkerThread(StoppableThread):
             # loop until shutdown flag is set
             while not self.shutdown_flag.is_set():
                 loops += 1
-                print("STATE LOOP ", loops)
-                print("State is ", state)
 
                 state = state_tree(
                     self.logger, state, number_of_rows, remove_offers_timer
                 )
+
         except Exception as exc:  # pylint: disable=broad-except
             # catch exceptions and log to not crash the main thread
             self.logger.error(str(exc))

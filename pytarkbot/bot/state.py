@@ -1,3 +1,4 @@
+import sys
 import time
 
 from pytarkbot.bot.flea import (
@@ -25,6 +26,8 @@ def state_tree(logger, state, number_of_rows, remove_offers_timer):
 
     if state == "flea_mode":
         state = state_flea_mode(logger, number_of_rows, remove_offers_timer)
+        if state == "Done":
+            sys.exit()
 
     elif state == "remove_flea_offers":
         state = state_remove_flea_offers(logger)
@@ -90,7 +93,8 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         orientate_add_offer_window(logger)
         time.sleep(1)
 
-        select_random_item_to_flea(logger, number_of_rows)
+        if select_random_item_to_flea(logger, number_of_rows) == "Done":
+            return "Done"
         time.sleep(1)
 
         # set flea filter
