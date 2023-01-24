@@ -6,8 +6,11 @@ from typing import Union
 
 import cv2
 import numpy as np
+import pytesseract
 from joblib import Parallel, delayed
 from PIL import Image
+
+from pytarkbot.utils.dependency import get_tesseract_path
 
 
 def coords_is_equal(coords_a, coords_b, tol=30):
@@ -241,7 +244,6 @@ def get_file_count(folder):
 
 
 def read_image(image, psm=7, oem=1):
-    import pytesseract
 
     # OCR options:
     #   -l LANG[+LANG]        Specify language(s) used for OCR.
@@ -269,10 +271,7 @@ def read_image(image, psm=7, oem=1):
     #   2    Legacy + LSTM engines.
     #   3    Default, based on what is available.
     # specify dir of pytesseract
-    pytesseract.pytesseract.tesseract_cmd = (
-        "C:/Program Files/Tesseract-OCR/tesseract.exe"
-    )
+    pytesseract.pytesseract.tesseract_cmd = get_tesseract_path()
 
     config = f"-l eng --oem {oem} --psm {psm}"
-    text = pytesseract.image_to_string(image=image, config=config)
-    return text
+    return pytesseract.image_to_string(image=image, config=config)
