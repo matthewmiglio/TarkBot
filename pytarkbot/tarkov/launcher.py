@@ -2,7 +2,6 @@ import subprocess
 import sys
 import time
 import tkinter.messagebox
-from typing import TYPE_CHECKING
 
 import numpy
 import pygetwindow
@@ -16,9 +15,7 @@ from pytarkbot.tarkov import (
 )
 from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils.dependency import get_bsg_launcher_path
-
-if TYPE_CHECKING:
-    from pytarkbot.utils.logger import Logger
+from pytarkbot.utils.logger import Logger
 
 
 def check_if_on_tark_main(logger):
