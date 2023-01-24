@@ -168,17 +168,18 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
 
     # if this method recursively looped too many times,
     # then the flea pile is (probably) empty
-    if loops > 3:
-        logger.change_status(
-            "Selected a non-FIR item more than 3 times in a row. Stopping sell algorithm..."
-        )
-        return "Done"
 
     logger.change_status("Selecting another random item to flea.")
     has_item_to_flea = False
     while not has_item_to_flea:
         # clicks the random item's FBI button
         # click item to flea
+
+        if loops > 3:
+            logger.change_status(
+                "Selected a bad item more than 3 times in a row. Stopping sell algorithm..."
+            )
+            return "Done"
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
         if item_coords is None:
@@ -190,6 +191,8 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
         time.sleep(0.17)
         click(item_coords[0], item_coords[1], button="right")
         time.sleep(0.5)
+
+        loops += 1
 
         # click this item's FBI button
         if click_fbi_button() != "restart":
@@ -362,10 +365,9 @@ def post_item(logger, post_price):
     click(596, 954)
     time.sleep(1)
 
-    # handle post/purchase confirmation popup
-    handle_post_confirmation_popup(logger)
-    handle_purchase_confirmation_popup(logger)
+    # if the game asks any questions at this point, the answer is always NO!
     pyautogui.press("n")
+    time.sleep(0.17)
 
     # logger stats stuff
     logger.add_roubles_made(post_price)
@@ -392,16 +394,6 @@ def check_for_post_confirmation_popup():
     return check_for_location(locations)
 
 
-def handle_post_confirmation_popup(logger):
-
-    if check_for_post_confirmation_popup():
-        logger.change_status("Handling post confirmation popup")
-        click(50, 50, clicks=2)
-
-        pyautogui.press("n")
-        time.sleep(0.33)
-
-
 def check_for_purchase_confirmation_popup():
 
     current_image = screenshot()
@@ -416,15 +408,6 @@ def check_for_purchase_confirmation_popup():
     )
 
     return check_for_location(locations)
-
-
-def handle_purchase_confirmation_popup(logger):
-
-    if check_for_purchase_confirmation_popup():
-        logger.change_status("Handling purchase confirmation popup")
-        click(50, 50, clicks=2)
-        pyautogui.press("n")
-        time.sleep(0.33)
 
 
 # flea add offer window
