@@ -2,6 +2,7 @@ import subprocess
 import sys
 import time
 import tkinter.messagebox
+from typing import TYPE_CHECKING
 
 import numpy
 import pygetwindow
@@ -15,6 +16,9 @@ from pytarkbot.tarkov import (
 )
 from pytarkbot.tarkov.client import orientate_terminal
 from pytarkbot.utils.dependency import get_bsg_launcher_path
+
+if TYPE_CHECKING:
+    from pytarkbot.utils.logger import Logger
 
 
 def check_if_on_tark_main(logger):
@@ -62,7 +66,8 @@ def close_launcher(logger, tark_launcher):
     tark_launcher.close()
 
 
-def restart_tarkov(logger):
+def restart_tarkov(logger: Logger):
+    # sourcery skip: extract-duplicate-method, extract-method
     orientate_terminal()
 
     # check if tarkov is open
@@ -70,7 +75,6 @@ def restart_tarkov(logger):
     tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
 
     # if tark open
-
     if len(tark_window) != 0:
         logger.change_status("Tarkov client detected. Closing it.")
         orientate_terminal()
@@ -85,69 +89,65 @@ def restart_tarkov(logger):
         time.sleep(5)
 
     # open tark launcher
-
     logger.change_status("Opening launcher.")
     try:
-        with subprocess.Popen(get_bsg_launcher_path()):
-
-            # Wait for launcher to open and load up
-            logger.change_status("Waiting for launcher to open.")
-            index = 0
-            has_window = False
-            while not has_window:
-                orientate_terminal()
-                time.sleep(1)
-                index += 1
-                if len(pygetwindow.getWindowsWithTitle("BsgLauncher")) > 0:
-                    has_window = True
-                if index > 25:
-                    logger.change_status("Launcher failed to open.")
-                    restart_tarkov(logger)
-            time.sleep(5)
-
-            # orientate launcher
-            logger.change_status("orientating launcher")
-            orientate_launcher()
-            orientate_terminal()
-            time.sleep(3)
-
-            # wait for launcher play button to appear
-            logger.change_status("Waiting for launcher's play button")
-            if wait_for_play_button_in_launcher(logger) == "restart":
-                restart_tarkov(logger)
-
-            # click play
-            logger.change_status("Clicking play.")
-
-            click(942, 558)
-            time.sleep(20)
-
-            # wait for client opening
-            logger.change_status("Waiting for tarkov client to open.")
-
-            if wait_for_tarkov_to_open(logger) == "restart":
-                restart_tarkov(logger)
-            for index in range(0, 30, 2):
-                orientate_terminal()
-                logger.change_status(f"Manually giving tark time to load: {index}")
-                time.sleep(2)
-            # orientate tark client
-
-            orientate_tarkov_client()
-            orientate_terminal()
-            time.sleep(1)
-
-            # wait for us to reach main menu
-            logger.change_status("Waiting for tarkov client to reach main menu.")
-
-            if wait_for_tark_main(logger) == "restart":
-                restart_tarkov(logger)
+        subprocess.Popen(get_bsg_launcher_path())  # pylint: disable=consider-using-with
     except FileNotFoundError:
         tkinter.messagebox.showinfo(
             "CRITICAL ERROR",
             "Could not start launcher. Open a bug report on github and share your BSGlauncher install path.",
         )
         sys.exit("Launcher path not found")
+
+    # Wait for launcher to open and load up
+    logger.change_status("Waiting for launcher to open.")
+    index = 0
+    has_window = False
+    while not has_window:
+        orientate_terminal()
+        time.sleep(1)
+        index += 1
+        if len(pygetwindow.getWindowsWithTitle("BsgLauncher")) > 0:
+            has_window = True
+        if index > 25:
+            logger.change_status("Launcher failed to open.")
+            restart_tarkov(logger)
+    time.sleep(5)
+
+    # orientate launcher
+    logger.change_status("orientating launcher")
+    orientate_launcher()
+    orientate_terminal()
+    time.sleep(3)
+
+    # wait for launcher play button to appear
+    logger.change_status("Waiting for launcher's play button")
+    if wait_for_play_button_in_launcher(logger) == "restart":
+        restart_tarkov(logger)
+
+    # click play
+    logger.change_status("Clicking play.")
+    click(942, 558)
+    time.sleep(20)
+
+    # wait for client opening
+    logger.change_status("Waiting for tarkov client to open.")
+    if wait_for_tarkov_to_open(logger) == "restart":
+        restart_tarkov(logger)
+    for index in range(0, 30, 2):
+        orientate_terminal()
+        logger.change_status(f"Manually giving tark time to load: {index}")
+        time.sleep(2)
+
+    # orientate tark client
+    orientate_tarkov_client()
+    orientate_terminal()
+    time.sleep(1)
+
+    # wait for us to reach main menu
+    logger.change_status("Waiting for tarkov client to reach main menu.")
+    if wait_for_tark_main(logger) == "restart":
+        restart_tarkov(logger)
 
 
 def wait_for_tarkov_to_open(logger):
