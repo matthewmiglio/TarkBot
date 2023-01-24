@@ -326,6 +326,7 @@ def convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer):
         return 300
     if remove_offers_timer == "10m":
         return 600
+    return 60
 
 
 def write_post_price(logger, post_price):
