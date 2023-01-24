@@ -10,7 +10,6 @@ def show_help_gui():
         + "    2. Remove offers timer: How long the bot will wait for another flee slot before removing existing offers\n"
         + "    3. Auto-start: Automatically begin the bot 1m after opening the program\n\n"
         + "*Non-FIR items in this section will obstruct the bot, but wont cause any real issues.*\n\n"
-        + "You can share any failures (or successes?) of the bot on the github @ github.com/matthewmiglio/py-tarkBot\n"
     )
 
     sg.theme(THEME)
