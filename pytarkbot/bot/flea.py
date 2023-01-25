@@ -214,12 +214,12 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
 
 
 # flea interaction methods
-def get_to_flea_tab(logger):
-    logger.change_status("Getting to flea tab")
+def get_to_flea_tab(logger, print_mode=True):
+    if print_mode:
+        logger.change_status("Getting to flea tab")
     on_flea = check_if_on_flea_page()
     loops = 0
     while not on_flea:
-        # logger.change_status("Didnt find flea tab. Clicking flea tab.")
         if loops > 20:
             return "restart"
         loops = loops + 1
@@ -227,7 +227,8 @@ def get_to_flea_tab(logger):
         click(829, 977)
         time.sleep(0.17)
         on_flea = check_if_on_flea_page()
-    logger.change_status("Made it to flea tab.")
+    if print_mode:
+        logger.change_status("Made it to flea tab.")
 
 
 def check_if_on_flea_page():
@@ -338,7 +339,7 @@ def wait_till_can_add_another_offer(logger, remove_offers_timer):
         time.sleep(1)
 
         # get to flea tab if not already there
-        get_to_flea_tab(logger)
+        get_to_flea_tab(logger, print_mode=False)
         logger.change_status(f"Waiting for another offer: {loops}")
 
         # check if has_another_offer
