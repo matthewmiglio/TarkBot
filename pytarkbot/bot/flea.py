@@ -1011,7 +1011,8 @@ def read_money_text_in_flea():
     # show_image(image)
     text = read_image(image, psm=7, oem=1)
     text = splice_money_text(text)
-    return text
+    money_int = int(text)
+    return money_int
 
 
 def splice_money_text(text):
