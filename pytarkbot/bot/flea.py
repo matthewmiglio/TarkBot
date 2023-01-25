@@ -263,12 +263,6 @@ def check_if_can_add_offer():
     return len(pix_list) > 25
 
 
-def close_add_offer_window(logger):
-    # logger.change_status("Closing add offer window.")
-    orientate_add_offer_window(logger)
-    click(732, 471)
-
-
 def find_add_offer_window():
 
     current_image = screenshot()
@@ -288,8 +282,11 @@ def find_add_offer_window():
 
 def wait_till_can_add_another_offer(logger, remove_offers_timer):
     # calculate how long to wait for
-    time_in_seconds = convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer)
-    max_loops = time_in_seconds / 2
+    wait_time_in_seconds = convert_remove_offers_timer_to_int_in_seconds(
+        remove_offers_timer
+    )
+    time_per_loop = 1
+    max_loops = wait_time_in_seconds / time_per_loop
 
     # wait until limit or has_another_offer
     has_another_offer = check_if_can_add_offer()
@@ -301,10 +298,6 @@ def wait_till_can_add_another_offer(logger, remove_offers_timer):
 
         loops = loops + 1
         logger.change_status(f"Waiting for another offer: {loops}")
-
-        # close add offer window that may be obstructing the bot right now
-        close_add_offer_window(logger)
-        time.sleep(1)
 
         # refresh current flea page
         pyautogui.press("f5")
