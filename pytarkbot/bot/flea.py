@@ -452,7 +452,7 @@ def orientate_add_offer_window(logger):
             # logger.change_status("Trouble orientating add offer window. Restarting.")
             return "restart"
         origin = pyautogui.position()
-        pyautogui.moveTo(coords[0], coords[1], duration=1)
+        pyautogui.moveTo(coords[0], coords[1], duration=0.1)
         time.sleep(0.1)
         pyautogui.dragTo(0, 980, duration=0.7)
         pyautogui.moveTo(origin[0], origin[1])
@@ -500,7 +500,7 @@ def orientate_add_requirement_window(logger):
             return "restart"
         window_coords = [window_coords[0] + 10, window_coords[1]]
         origin = pyautogui.position()
-        pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
+        pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.1)
         pyautogui.mouseDown(button="left")
         time.sleep(0.1)
         pyautogui.dragTo(1300, 1000, duration=0.33)
@@ -560,7 +560,7 @@ def orientate_filters_window(logger):
         coords = find_filters_window()
         if coords is not None:
             origin = pyautogui.position()
-            pyautogui.moveTo(coords[0], coords[1], duration=0.33)
+            pyautogui.moveTo(coords[0], coords[1], duration=0.1)
             time.sleep(0.33)
             pyautogui.dragTo(3, 3, duration=0.33)
             pyautogui.moveTo(origin[0], origin[1])
