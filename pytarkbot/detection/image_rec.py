@@ -219,7 +219,7 @@ def get_file_count(folder):
     return sum(len(files) for root_dir, cur_dir, files in os.walk(directory))
 
 
-def read_image(image, psm=7, oem=1):
+def read_text_from_image(image, psm=7, oem=1):
 
     # OCR options:
     #   -l LANG[+LANG]        Specify language(s) used for OCR.

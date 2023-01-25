@@ -77,7 +77,8 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
 
     # read money and set logger's starting money value
     starting_money = read_money_text_in_flea()
-    logger.set_starting_money(starting_money)
+    if starting_money != "fail":
+        logger.set_starting_money(starting_money)
 
     while True:
         # open flea
@@ -131,7 +132,8 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
 
         # read current money and set logger's current money value
         current_money = read_money_text_in_flea()
-        logger.set_current_money(current_money)
+        if current_money != "fail":
+            logger.set_current_money(current_money)
 
         logger.add_flea_sale_attempt()
 

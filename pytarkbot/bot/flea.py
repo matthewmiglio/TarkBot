@@ -11,7 +11,10 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
-from pytarkbot.detection.image_rec import make_reference_image_list, read_image
+from pytarkbot.detection.image_rec import (
+    make_reference_image_list,
+    read_text_from_image,
+)
 from pytarkbot.tarkov import click, screenshot
 
 pyautogui.FAILSAFE = False
@@ -1036,9 +1039,12 @@ def read_money_text_in_flea():
     region = [990, 76, 90, 16]
     image = screenshot(region)
     # show_image(image)
-    text = read_image(image, psm=7, oem=1)
+    text = read_text_from_image(image, psm=7, oem=1)
     text = splice_money_text(text)
-    money_int = int(text)
+    try:
+        money_int = int(text)
+    except:
+        return "fail"
     return money_int
 
 
