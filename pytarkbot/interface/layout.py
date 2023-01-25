@@ -11,19 +11,22 @@ Matthew Miglio, Martin Miglio - Nov 2022"""
 main_layout = [
     [
         sg.Frame(
-            layout=[[sg.Text(info_text, size=(35, 7))]],
+            layout=[[sg.Text(info_text, size=(35, None))]],
             title="Info",
             relief=sg.RELIEF_SUNKEN,
-            expand_y=True,
+            expand_x=True,
         ),
-        sg.Frame(layout=stats, title="Stats", relief=sg.RELIEF_SUNKEN),
+    ],
+    # stats
+    [
+        sg.Frame(layout=stats, title="Stats", relief=sg.RELIEF_SUNKEN, expand_x=True),
     ],
     # buttons
     [
         sg.Frame(
             layout=[
                 [
-                    sg.Text("Number of rows to target in your stash:"),
+                    sg.Text("Rows in Stash:"),
                     sg.Slider(
                         range=(1, 11),
                         default_value=11,
