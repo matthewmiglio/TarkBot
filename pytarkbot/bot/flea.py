@@ -159,7 +159,6 @@ def click_fbi_button():
 
     # logger.change_status("clicking fbi button for the selected item.")
     click(fbi_coords[1], fbi_coords[0])
-    time.sleep(0.33)
     return "continue"
 
 
@@ -192,7 +191,7 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
         click(item_coords[0], item_coords[1])
         time.sleep(0.17)
         click(item_coords[0], item_coords[1], button="right")
-        time.sleep(0.5)
+        time.sleep(0.17)
 
         loops += 1
 
@@ -205,7 +204,6 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
             logger.change_status(
                 "This item's filter by item button was unreadable this go-around. Finding another item."
             )
-        time.sleep(1)
 
         # if an item isn't selected by now then return
         if not check_if_has_item_to_flea_selected():
@@ -222,12 +220,12 @@ def get_to_flea_tab(logger):
     loops = 0
     while not on_flea:
         # logger.change_status("Didnt find flea tab. Clicking flea tab.")
-        if loops > 10:
+        if loops > 20:
             return "restart"
         loops = loops + 1
 
         click(829, 977)
-        time.sleep(2)
+        time.sleep(0.17)
         on_flea = check_if_on_flea_page()
     logger.change_status("Made it to flea tab.")
 
@@ -317,7 +315,8 @@ def find_add_offer_window():
 def wait_till_can_add_another_offer(logger, remove_offers_timer):
     # calculate how long to wait for
     time_in_seconds = convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer)
-    max_loops = time_in_seconds / 2
+    time_per_loop = 1
+    max_loops = time_in_seconds / time_per_loop
 
     # wait until limit or has_another_offer
     has_another_offer = check_if_can_add_offer()
@@ -333,7 +332,6 @@ def wait_till_can_add_another_offer(logger, remove_offers_timer):
         # close add offer window that may be obstructing the bot right now
         if check_for_close_add_offer_window():
             close_add_offer_window(logger)
-        time.sleep(1)
 
         # refresh current flea page
         pyautogui.press("f5")
@@ -370,41 +368,40 @@ def write_post_price(logger, post_price):
     logger.change_status(f"Writing price of {post_price}.")
     type_string = str(post_price)
     pyautogui.typewrite(type_string, interval=0.02)
-    time.sleep(0.17)
 
 
 def post_item(logger, post_price):
+    operation_delay = 0.17
+
     orientate_add_offer_window(logger)
 
     click_add_requirements_in_add_requirements_window(logger)
+    time.sleep(operation_delay)
 
     orientate_add_requirement_window(logger)
 
     write_post_price(logger, post_price)
+    time.sleep(operation_delay)
 
     # click add in add requirements window
-
-    logger.change_status("Adding this offer.")
-    click(1169, 961, clicks=2)
-    time.sleep(1)
-    click(1169, 961, clicks=2)
-    time.sleep(1)
+    add_this_requirement()
 
     # click place offer in add offer window
     click(596, 954)
-    time.sleep(1)
+    time.sleep(operation_delay)
 
     # if the game asks any questions at this point, the answer is always NO!
-    pyautogui.press("n")
-    time.sleep(0.17)
-
-    # logger stats stuff
-    logger.add_roubles_made(post_price)
-    logger.add_item_sold()
+    if check_for_post_confirmation_popup():
+        pyautogui.press("n")
+        time.sleep(operation_delay)
+    else:
+        # logger stats stuff
+        logger.add_roubles_made(post_price)
+        logger.add_item_sold()
 
     # refresh page to see ur own offer
     pyautogui.press("f5")
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
 
 def check_for_post_confirmation_popup():
@@ -455,13 +452,12 @@ def orientate_add_offer_window(logger):
             # logger.change_status("Trouble orientating add offer window. Restarting.")
             return "restart"
         origin = pyautogui.position()
-        pyautogui.moveTo(coords[0], coords[1], duration=0.4)
-        time.sleep(1)
-        pyautogui.dragTo(0, 980, duration=0.33)
+        pyautogui.moveTo(coords[0], coords[1], duration=1)
+        time.sleep(0.1)
+        pyautogui.dragTo(0, 980, duration=0.7)
         pyautogui.moveTo(origin[0], origin[1])
         orientated = check_add_offer_window_orientation()
     logger.change_status("Orientated add offer window.")
-    time.sleep(0.17)
 
 
 def check_add_offer_window_orientation():
@@ -506,14 +502,13 @@ def orientate_add_requirement_window(logger):
         origin = pyautogui.position()
         pyautogui.moveTo(window_coords[0], window_coords[1], duration=0.33)
         pyautogui.mouseDown(button="left")
-        time.sleep(0.33)
+        time.sleep(0.1)
         pyautogui.dragTo(1300, 1000, duration=0.33)
         pyautogui.moveTo(origin[0], origin[1])
-        time.sleep(0.33)
+        time.sleep(0.1)
         pyautogui.mouseUp(button="left")
         orientated = check_add_requirement_window_orientation()
     logger.change_status("Orientated add requirement window.")
-    time.sleep(0.17)
 
 
 def check_add_requirement_window_orientation():
@@ -526,10 +521,8 @@ def check_add_requirement_window_orientation():
 
 
 def click_add_requirements_in_add_requirements_window(logger):
-
     logger.change_status("Adding requirements for offer..")
     click(711, 710)
-    time.sleep(0.17)
 
 
 # flea filters window
@@ -583,43 +576,45 @@ def open_filters_window(logger):
 
 
 def set_flea_filters(logger):
+    operation_delay = 0.05
+
     logger.change_status("Setting the flea filters for price undercut recognition")
 
     # open filter window
     logger.change_status("Opening the filters window")
     open_filters_window(logger)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # click currency dropdown
     logger.change_status("Filtering by roubles.")
     click(113, 62)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # click RUB from dropdown
     click(124, 100)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # click 'display offers from' dropdown
     logger.change_status("Filtering by player sales only.")
     click(171, 188)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # click players from dropdown
     click(179, 250)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # click 'condition from:' text input box
     click(131, 123)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # write 100 in 'condition from:' text box
     pyautogui.typewrite("100")
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
     # click OK
     logger.change_status("Clicking OK in filters tab.")
     click(83, 272)
-    time.sleep(0.17)
+    time.sleep(operation_delay)
 
 
 # removing offers methods
@@ -641,17 +636,15 @@ def check_if_on_my_offers_tab():
 
 
 def get_to_my_offers_tab(logger):
-
     on_offers_tab = check_if_on_my_offers_tab()
-
     loops = 0
     while not on_offers_tab:
-        if loops > 10:
+        if loops > 25:
             return "restart"
         loops = loops + 1
 
         click(269, 87)
-        time.sleep(1)
+        time.sleep(0.17)
         on_offers_tab = check_if_on_my_offers_tab()
     logger.change_status("On my offers tab.")
 
@@ -1055,3 +1048,51 @@ def splice_money_text(text):
         new_text += char
 
     return new_text
+
+
+def add_this_requirement():
+    while 1:
+        click(1169, 961)
+        time.sleep(0.17)
+        window_coords = find_add_requirement_window()
+        if window_coords is None:
+            break
+
+
+def check_for_post_confirmation_popup():
+    iar = numpy.asarray(screenshot())
+
+    confirmation_text_exists = False
+    for x in range(550, 570):
+        if pixel_is_equal(iar[461][x], [132, 133, 133], tol=35):
+            confirmation_text_exists = True
+
+    yes_text_exists = False
+    for x in range(592, 613):
+        if pixel_is_equal(iar[547][x], [152, 151, 140], tol=35):
+            yes_text_exists = True
+
+    no_text_exists = False
+    for x in range(715, 739):
+        if pixel_is_equal(iar[546][x], [184, 182, 169], tol=35):
+            no_text_exists = True
+
+    red_x_exists = False
+    for x in range(782, 800):
+        if pixel_is_equal(iar[461][x], [70, 13, 13], tol=35):
+            red_x_exists = True
+
+    grey_background_on_top = False
+    for x in range(590, 630):
+        if pixel_is_equal(iar[460][x], [25, 27, 27], tol=5):
+            grey_background_on_top = True
+
+    if (
+        confirmation_text_exists
+        and yes_text_exists
+        and no_text_exists
+        and red_x_exists
+        and grey_background_on_top
+    ):
+        return True
+    return False
