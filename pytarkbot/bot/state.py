@@ -9,6 +9,7 @@ from pytarkbot.bot.flea import (
     get_to_my_offers_tab,
     orientate_add_offer_window,
     post_item,
+    read_money_text_in_flea,
     remove_offers,
     select_random_item_to_flea,
     set_flea_filters,
@@ -67,6 +68,17 @@ def state_remove_flea_offers(logger):
 
 def state_flea_mode(logger, number_of_rows, remove_offers_timer):
     logger.change_status("Beginning flea alg.\n")
+
+    # get to flea
+    logger.change_status("Getting to flea")
+    if get_to_flea_tab(logger) == "restart":
+        return "restart"
+    time.sleep(1)
+
+    # read money and set logger's starting money value
+    starting_money = read_money_text_in_flea()
+    logger.set_starting_money(starting_money)
+
     while True:
         # open flea
         logger.change_status("Getting to flea")
@@ -116,6 +128,11 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
 
             # post this item
             post_item(logger, undercut_price)
+
+        # read current money and set logger's current money value
+        current_money = read_money_text_in_flea()
+        logger.set_current_money(current_money)
+
         logger.add_flea_sale_attempt()
 
 

@@ -11,7 +11,7 @@ from pytarkbot.detection import (
     get_first_location,
     pixel_is_equal,
 )
-from pytarkbot.detection.image_rec import make_reference_image_list
+from pytarkbot.detection.image_rec import make_reference_image_list, read_image
 from pytarkbot.tarkov import click, screenshot
 
 pyautogui.FAILSAFE = False
@@ -1003,3 +1003,24 @@ def check_if_has_item_to_flea_selected():
     if requirements_text_exists and expires_in_text_exists and fee_text_exists:
         return True
     return False
+
+
+def read_money_text_in_flea():
+    region = [990, 76, 90, 16]
+    image = screenshot(region)
+    # show_image(image)
+    text = read_image(image, psm=7, oem=1)
+    text = splice_money_text(text)
+    return text
+
+
+def splice_money_text(text):
+    text = text[1:]
+
+    new_text = ""
+    for char in text:
+        if char == " ":
+            continue
+        new_text += char
+
+    return new_text
