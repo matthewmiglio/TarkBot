@@ -32,7 +32,6 @@ def get_color_list_of_current_price(image):
         current_pix = iar[y_coord][x_coord]
         current_pix = [current_pix[0], current_pix[1], current_pix[2]]
         rgb_pix_list.append(current_pix)
-    # print(rgb_pix_list)
 
     # replace RGB list with english color list
     english_color_list = []
@@ -519,7 +518,6 @@ def orientate_add_requirement_window(logger):
 
 def check_add_requirement_window_orientation():
     coords = find_add_requirement_window()
-    # print(coords)
     if coords is None:
         return False
     value1 = abs(coords[0] - 1008)
@@ -554,7 +552,6 @@ def find_filters_window():
 
 def check_filters_window_orientation():
     coords = find_filters_window()
-    # print(coords)
     if coords is None:
         return False
     value1 = abs(coords[0] - 24)
@@ -665,7 +662,7 @@ def remove_offers(logger):
     logger.change_status("Removing offers.")
     print("Starting loop")
     for remove_offer_loop_index in range(10):
-        print("\nDoing remove offer loop #", remove_offer_loop_index)
+        print("Doing remove offer loop #", remove_offer_loop_index)
 
         # click random tab on left side
         for _ in range(4):
