@@ -31,6 +31,7 @@ exe = Executable(
     shortcut_dir="DesktopFolder",
     target_name=f"{product_name}.exe",
     copyright="2022 Matthew Miglio",
+    uac_admin=True,
 )
 
 setup(
