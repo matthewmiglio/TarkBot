@@ -1,5 +1,6 @@
 import time
 import webbrowser
+from os.path import isfile, join
 from queue import Queue
 
 import PySimpleGUI as sg
@@ -12,7 +13,7 @@ from pytarkbot.interface import (
     show_help_gui,
     user_config_keys,
 )
-from pytarkbot.utils import Logger, admin_check
+from pytarkbot.utils import Logger, admin_check  # pylint: disable=unused-import
 from pytarkbot.utils.caching import (
     cache_user_settings,
     check_user_settings,
@@ -21,6 +22,9 @@ from pytarkbot.utils.caching import (
 from pytarkbot.utils.thread import StoppableThread
 
 sg.theme(THEME)
+ICON_PATH = "pixel-pytb-multi.ico"
+if not isfile(ICON_PATH):
+    ICON_PATH = join("docs\\assets", ICON_PATH)
 
 
 def save_current_settings(values):
@@ -90,7 +94,7 @@ def main():
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
-    window = sg.Window("Py-TarkBot", main_layout)
+    window = sg.Window("Py-TarkBot", main_layout, icon=ICON_PATH)
 
     load_last_settings(window)
 

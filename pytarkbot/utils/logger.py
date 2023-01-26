@@ -109,7 +109,11 @@ class Logger:
             self.fee_total = (self.starting_money) - (self.current_money)
 
     @staticmethod
-    def format_money(money: int) -> str:
+    def format_money(money: int | str) -> str:
+        try:
+            money = abs(int(money))
+        except ValueError:
+            return str(money)
         if money < 1000:
             return str(money)
         if money < 1000000:
