@@ -32,6 +32,7 @@ exe = Executable(
     target_name=f"{product_name}.exe",
     copyright="2022 Matthew Miglio",
     uac_admin=True,
+    icon="docs\\assets\\pixel-pytb-multi.ico",
 )
 
 setup(
@@ -40,6 +41,9 @@ setup(
     executables=[exe],
     options={
         "bdist_msi": bdist_msi_options,
-        "build_exe": {"excludes": ["test", "setuptools"]},
+        "build_exe": {
+            "excludes": ["test", "setuptools"],
+            "include_files": ["docs\\assets\\pixel-pytb-multi.ico"],
+        },
     },
 )
