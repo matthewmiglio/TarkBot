@@ -176,7 +176,7 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
         # clicks the random item's FBI button
         # click item to flea
 
-        if loops > 3:
+        if loops > 6:
             logger.change_status(
                 "Selected a bad item more than 3 times in a row. Stopping sell algorithm..."
             )
