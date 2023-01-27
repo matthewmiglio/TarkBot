@@ -208,6 +208,8 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
             logger.change_status(
                 "This item's filter by item button was unreadable this go-around. Finding another item."
             )
+            # clip when failed to grab an item
+            clip_that()
 
 
 # flea interaction methods
@@ -1094,3 +1096,9 @@ def check_for_post_confirmation_popup():
     ):
         return True
     return False
+
+
+#######FOR DEBUG
+def clip_that():
+    # open obs, turn on replay bugger, set to left half of monitor (2560,1140p)
+    click(1263, 1329)
