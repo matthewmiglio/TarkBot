@@ -100,6 +100,7 @@ main_layout = [
 user_config_keys = [
     "rows_to_target",
     "remove_offers_timer",
+    "autostart",
 ]
 
 # list of button and checkbox keys to disable when the bot is running
