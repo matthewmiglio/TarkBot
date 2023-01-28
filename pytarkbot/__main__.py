@@ -1,6 +1,6 @@
 import time
 import webbrowser
-from os.path import isfile, join
+from os import path
 from queue import Queue
 
 import PySimpleGUI as sg
@@ -23,8 +23,8 @@ from pytarkbot.utils.thread import StoppableThread
 
 sg.theme(THEME)
 ICON_PATH = "pixel-pytb-multi.ico"
-if not isfile(ICON_PATH):
-    ICON_PATH = join("docs\\assets", ICON_PATH)
+if not path.isfile(ICON_PATH):
+    ICON_PATH = path.join("docs\\assets", ICON_PATH)
 
 
 def save_current_settings(values):
@@ -68,12 +68,12 @@ def stop_button_event(logger: Logger, window, thread):
     shutdown_thread(thread)  # send the shutdown flag to the thread
 
 
-def shutdown_thread(thread, join=False):
+def shutdown_thread(thread: StoppableThread | None, join=False):
     if thread is not None:
         thread.shutdown_flag.set()
         if join:
             # wait for the thread to close
-            thread.join()  # this will block the gui
+            thread.raise_exception()
 
 
 def update_layout(window: sg.Window, logger: Logger):

@@ -6,7 +6,7 @@ class StoppableThread(threading.Thread):
     def __init__(self, args, kwargs=None):
         self.args = args
         self.kwargs = kwargs
-        threading.Thread.__init__(self, args=args, kwargs=kwargs)
+        super(args=args, kwargs=kwargs)
 
         # The shutdown_flag is a threading. Event object that indicates whether the thread should be terminated.
         self.shutdown_flag = threading.Event()
