@@ -176,22 +176,26 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
         # clicks the random item's FBI button
         # click item to flea
 
-        if loops > 6:
+        loop_limit = 6
+        if loops > loop_limit:
             logger.change_status(
-                "Selected a bad item more than 3 times in a row. Stopping sell algorithm..."
+                f"Selected a bad item more than {loop_limit} times in a row. Stopping sell algorithm..."
             )
             return "Done"
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
+
         if item_coords is None:
             logger.change_status("No items found in region stopping sell algorithm...")
             return "Done"
+
         if item_coords is None:
             return
+
         click(item_coords[0], item_coords[1])
-        time.sleep(0.17)
+        time.sleep(0.33)
         click(item_coords[0], item_coords[1], button="right")
-        time.sleep(0.17)
+        time.sleep(0.33)
 
         loops += 1
 
@@ -204,13 +208,8 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
             logger.change_status(
                 "This item's filter by item button was unreadable this go-around. Finding another item."
             )
-
-        # if an item isn't selected by now then return
-        if not check_if_has_item_to_flea_selected():
-            logger.change_status(
-                "Selected a non-FIR item. Recursively redoing select_random_item_to_flea()"
-            )
-            return select_random_item_to_flea(logger, rows_to_target, loops=loops + 1)
+            # clip when failed to grab an item
+            clip_that()
 
 
 # flea interaction methods
@@ -1097,3 +1096,9 @@ def check_for_post_confirmation_popup():
     ):
         return True
     return False
+
+
+#######FOR DEBUG
+def clip_that():
+    # open obs, turn on replay bugger, set to left half of monitor (2560,1140p)
+    click(1263, 1329)
