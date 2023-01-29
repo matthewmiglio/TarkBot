@@ -19,7 +19,7 @@ from pytarkbot.utils.caching import (
     check_user_settings,
     read_user_settings,
 )
-from pytarkbot.utils.thread import StoppableThread
+from pytarkbot.utils.thread import StoppableThread, ThreadKilled
 
 sg.theme(THEME)
 ICON_PATH = "pixel-pytb-multi.ico"
@@ -65,15 +65,14 @@ def start_button_event(logger: Logger, window, values):
 def stop_button_event(logger: Logger, window, thread):
     logger.change_status("Stopping")
     window["Stop"].update(disabled=True)
-    shutdown_thread(thread)  # send the shutdown flag to the thread
+    shutdown_thread(thread, kill=True)  # send the shutdown flag to the thread
 
 
-def shutdown_thread(thread: StoppableThread | None, join=False):
+def shutdown_thread(thread: StoppableThread | None, kill=False):
     if thread is not None:
         thread.shutdown_flag.set()
-        if join:
-            # wait for the thread to close
-            thread.raise_exception()
+        if kill:
+            thread.kill()
 
 
 def update_layout(window: sg.Window, logger: Logger):
@@ -169,7 +168,7 @@ def main():
 
         update_layout(window, logger)
 
-    shutdown_thread(thread, join=True)
+    shutdown_thread(thread, kill=True)
 
     window.close()
 
@@ -193,6 +192,9 @@ class WorkerThread(StoppableThread):
                 state = state_tree(
                     self.logger, state, number_of_rows, remove_offers_timer
                 )
+
+        except ThreadKilled:
+            return
 
         except Exception as exc:  # pylint: disable=broad-except
             # catch exceptions and log to not crash the main thread

@@ -1,5 +1,11 @@
+import ctypes
 import threading
 import time
+
+
+class ThreadKilled(Exception):
+    def __init__(self):
+        super().__init__("Thread killed")
 
 
 class StoppableThread(threading.Thread):
@@ -22,3 +28,9 @@ class StoppableThread(threading.Thread):
 
         # ... Clean shutdown code here ...
         print(f"Thread #{self.ident} stopped")  # doesnt print for some reason
+
+    def kill(self):
+        # use ctypes to raise an exception in the context of the given thread to force it to stop
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            self.native_id, ctypes.py_object(ThreadKilled)
+        )
