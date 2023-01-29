@@ -576,7 +576,7 @@ def open_filters_window(logger):
 
 
 def set_flea_filters(logger):
-    operation_delay = 0.05
+    operation_delay = 0.25
 
     logger.change_status("Setting the flea filters for price undercut recognition")
 
