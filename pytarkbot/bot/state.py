@@ -107,8 +107,8 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         orientate_add_offer_window(logger)
         time.sleep(1)
 
-        if select_random_item_to_flea(logger, number_of_rows) == "Done":
-            return "Done"
+        if select_random_item_to_flea(logger, number_of_rows)== "restart":
+            return "restart"
         time.sleep(1)
 
         # set flea filter

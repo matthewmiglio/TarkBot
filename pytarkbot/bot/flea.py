@@ -185,9 +185,7 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
 
-        if item_coords is None:
-            logger.change_status("No items found in region stopping sell algorithm...")
-            return "Done"
+        if item_coords is None:return'fail'
 
         if item_coords is None:
             return
