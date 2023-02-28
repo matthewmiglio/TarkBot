@@ -440,14 +440,12 @@ def orientate_add_offer_window(logger):
     orientated = check_add_offer_window_orientation()
     loops = 0
     while not orientated:
-        # logger.change_status(f"Orientating add offer window: {loops}.")
         if loops > 10:
             return "restart"
         loops = loops + 1
 
         coords = find_add_offer_window()
         if coords is None:
-            # logger.change_status("Trouble orientating add offer window. Restarting.")
             return "restart"
         origin = pyautogui.position()
         pyautogui.moveTo(coords[0], coords[1], duration=0.1)
@@ -553,7 +551,11 @@ def check_filters_window_orientation():
 def orientate_filters_window(logger):
 
     is_orientated = check_filters_window_orientation()
+    loops=0
     while not is_orientated:
+        loops+=1
+        if loops>10:
+            open_filters_window(logger)
         logger.change_status("Orientating filters window.")
         coords = find_filters_window()
         if coords is not None:
