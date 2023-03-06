@@ -3,6 +3,10 @@
 Automated Flee Market for Escape from Tarkov
 
 Join the [Discord server](https://discord.gg/Cf8fXtayXA)!
+## What is Py-TarkBot?
+The bot's purpose is to automatically post items on the flea for you. The bot works by selecting items from the top rows of your inventory, looks at the current market price, then posts it just below that (as you would by hand).
+
+I developed this bot because I was bringing out of raid so many barter items that it would take nearly as long to sell all my loot as it would just to get it. Now you can cash in your items for flea-market prices while you AFK!
 
 ## Install
 
