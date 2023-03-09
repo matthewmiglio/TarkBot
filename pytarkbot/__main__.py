@@ -68,7 +68,7 @@ def stop_button_event(logger: Logger, window, thread):
     shutdown_thread(thread, kill=True)  # send the shutdown flag to the thread
 
 
-def shutdown_thread(thread: StoppableThread | None, kill=False):
+def shutdown_thread(thread: StoppableThread | None, kill=True):
     if thread is not None:
         thread.shutdown_flag.set()
         if kill:
