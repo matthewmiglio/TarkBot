@@ -57,7 +57,7 @@ optional = true
 
 
 [tool.poetry.group.dev.dependencies]
-pre-commit = "^3.1"
+pre-commit = "^3.2"
 black = "^23.1.0"
 ipykernel = "^6.21.3"
 matplotlib = "^3.7.1"
