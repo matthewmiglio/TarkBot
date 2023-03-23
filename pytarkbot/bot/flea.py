@@ -549,7 +549,6 @@ def check_filters_window_orientation():
 
 
 def orientate_filters_window(logger):
-
     is_orientated = check_filters_window_orientation()
     loops=0
     while not is_orientated:
