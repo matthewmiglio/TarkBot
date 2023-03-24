@@ -13,7 +13,7 @@ from pytarkbot.tarkov import (
     orientate_tarkov_client,
     screenshot,
 )
-from pytarkbot.tarkov.client import orientate_terminal
+from pytarkbot.tarkov.client import move_terminal_to_foreground, orientate_terminal
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 from pytarkbot.utils.logger import Logger
 
@@ -101,6 +101,7 @@ def restart_tarkov(logger: Logger):
     index = 0
     has_window = False
     while not has_window:
+        move_terminal_to_foreground()
         orientate_terminal()
         time.sleep(1)
         index += 1
@@ -132,6 +133,7 @@ def restart_tarkov(logger: Logger):
     if wait_for_tarkov_to_open(logger) == "restart":
         restart_tarkov(logger)
     for index in range(0, 30, 2):
+        move_terminal_to_foreground()
         orientate_terminal()
         logger.change_status(f"Manually giving tark time to load: {index}")
         time.sleep(2)

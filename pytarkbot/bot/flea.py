@@ -185,19 +185,20 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
 
         item_coords = find_coords_of_item_to_flea(rows_to_target)
 
-        if item_coords is None:return'fail'
+        if item_coords is None:
+            return "fail"
 
         if item_coords is None:
             return
 
         click(item_coords[0], item_coords[1])
-        time.sleep(0.33)
+        time.sleep(0.1)
         click(item_coords[0], item_coords[1], button="right")
-        time.sleep(0.33)
+        time.sleep(0.1)
 
         loops += 1
 
-        # click this item's FBI button
+        # click this item's 'filter by item' button
         if click_fbi_button() != "restart":
             logger.change_status("Found item to flea.")
             has_item_to_flea = True
@@ -206,8 +207,7 @@ def select_random_item_to_flea(logger, rows_to_target, loops=0):
             logger.change_status(
                 "This item's filter by item button was unreadable this go-around. Finding another item."
             )
-            # clip when failed to grab an item
-            clip_that()
+
 
 
 # flea interaction methods
@@ -215,6 +215,8 @@ def get_to_flea_tab(logger, print_mode=True):
     if print_mode:
         logger.change_status("Getting to flea tab")
     on_flea = check_if_on_flea_page()
+    if on_flea:
+        return
     loops = 0
     while not on_flea:
         if loops > 20:
@@ -312,20 +314,18 @@ def find_add_offer_window():
 
 def wait_till_can_add_another_offer(logger, remove_offers_timer):
     # calculate how long to wait for
-    time_in_seconds = convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer)
-    time_per_loop = 1
-    max_loops = time_in_seconds / time_per_loop
+    remove_offers_time_in_seconds = convert_remove_offers_timer_to_int_in_seconds(
+        remove_offers_timer
+    )
+
+    start_time = time.time()
 
     # wait until limit or has_another_offer
     has_another_offer = check_if_can_add_offer()
-    loops = 0
     while not has_another_offer:
         # if past loop: return
-        if loops > max_loops:
+        if int(abs(time.time() - start_time)) > int(remove_offers_time_in_seconds):
             return "remove_flea_offers"
-
-        loops = loops + 1
-        logger.change_status(f"Waiting for another offer: {loops}")
 
         # close add offer window that may be obstructing the bot right now
         if check_for_close_add_offer_window():
@@ -333,16 +333,17 @@ def wait_till_can_add_another_offer(logger, remove_offers_timer):
 
         # refresh current flea page
         pyautogui.press("f5")
-        time.sleep(1)
+        time.sleep(0.1)
 
         # get to flea tab if not already there
         get_to_flea_tab(logger, print_mode=False)
-        logger.change_status(f"Waiting for another offer: {loops}")
+        logger.change_status("Waiting for another offer")
 
         # check if has_another_offer
         has_another_offer = check_if_can_add_offer()
 
     logger.change_status("Done waiting for another offer.")
+    time.sleep(1)
 
 
 def convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer):
@@ -543,6 +544,7 @@ def check_filters_window_orientation():
     coords = find_filters_window()
     if coords is None:
         return False
+
     value1 = abs(coords[0] - 24)
     value2 = abs(coords[1] - 35)
     return value1 <= 3 and value2 <= 3
@@ -550,10 +552,11 @@ def check_filters_window_orientation():
 
 def orientate_filters_window(logger):
     is_orientated = check_filters_window_orientation()
-    loops=0
+    loops = 0
     while not is_orientated:
-        loops+=1
-        if loops>10:
+        loops += 1
+        if loops > 10:
+            print("Failure orientating filters window. Reiterating process...")
             open_filters_window(logger)
         logger.change_status("Orientating filters window.")
         coords = find_filters_window()
@@ -575,7 +578,7 @@ def open_filters_window(logger):
 
 
 def set_flea_filters(logger):
-    operation_delay = 0.25
+    operation_delay = 0.05
 
     logger.change_status("Setting the flea filters for price undercut recognition")
 
@@ -1096,8 +1099,3 @@ def check_for_post_confirmation_popup():
         return True
     return False
 
-
-#######FOR DEBUG
-def clip_that():
-    # open obs, turn on replay bugger, set to left half of monitor (2560,1140p)
-    click(1263, 1329)

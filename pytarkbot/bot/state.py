@@ -69,23 +69,12 @@ def state_remove_flea_offers(logger):
 def state_flea_mode(logger, number_of_rows, remove_offers_timer):
     logger.change_status("Beginning flea alg.\n")
 
-    # get to flea
-    logger.change_status("Getting to flea")
-    if get_to_flea_tab(logger) == "restart":
-        return "restart"
-    time.sleep(1)
-
-    # read money and set logger's starting money value
-    starting_money = read_money_text_in_flea()
-    if starting_money != "fail":
-        logger.set_starting_money(starting_money)
-
     while True:
         # open flea
         logger.change_status("Getting to flea")
         if get_to_flea_tab(logger) == "restart":
             return "restart"
-        time.sleep(1)
+        time.sleep(0.33)
 
         # wait for another add offer
         logger.change_status("Waiting for another flea offer slot.")
@@ -94,7 +83,6 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
             == "remove_flea_offers"
         ):
             return "remove_flea_offers"
-        time.sleep(1)
 
         # click add offer
         logger.change_status("Adding another offer.")
@@ -102,14 +90,13 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         time.sleep(0.33)
 
         logger.change_status("Orientating add offer window.")
-        orientate_add_offer_window(logger)
-        time.sleep(1)
-        orientate_add_offer_window(logger)
-        time.sleep(1)
+        for _ in range(2):
+            orientate_add_offer_window(logger)
+            time.sleep(1)
 
-        if select_random_item_to_flea(logger, number_of_rows)== "restart":
+        if select_random_item_to_flea(logger, number_of_rows) == "restart":
             return "restart"
-        time.sleep(1)
+        time.sleep(0.33)
 
         # set flea filter
         logger.change_status("Setting the flea filters to only RUB/players only.")
@@ -129,11 +116,6 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
 
             # post this item
             post_item(logger, undercut_price)
-
-        # read current money and set logger's current money value
-        current_money = read_money_text_in_flea()
-        if current_money != "fail":
-            logger.set_current_money(current_money)
 
         logger.add_flea_sale_attempt()
 

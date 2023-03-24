@@ -52,3 +52,9 @@ def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
 
     # move mouse back to original position
     pyautogui.moveTo(origin[0], origin[1])
+
+
+#method to move a window to the foreground
+def move_terminal_to_foreground():
+    window = pygetwindow.getWindowsWithTitle('Py-TarkBot')[0]
+    window.activate()
