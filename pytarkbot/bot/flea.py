@@ -360,7 +360,7 @@ def convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer):
 def write_post_price(logger, post_price):
     # open rouble input region
 
-    click(1162, 501)
+    click(507,709)
 
     # write post_price
     logger.change_status(f"Writing price of {post_price}.")
@@ -373,19 +373,15 @@ def post_item(logger, post_price):
 
     orientate_add_offer_window(logger)
 
-    click_add_requirements_in_add_requirements_window(logger)
-    time.sleep(operation_delay)
 
-    orientate_add_requirement_window(logger)
 
     write_post_price(logger, post_price)
     time.sleep(operation_delay)
 
-    # click add in add requirements window
-    add_this_requirement()
 
-    # click place offer in add offer window
-    click(596, 954)
+
+    # click place offer 
+    click(593)
     time.sleep(operation_delay)
 
     # if the game asks any questions at this point, the answer is always NO!
