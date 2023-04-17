@@ -381,7 +381,7 @@ def post_item(logger, post_price):
 
 
     # click place offer 
-    click(593)
+    click(590,960)
     time.sleep(operation_delay)
 
     # if the game asks any questions at this point, the answer is always NO!
