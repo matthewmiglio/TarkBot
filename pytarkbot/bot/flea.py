@@ -719,8 +719,8 @@ def get_price_undercut(found_price):
         return None
     found_price = int(found_price)
 
-    undercut_option_1 = found_price - 2700
-    undercut_option_2 = int(found_price * 0.75)
+    undercut_option_1 = found_price - 2100
+    undercut_option_2 = int(found_price * 0.8)
     return max(undercut_option_2, undercut_option_1)
 
 
