@@ -38,7 +38,7 @@ numpy = "^1.24.3"
 pygetwindow = "^0.0.9"
 opencv-python = "^4.7.0.72"
 joblib = "^1.2.0"
-requests = "^2.28.2"
+requests = "^2.29.0"
 bs4 = "^0.0.1"
 pytesseract = "^0.3.10"
 
