@@ -332,8 +332,10 @@ def wait_till_can_add_another_offer(logger, remove_offers_timer):
             close_add_offer_window(logger)
 
         # refresh current flea page
+        click(65,50)
+        time.sleep(0.2)
         pyautogui.press("f5")
-        time.sleep(1)
+        time.sleep(0.8)
 
         # get to flea tab if not already there
         get_to_flea_tab(logger, print_mode=False)
