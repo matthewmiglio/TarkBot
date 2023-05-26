@@ -32,7 +32,7 @@ include = ["README.md", "pytarkbot/detection/reference_images/**/*.png"]
 [tool.poetry.dependencies]
 python = "^3.10"
 pillow = "^9.5.0"
-pysimplegui = "^4.60.4"
+pysimplegui = "^4.60.5"
 pyautogui = "^0.9.54"
 numpy = "^1.24.3"
 pygetwindow = "^0.0.9"
