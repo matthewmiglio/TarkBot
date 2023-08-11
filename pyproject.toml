@@ -59,7 +59,7 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.3"
 black = "^23.7.0"
-ipykernel = "^6.25.0"
+ipykernel = "^6.25.1"
 matplotlib = "^3.7.2"
 vulture = "^2.8"
 
