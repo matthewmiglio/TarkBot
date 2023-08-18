@@ -13,7 +13,6 @@ from pytarkbot.detection import (
 )
 from pytarkbot.detection.image_rec import (
     make_reference_image_list,
-    read_text_from_image,
 )
 from pytarkbot.tarkov import click, screenshot
 
@@ -382,7 +381,7 @@ def post_item(logger, post_price):
 
 
 
-    # click place offer 
+    # click place offer
     click(590,960)
     time.sleep(operation_delay)
 
@@ -1022,17 +1021,6 @@ def check_if_has_item_to_flea_selected():
     return False
 
 
-def read_money_text_in_flea():
-    region = [990, 76, 90, 16]
-    image = screenshot(region)
-    # show_image(image)
-    text = read_text_from_image(image, psm=7, oem=1)
-    text = splice_money_text(text)
-    try:
-        money_int = int(text)
-    except:
-        return "fail"
-    return money_int
 
 
 def splice_money_text(text):
@@ -1056,7 +1044,7 @@ def add_this_requirement():
             break
 
 
-def check_for_post_confirmation_popup():
+def check_for_post_confirmation_popup_2():
     iar = numpy.asarray(screenshot())
 
     confirmation_text_exists = False
