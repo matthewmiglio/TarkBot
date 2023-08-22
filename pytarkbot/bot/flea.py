@@ -15,6 +15,7 @@ from pytarkbot.detection.image_rec import (
     make_reference_image_list,
 )
 from pytarkbot.tarkov import click, screenshot
+from pytarkbot.utils.logger import Logger
 
 pyautogui.FAILSAFE = False
 
@@ -590,6 +591,14 @@ def set_flea_filters(logger):
     click(124, 100)
     time.sleep(operation_delay)
 
+    #click quantity from input
+    click(141,116)
+    time.sleep(operation_delay)
+
+    #type 1
+    pyautogui.typewrite("1")
+    time.sleep(operation_delay)
+
     # click 'display offers from' dropdown
     logger.change_status("Filtering by player sales only.")
     click(171, 188)
@@ -1087,3 +1096,8 @@ def check_for_post_confirmation_popup_2():
 def clip_that():
     # open obs, turn on replay bugger, set to left half of monitor (2560,1140p)
     click(1263, 1329)
+
+
+
+if __name__ == '__main__':
+    set_flea_filters(logger=Logger())
