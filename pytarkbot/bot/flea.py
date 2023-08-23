@@ -217,6 +217,9 @@ def get_to_flea_tab(logger, print_mode=True):
     on_flea = check_if_on_flea_page()
     loops = 0
     while not on_flea:
+        if random.randint(0,10):
+            pyautogui.press('n')
+
         if loops > 20:
             return "restart"
         loops = loops + 1
