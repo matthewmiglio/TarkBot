@@ -48,7 +48,7 @@ optional = true
 
 [tool.poetry.group.build.dependencies]
 cx-logging = "^3.1.0"
-Cx_Freeze = [{ version = "^6.15.5", platform = 'win32' }]
+Cx_Freeze = [{ version = "^6.15.6", platform = 'win32' }]
 
 
 [tool.poetry.group.dev]
