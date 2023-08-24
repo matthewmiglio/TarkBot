@@ -13,10 +13,21 @@ from pytarkbot.tarkov import (
     orientate_tarkov_client,
     screenshot,
 )
-from pytarkbot.tarkov.client import orientate_terminal
+from pytarkbot.tarkov.client import get_launcher_res, orientate_terminal
 from pytarkbot.tarkov.graphics_config import change_fullscreenmode_line
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 from pytarkbot.utils.logger import Logger
+
+
+def click_play_button():
+    w,h=get_launcher_res()
+    x=0.9*w
+    y=0.9*h
+    coord = (x,y)
+    print(coord)
+    click(coord[0],coord[1])
+    time.sleep(1)
+
 
 
 def check_if_on_tark_main(logger):
@@ -122,14 +133,11 @@ def restart_tarkov(logger: Logger):
     orientate_terminal()
     time.sleep(3)
 
-    # wait for launcher play button to appear
-    logger.change_status("Waiting for launcher's play button")
-    if wait_for_play_button_in_launcher(logger) == "restart":
-        restart_tarkov(logger)
+    #sleep 20 sec for play button
+    for i in range(20):logger.change_status(f'Manual waiting... {20-i}/20s...')
 
     # click play
-    logger.change_status("Clicking play.")
-    click(942, 558)
+    click_play_button()
     time.sleep(20)
 
     # wait for client opening
@@ -197,3 +205,8 @@ def wait_for_play_button_in_launcher(logger):
         time.sleep(1)
 
     logger.change_status("Done waiting for play button to appear.")
+
+
+if __name__ == '__main__':
+    time.sleep(3)
+    click_play_button()

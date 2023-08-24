@@ -9,6 +9,15 @@ from pytarkbot.detection import pixel_is_equal
 pyautogui.FAILSAFE = False
 
 
+def get_launcher_res():
+    try:
+        window = pygetwindow.getWindowsWithTitle("BsgLauncher")[0]
+        s = window.size
+        return s
+    except:
+        return False
+
+
 def orientate_tarkov_client():
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")[0]
     tark_window.moveTo(0, 0)
@@ -18,7 +27,7 @@ def orientate_tarkov_client():
 def orientate_launcher():
     launcher_window = pygetwindow.getWindowsWithTitle("BsgLauncher")[0]
     launcher_window.moveTo(0, 0)
-    launcher_window.resizeTo(1122, 744)
+    launcher_window.resizeTo(100, 100)
 
 
 def orientate_terminal():
@@ -45,10 +54,14 @@ def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
     # click it as many times as ur suppsoed to
     loops = 0
     while loops < clicks:
-
         pyautogui.click(x=x, y=y, button=button)
         loops += 1
         time.sleep(interval)
 
     # move mouse back to original position
     pyautogui.moveTo(origin[0], origin[1])
+
+
+if __name__ == "__main__":
+    # orientate_launcher()
+    print(get_launcher_res())
