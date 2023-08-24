@@ -14,6 +14,7 @@ from pytarkbot.tarkov import (
     screenshot,
 )
 from pytarkbot.tarkov.client import orientate_terminal
+from pytarkbot.tarkov.graphics_config import change_fullscreenmode_line
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 from pytarkbot.utils.logger import Logger
 
@@ -84,6 +85,10 @@ def restart_tarkov(logger: Logger):
         orientate_terminal()
         close_launcher(logger, tark_launcher)
         time.sleep(5)
+
+    # set graphics settings
+    change_fullscreenmode_line("windowed")
+    time.sleep(1)
 
     # open tark launcher
     logger.change_status("Opening launcher.")
@@ -163,7 +168,6 @@ def wait_for_tarkov_to_open(logger):
 
 
 def check_if_play_button_exists_in_launcher():
-
     current_image = screenshot()
     reference_folder = "check_if_play_button_exists_in_launcher2"
     references = [
