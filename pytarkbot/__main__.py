@@ -93,7 +93,7 @@ def main():
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
-    window = sg.Window("Py-TarkBot", main_layout, icon=ICON_PATH)
+    window = sg.Window("Matthew's Py-TarkBot", main_layout, icon=ICON_PATH)
 
     load_last_settings(window)
 

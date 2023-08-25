@@ -30,10 +30,21 @@ def orientate_launcher():
     launcher_window.resizeTo(100, 100)
 
 
-def orientate_terminal():
+def get_terminal_res():
     try:
-        terminal_window = pygetwindow.getWindowsWithTitle("Py-TarkBot")[0]
-        terminal_window.moveTo(pyautogui.size()[0] - 430, 0)
+        window = pygetwindow.getWindowsWithTitle("Matthew's Py-TarkBot")[0]
+        s = window.size
+        return s
+    except:
+        return False
+
+def orientate_terminal():
+    terminal_res = get_terminal_res()
+    w,h=terminal_res
+    try:
+        terminal_window = pygetwindow.getWindowsWithTitle("Matthew's Py-TarkBot")[0]
+        terminal_window.moveTo(pyautogui.size()[0] - w, 0)
+        
     except:
         print("Couldnt orientate terminal.")
 
@@ -64,4 +75,5 @@ def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
 
 if __name__ == "__main__":
     # orientate_launcher()
-    print(get_launcher_res())
+    # print(get_launcher_res())
+    orientate_tarkov_client()

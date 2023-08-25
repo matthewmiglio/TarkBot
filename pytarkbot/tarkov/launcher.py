@@ -24,7 +24,6 @@ def click_play_button():
     x=0.9*w
     y=0.9*h
     coord = (x,y)
-    print(coord)
     click(coord[0],coord[1])
     time.sleep(1)
 
@@ -51,6 +50,7 @@ def wait_for_tark_main(logger):
     loops = 0
     while not on_main:
         orientate_terminal()
+        orientate_tarkov_client()
         logger.change_status(f"Waiting for tark main {loops}")
         loops = loops + 2
         time.sleep(2)
@@ -134,7 +134,9 @@ def restart_tarkov(logger: Logger):
     time.sleep(3)
 
     #sleep 20 sec for play button
-    for i in range(20):logger.change_status(f'Manual waiting... {20-i}/20s...')
+    for i in range(20):
+        logger.change_status(f'Manual waiting... {20-i}/20s...')
+        time.sleep(1)
 
     # click play
     click_play_button()
