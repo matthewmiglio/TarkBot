@@ -9,7 +9,8 @@ from pytarkbot.bot import state_tree
 from pytarkbot.interface import (
     THEME,
     disable_keys,
-    main_layout,
+    tab_1_layout,
+tab_2_layout,
     show_help_gui,
     user_config_keys,
 )
@@ -93,7 +94,14 @@ def main():
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
-    window = sg.Window("Matthew's Py-TarkBot", main_layout, icon=ICON_PATH)
+    tab1 = sg.Tab("Tab 1", tab_1_layout)
+    tab2 = sg.Tab("Tab 2", tab_2_layout)
+    tab_group = sg.TabGroup([[tab1, tab2]])
+    layout = [
+    [tab_group],
+    # ... (other elements)
+]
+    window = sg.Window("Your Window Title", layout, finalize=True)
 
     load_last_settings(window)
 

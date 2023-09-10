@@ -7,8 +7,8 @@ info_text = """1. Tarkov must be set to windowed mode
 
 Matthew Miglio, Martin Miglio - Nov 2022"""
 
-# defining various things that r gonna be in the gui.
-main_layout = [
+# defining various things for tab 1
+tab_1_layout = [
     [
         sg.Frame(
             layout=[[sg.Text(info_text, size=(35, None))]],
@@ -94,6 +94,15 @@ main_layout = [
     ],
     # https://www.paypal.com/donate/?business=YE72ZEB3KWGVY&no_recurring=0&item_name=Support+my+projects%21&currency_code=USD
 ]
+
+
+# defining various things for tab 2
+tab_2_layout = [
+    [sg.Text("This is the second tab. Add your text here.")],
+]
+
+#make the tabs
+
 
 # a list of all the keys that contain user configuration
 # user_config_keys = ["rows_to_target", "remove_offers_timer", "autostart"]
