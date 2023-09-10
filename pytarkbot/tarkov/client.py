@@ -38,15 +38,15 @@ def get_terminal_res():
     except:
         return False
 
+
 def orientate_terminal():
-    terminal_res = get_terminal_res()
-    w,h=terminal_res
     try:
+        terminal_res = get_terminal_res()
+        w, h = terminal_res
         terminal_window = pygetwindow.getWindowsWithTitle("Matthew's Py-TarkBot")[0]
         terminal_window.moveTo(pyautogui.size()[0] - w, 0)
-        
     except:
-        print("Couldnt orientate terminal.")
+        print("Couldnt orientate terminal...")
 
 
 def screenshot(region=(0, 0, 1400, 1400)):
