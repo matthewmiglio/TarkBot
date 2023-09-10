@@ -172,7 +172,7 @@ hideout_mode_stats_values = [
             stat_box("scav_case_collects"),
         ],
         [
-            stat_box("profit", size=(10, 1)),
+            stat_box("hideout_profit", size=(10, 1)),
         ],
     ],
     [
