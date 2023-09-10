@@ -14,6 +14,7 @@ from pytarkbot.detection.image_rec import (
 
 pyautogui.FAILSAFE = False
 
+TERMINAL_NAME = "Py-TarkBot v1"
 
 
 def hideout_mode_find_filters_window():
@@ -32,9 +33,6 @@ def hideout_mode_find_filters_window():
     return None if coords is None else [coords[1] + 3, coords[0] + 3]
 
 
-
-
-
 def hideout_mode_check_filters_window_orientation():
     coords = hideout_mode_find_filters_window()
     if coords is None:
@@ -43,11 +41,15 @@ def hideout_mode_check_filters_window_orientation():
     value2 = abs(coords[1] - 35)
     return value1 <= 3 and value2 <= 3
 
+
 def hideout_mode_open_filters_window(logger):
     start_time = time.time()
     click(328, 87, clicks=3, interval=0.5)
     time.sleep(0.33)
-    if hideout_mode_orientate_filters_window(logger, start_time=start_time) == "restart":
+    if (
+        hideout_mode_orientate_filters_window(logger, start_time=start_time)
+        == "restart"
+    ):
         return "restart"
 
 
@@ -74,12 +76,6 @@ def hideout_mode_orientate_filters_window(logger, start_time=time.time()):
             time.sleep(0.33)
         is_orientated = hideout_mode_check_filters_window_orientation()
     logger.change_status("Orientated filters window.")
-
-
-
-
-
-
 
 
 def set_hideout_mode_flea_filters(logger):
@@ -133,8 +129,6 @@ def orientate_launcher():
     launcher_window.moveTo(0, 0)
     launcher_window.resizeTo(100, 100)
 
-
-TERMINAL_NAME = 'Py-TarkBot v1'
 
 def get_terminal_res():
     try:
