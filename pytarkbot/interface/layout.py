@@ -8,7 +8,7 @@ info_text = """1. Tarkov must be set to windowed mode
 Matthew Miglio, Martin Miglio - Nov 2022"""
 
 # defining various things for tab 1
-tab_1_layout = [
+flea_mode_layout = [
     [
         sg.Frame(
             layout=[[sg.Text(info_text, size=(35, None))]],
@@ -97,11 +97,14 @@ tab_1_layout = [
 
 
 # defining various things for tab 2
-tab_2_layout = [
+hideout_mode_layout = [
     [sg.Text("This is the second tab. Add your text here.")],
 ]
 
-#make the tabs
+# defining various things for tab 2
+snipebot_mode_layout = [
+    [sg.Text("This is the third tab. Add your text here.")],
+]
 
 
 # a list of all the keys that contain user configuration

@@ -1,7 +1,7 @@
 import sys
 import time
 
-from pytarkbot.bot.flea import (
+from pytarkbot.flea_sell_bot.flea import (
     get_price_of_first_seller_in_flea_items_table,
     get_price_undercut,
     get_to_flea_tab,

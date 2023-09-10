@@ -4,14 +4,14 @@ from os import path
 from queue import Queue
 
 import PySimpleGUI as sg
-
-from pytarkbot.bot import state_tree
+from pytarkbot.flea_sell_bot import state_tree
 from pytarkbot.interface import (
     THEME,
     disable_keys,
-    tab_1_layout,
-tab_2_layout,
+    flea_mode_layout,
+    hideout_mode_layout,
     show_help_gui,
+    snipebot_mode_layout,
     user_config_keys,
 )
 from pytarkbot.utils import Logger, admin_check  # pylint: disable=unused-import
@@ -94,13 +94,13 @@ def main():
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
-    tab1 = sg.Tab("Tab 1", tab_1_layout)
-    tab2 = sg.Tab("Tab 2", tab_2_layout)
-    tab_group = sg.TabGroup([[tab1, tab2]])
+    flea_sell_tab = sg.Tab("Flea Sell", flea_mode_layout)
+    flea_snipe_tab = sg.Tab("Flea Snipe", snipebot_mode_layout)
+    hideout_tab = sg.Tab("Hideout", hideout_mode_layout)
+    tab_group = sg.TabGroup([[flea_sell_tab, flea_snipe_tab,hideout_tab, ]])
     layout = [
-    [tab_group],
-    # ... (other elements)
-]
+        [tab_group],
+    ]
     window = sg.Window("Your Window Title", layout, finalize=True)
 
     load_last_settings(window)
