@@ -134,9 +134,11 @@ def orientate_launcher():
     launcher_window.resizeTo(100, 100)
 
 
+TERMINAL_NAME = 'Py-TarkBot v1'
+
 def get_terminal_res():
     try:
-        window = pygetwindow.getWindowsWithTitle("Matthew's Py-TarkBot")[0]
+        window = pygetwindow.getWindowsWithTitle(TERMINAL_NAME)[0]
         s = window.size
         return s
     except:
@@ -147,7 +149,7 @@ def orientate_terminal():
     try:
         terminal_res = get_terminal_res()
         w, h = terminal_res
-        terminal_window = pygetwindow.getWindowsWithTitle("Matthew's Py-TarkBot")[0]
+        terminal_window = pygetwindow.getWindowsWithTitle(TERMINAL_NAME)[0]
         terminal_window.moveTo(pyautogui.size()[0] - w, 0)
     except:
         print("Couldnt orientate terminal...")

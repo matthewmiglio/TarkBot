@@ -104,7 +104,6 @@ def hideout_mode_start_button_event(logger: Logger, window, values):
     return thread
 
 
-
 def stop_button_event(logger: Logger, window, thread):
     logger.change_status("Stopping")
     window["Stop"].update(disabled=True)
@@ -139,11 +138,19 @@ def main():
     flea_sell_tab = sg.Tab("Flea Sell", flea_mode_layout)
     flea_snipe_tab = sg.Tab("Flea Snipe", snipebot_mode_layout)
     hideout_tab = sg.Tab("Hideout", hideout_mode_layout)
-    tab_group = sg.TabGroup([[flea_sell_tab, flea_snipe_tab,hideout_tab, ]])
+    tab_group = sg.TabGroup(
+        [
+            [
+                flea_sell_tab,
+                flea_snipe_tab,
+                hideout_tab,
+            ]
+        ]
+    )
     layout = [
         [tab_group],
     ]
-    window = sg.Window("Your Window Title", layout, finalize=True)
+    window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True)
 
     load_last_settings(window)
 
@@ -174,7 +181,7 @@ def main():
             shutdown_thread(thread)
             break
 
-        if event == 'hideout_mode_start':
+        if event == "hideout_mode_start":
             # start the bot with new queue and logger
             comm_queue = Queue()
             logger = Logger(comm_queue)
@@ -266,7 +273,7 @@ class HideoutModeWorkerThread(StoppableThread):
         try:
             jobs = self.args  # parse thread args
 
-            state = 'start'
+            state = "start"
 
             loops = 0
             # loop until shutdown flag is set
@@ -281,10 +288,6 @@ class HideoutModeWorkerThread(StoppableThread):
         except Exception as exc:  # pylint: disable=broad-except
             # catch exceptions and log to not crash the main thread
             self.logger.error(str(exc))
-
-
-
-
 
 
 if __name__ == "__main__":
