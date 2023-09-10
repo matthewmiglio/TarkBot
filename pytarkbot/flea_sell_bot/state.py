@@ -14,14 +14,22 @@ from pytarkbot.flea_sell_bot.flea import (
     set_flea_filters,
     wait_till_can_add_another_offer,
 )
+from pytarkbot.hideout_bot.stations.bitcoin_miner import handle_bitcoin_miner
+from pytarkbot.hideout_bot.stations.lavatory import handle_lavatory
+from pytarkbot.hideout_bot.stations.medstation import handle_medstation
+from pytarkbot.hideout_bot.stations.scav_case import handle_scav_case
+from pytarkbot.hideout_bot.stations.water_collector import find_water_collector_icon
+from pytarkbot.hideout_bot.stations.workbench import handle_workbench
 from pytarkbot.tarkov import restart_tarkov
 from pytarkbot.tarkov.client import click
 
 
-def state_tree(logger, state, number_of_rows, remove_offers_timer):
+
+#flea sell mode stuff
+def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer):
 
     if state == "restart":
-        state_restart(logger)
+        flea_mode_restart_state(logger)
         return "flea_mode"
 
     if state == "flea_mode":
@@ -131,7 +139,7 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         logger.add_flea_sale_attempt()
 
 
-def state_restart(logger):
+def flea_mode_restart_state(logger):
     logger.change_status("\n\nState==Restart")
 
     # add to logger
@@ -140,3 +148,129 @@ def state_restart(logger):
     restart_tarkov(logger)
 
     return "flea_mode"
+
+
+
+#hideout bot stuff
+def hideout_mode_state_tree(state, logger, jobs):  # -> check_fuel
+    print("-------------------------------------\n")
+
+    if state == "start":
+        restart_tarkov(logger)
+
+        state = "check_fuel"
+
+    if state == "restart":  # -> check_fuel
+        logger.add_restart()
+
+        restart_tarkov(logger)
+
+        state = "check_fuel"
+
+    elif state == "check_fuel":  # -> no_fuel,
+        # state = check_for_fuel(logger)
+        return "bitcoin"
+
+    elif state == "no_fuel":  # -> program freeze
+        for _ in range(3):
+            logger.change_status("Generator has no fuel!!")
+        while 1:
+            pass
+
+    elif state == "autorestart":
+        print("Entered autorestart state")
+        logger.add_autorestart()
+
+        restart_tarkov(logger)
+
+        state = "check_fuel"
+
+    # bitcoin -> workbench -> water -> scav -> medstation -> lavatory -> bitcoin
+
+    elif state == "bitcoin":
+        # if its time for autorestart, state = autorestart then return
+        time_string = logger.time_since_start
+
+        hours_running = int(time_string.split(":")[0])
+
+        autorestarts = logger.autorestarts
+
+        if hours_running >= autorestarts:
+            state = "autorestart"
+        else:
+            print("Entered bitcoin state")
+
+            if "Bitcoin" in jobs:
+                state = handle_bitcoin_miner(logger)
+            else:
+                state = "workbench"
+
+            print(f"State after bitcoin is {state}")
+
+    elif state == "workbench":
+        print("Entered workbench state")
+
+        if "Workbench" in jobs:
+            state = handle_workbench(logger)
+        else:
+            state = "water"
+
+        print(f"State after workbench is {state}")
+
+    elif state == "water":
+        print("Entered water state")
+
+        if "water" in jobs:
+            state = find_water_collector_icon()
+        else:
+            state = "scav_case"
+
+        print(f"State after water is {state}")
+
+    elif state == "scav_case":
+        print("Entered scav_case state")
+
+        if "scav_case" in jobs:
+            # unpack scav case craft type from job list
+
+            if "15000" in jobs:
+                craft_type = "15000"
+            elif "95000" in jobs:
+                craft_type = "95000"
+            elif "Moonshine" in jobs:
+                craft_type = "moonshine"
+            elif "Intel" in jobs:
+                craft_type = "intel"
+            else:
+                craft_type = "2500"
+
+            state = handle_scav_case(logger, craft_type)
+        else:
+            state = "medstation"
+
+        print(f"State after scav_case is {state}")
+
+    elif state == "medstation":
+        print("Entered medstation state")
+
+        if "medstation" in jobs:
+            state = handle_medstation(logger)
+        else:
+            state = "lavatory"
+
+        print(f"State after medstation is {state}")
+
+    elif state == "lavatory":
+        print("Entered lavatory state")
+
+        if "Lavatory" in jobs:
+            state = handle_lavatory(logger)
+        else:
+            state = "bitcoin"
+
+        print(f"State after lavatory is {state}")
+
+    return state
+
+
+

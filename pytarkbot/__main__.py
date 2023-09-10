@@ -4,7 +4,8 @@ from os import path
 from queue import Queue
 
 import PySimpleGUI as sg
-from pytarkbot.flea_sell_bot import state_tree
+from pytarkbot.flea_sell_bot import flea_sell_mode_state_tree
+from pytarkbot.flea_sell_bot.state import hideout_mode_state_tree
 from pytarkbot.interface import (
     THEME,
     disable_keys,
@@ -46,7 +47,7 @@ def load_last_settings(window):
         window.refresh()  # refresh the window to update the layout
 
 
-def start_button_event(logger: Logger, window, values):
+def flea_mode_start_button_event(logger: Logger, window, values):
     logger.change_status("Starting")
 
     for key in disable_keys:
@@ -54,13 +55,54 @@ def start_button_event(logger: Logger, window, values):
 
     # setup thread and start it
     args = (values["rows_to_target"], values["remove_offers_timer"])
-    thread = WorkerThread(logger, args)
+    thread = FleaSellWorkerThread(logger, args)
     thread.start()
 
     # enable the stop button after the thread is started
     window["Stop"].update(disabled=False)
 
     return thread
+
+
+def hideout_mode_start_button_event(logger: Logger, window, values):
+    # check for invalid inputs
+    logger.change_status("Starting hideout mode")
+
+    for key in disable_keys:
+        window[key].update(disabled=True)
+
+    # unpack job list
+    jobs = []
+    if values["bitcoin_checkbox"]:
+        jobs.append("Bitcoin")
+
+    if values["lavatory_checkbox"]:
+        jobs.append("Lavatory")
+
+    if values["medstation_checkbox"]:
+        jobs.append("medstation")
+
+    if values["water_checkbox"]:
+        jobs.append("water")
+
+    if values["workbench_checkbox"]:
+        jobs.append("Workbench")
+
+    if values["scav_case_checkbox"]:
+        jobs.append("scav_case")
+        jobs.append(values["scav_case_type"])
+
+    # setup thread and start it
+    print("jobs: ", jobs)
+
+    thread = HideoutModeWorkerThread(logger, jobs)
+    thread.start()
+
+    # enable the stop button after the thread is started
+    window["Stop"].update(disabled=False)
+
+    return thread
+
 
 
 def stop_button_event(logger: Logger, window, thread):
@@ -89,7 +131,7 @@ def update_layout(window: sg.Window, logger: Logger):
 def main():
     # orientate_terminal()
 
-    thread: WorkerThread | None = None
+    thread: FleaSellWorkerThread | None = None
     comm_queue: Queue[dict[str, str | int]] = Queue()
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
@@ -125,18 +167,24 @@ def main():
             and time.time() - start_time > auto_start_time
         ):
             auto_started = True
-            event = "Start"
+            event = "flea_mode_start"
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
             shutdown_thread(thread)
             break
 
-        if event == "Start":
+        if event == 'hideout_mode_start':
             # start the bot with new queue and logger
             comm_queue = Queue()
             logger = Logger(comm_queue)
-            thread = start_button_event(logger, window, values)
+            thread = hideout_mode_start_button_event(logger, window, values)
+
+        if event == "flea_mode_start":
+            # start the bot with new queue and logger
+            comm_queue = Queue()
+            logger = Logger(comm_queue)
+            thread = flea_mode_start_button_event(logger, window, values)
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)
@@ -181,7 +229,7 @@ def main():
     window.close()
 
 
-class WorkerThread(StoppableThread):
+class FleaSellWorkerThread(StoppableThread):
     def __init__(self, logger: Logger, args, kwargs=None):
         super().__init__(args, kwargs)
         self.logger = logger
@@ -197,7 +245,7 @@ class WorkerThread(StoppableThread):
             while not self.shutdown_flag.is_set():
                 loops += 1
 
-                state = state_tree(
+                state = flea_sell_mode_state_tree(
                     self.logger, state, number_of_rows, remove_offers_timer
                 )
 
@@ -207,6 +255,36 @@ class WorkerThread(StoppableThread):
         except Exception as exc:  # pylint: disable=broad-except
             # catch exceptions and log to not crash the main thread
             self.logger.error(str(exc))
+
+
+class HideoutModeWorkerThread(StoppableThread):
+    def __init__(self, logger: Logger, args, kwargs=None):
+        super().__init__(args, kwargs)
+        self.logger = logger
+
+    def run(self):
+        try:
+            jobs = self.args  # parse thread args
+
+            state = 'start'
+
+            loops = 0
+            # loop until shutdown flag is set
+            while not self.shutdown_flag.is_set():
+                loops += 1
+
+                state = hideout_mode_state_tree(state, self.logger, jobs)
+
+        except ThreadKilled:
+            return
+
+        except Exception as exc:  # pylint: disable=broad-except
+            # catch exceptions and log to not crash the main thread
+            self.logger.error(str(exc))
+
+
+
+
 
 
 if __name__ == "__main__":
