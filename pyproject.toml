@@ -59,7 +59,7 @@ optional = true
 pre-commit = "^3.4"
 black = "^23.7.0"
 ipykernel = "^6.25.2"
-matplotlib = "^3.7.2"
+matplotlib = "^3.7.3"
 vulture = "^2.9"
 
 
