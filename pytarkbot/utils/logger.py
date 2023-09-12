@@ -9,9 +9,10 @@ class Logger:
     def __init__(self, queue=None, timed=True):
         """Logger init"""
 
-        #bot vars/stats
+        # bot vars/stats
         self.queue: Queue[dict[str, str | int]] = Queue() if queue is None else queue
         self.start_time = time.time() if timed else None
+        self.time_since_start = None
         self.status = "Idle"
         self.restarts = 0
         self.autorestarts = 0
@@ -41,7 +42,6 @@ class Logger:
         self.hideout_profit = 0
         self.stations_visited = 0
 
-
     def _update_queue(self):
         """updates the queue with a dictionary of mutable statistics"""
         if self.queue is None:
@@ -62,13 +62,11 @@ class Logger:
             "scav_case_collects": self.scav_case_collects,
             "hideout_profit": self.hideout_profit,
             "station_time": self.calculate_station_time(),
-
             # bot stats
             "current_status": self.status,
             "time_since_start": self.calc_time_since_start(),
             "restarts": self.restarts,
             "autorestarts": self.autorestarts,
-
             # flea mode stats
             "item_sold": self.item_sold,
             "roubles_made": self.format_money(self.roubles_made),
@@ -171,6 +169,9 @@ class Logger:
             minutes, seconds = divmod(remainder, 60)
         else:
             hours, minutes, seconds = 0, 0, 0
+
+        self.time_since_start = hours
+
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
     def calculate_station_time(self):
@@ -184,7 +185,6 @@ class Logger:
         time_per_station = time_taken / stations_visited
 
         return str(time_per_station)[:5]
-
 
     @_updates_queue
     def add_autorestart(self):

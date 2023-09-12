@@ -20,13 +20,12 @@ from pytarkbot.utils.logger import Logger
 
 
 def click_play_button():
-    w,h=get_launcher_res()
-    x=0.9*w
-    y=0.9*h
-    coord = (x,y)
-    click(coord[0],coord[1])
+    w, h = get_launcher_res()
+    x = 0.9 * w
+    y = 0.9 * h
+    coord = (x, y)
+    click(coord[0], coord[1])
     time.sleep(1)
-
 
 
 def check_if_on_tark_main(logger):
@@ -75,6 +74,34 @@ def close_launcher(logger, tark_launcher):
     tark_launcher.close()
 
 
+def open_tark_launcher(logger):
+    logger.change_status("Opening launcher.")
+    try:
+        subprocess.Popen(get_bsg_launcher_path())  # pylint: disable=consider-using-with
+    except FileNotFoundError:
+        tkinter.messagebox.showinfo(
+            "CRITICAL ERROR",
+            "Could not start launcher. Open a bug report on github and share your BSGlauncher install path.",
+        )
+        sys.exit("Launcher path not found")
+
+
+def wait_for_tarkov_launcher(logger):
+    logger.change_status("Waiting for launcher to open.")
+    index = 0
+    has_window = False
+    while not has_window:
+        orientate_terminal()
+        time.sleep(1)
+        index += 1
+        if len(pygetwindow.getWindowsWithTitle("BsgLauncher")) > 0:
+            has_window = True
+        if index > 25:
+            logger.change_status("Launcher failed to open.")
+            return "restart"
+    time.sleep(5)
+
+
 def restart_tarkov(logger: Logger):
     # sourcery skip: extract-duplicate-method, extract-method
     orientate_terminal()
@@ -102,30 +129,11 @@ def restart_tarkov(logger: Logger):
     time.sleep(1)
 
     # open tark launcher
-    logger.change_status("Opening launcher.")
-    try:
-        subprocess.Popen(get_bsg_launcher_path())  # pylint: disable=consider-using-with
-    except FileNotFoundError:
-        tkinter.messagebox.showinfo(
-            "CRITICAL ERROR",
-            "Could not start launcher. Open a bug report on github and share your BSGlauncher install path.",
-        )
-        sys.exit("Launcher path not found")
+    open_tark_launcher(logger)
 
     # Wait for launcher to open and load up
-    logger.change_status("Waiting for launcher to open.")
-    index = 0
-    has_window = False
-    while not has_window:
-        orientate_terminal()
-        time.sleep(1)
-        index += 1
-        if len(pygetwindow.getWindowsWithTitle("BsgLauncher")) > 0:
-            has_window = True
-        if index > 25:
-            logger.change_status("Launcher failed to open.")
-            restart_tarkov(logger)
-    time.sleep(5)
+    if wait_for_tarkov_launcher(logger) == "restart":
+        return restart_tarkov(logger)
 
     # orientate launcher
     logger.change_status("orientating launcher")
@@ -133,14 +141,18 @@ def restart_tarkov(logger: Logger):
     orientate_terminal()
     time.sleep(3)
 
-    #sleep 20 sec for play button
+    # sleep 20 sec for play button
     for i in range(20):
-        logger.change_status(f'Manual waiting... {20-i}/20s...')
+        logger.change_status(f"Manual waiting... {20-i}/20s...")
         time.sleep(1)
 
     # click play
     click_play_button()
-    time.sleep(20)
+
+    # sleep 20 sec after play button
+    for i in range(20):
+        logger.change_status(f"Manual wait... {20-i}/20s...")
+        time.sleep(1)
 
     # wait for client opening
     logger.change_status("Waiting for tarkov client to open.")
@@ -209,6 +221,6 @@ def wait_for_play_button_in_launcher(logger):
     logger.change_status("Done waiting for play button to appear.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     time.sleep(3)
     click_play_button()

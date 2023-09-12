@@ -189,9 +189,12 @@ def hideout_mode_state_tree(state, logger, jobs):  # -> check_fuel
 
     elif state == "bitcoin":
         # if its time for autorestart, state = autorestart then return
-        time_string = logger.time_since_start
+        print('Checking for autorestart time')
+        hours_string = logger.time_since_start
 
-        hours_running = int(time_string.split(":")[0])
+        print('Done checking for autorestart time')
+
+        hours_running = int(hours_string)
 
         autorestarts = logger.autorestarts
 
