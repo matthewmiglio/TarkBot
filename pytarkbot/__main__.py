@@ -1,3 +1,4 @@
+
 import time
 import webbrowser
 from os import path
@@ -136,36 +137,52 @@ def main():
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
-    flea_sell_tab = sg.Tab("Flea Sell", flea_mode_layout)
-    flea_snipe_tab = sg.Tab("Flea Snipe", snipebot_mode_layout)
-    hideout_tab = sg.Tab("Hideout", hideout_mode_layout)
-    tab_group = sg.TabGroup(
-        [
-            [
-                flea_sell_tab,
-                flea_snipe_tab,
-                hideout_tab,
-            ]
-        ]
-    )
+    # flea_sell_tab = sg.Tab("Flea Sell", flea_mode_layout)
+    # flea_snipe_tab = sg.Tab("Flea Snipe", snipebot_mode_layout)
+    # hideout_tab = sg.Tab("Hideout", hideout_mode_layout)
+    # tab_group = sg.TabGroup(
+    #     [
+    #         [
+    #             flea_sell_tab,
+    #             flea_snipe_tab,
+    #             hideout_tab,
+    #         ]
+    #     ]
+    # )
+    # layout = [
+    #     [tab_group],
+    # ]
+    # window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True)
+
+
+
     layout = [
-        [tab_group],
+        [snipebot_mode_layout],
     ]
     window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True)
+
+
+
+
+
+
+
+
 
     load_last_settings(window)
 
     # run the gui
     while True:
+        event, values = window.read(timeout=100)
+
+
         try:
-            if event != "__TIMEOUT__":
-                print(event)
+            if event != sg.TIMEOUT_KEY:
+                print('event: ',event)
         except:
             pass
 
         # get gui vars
-        read = window.read(timeout=100)
-        event, values = read or (None, None)
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
@@ -183,6 +200,9 @@ def main():
             comm_queue = Queue()
             logger = Logger(comm_queue)
             thread = flea_mode_start_button_event(logger, window, values)
+
+        if event == "snipebot_mode_start_button":
+            print("snpiebot mode start button event")
 
         elif event == "Stop":
             stop_button_event(logger, window, thread)

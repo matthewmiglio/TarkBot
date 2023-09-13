@@ -14,7 +14,8 @@ def stat_box(stat_name: str, size=(5, 1)):
         size=size,
     )
 
-#flea mode stuff
+
+# flea mode stuff
 flea_sell_mode_stats_titles = [
     [
         [
@@ -94,8 +95,8 @@ flea_mode_stats = [
 ]
 
 
-#hideout mode stuff
-hideout_mode_stats_title = [
+# hideout mode stuff
+hideout_mode_stats_titles = [
     [
         [
             sg.Text("Workbench Starts: "),
@@ -202,9 +203,54 @@ hideout_mode_stats_values = [
 
 hideout_mode_stats = [
     [
-        sg.Column(hideout_mode_stats_title[0], element_justification="right"),
+        sg.Column(hideout_mode_stats_titles[0], element_justification="right"),
         sg.Column(hideout_mode_stats_values[0], element_justification="left"),
-        sg.Column(hideout_mode_stats_title[1], element_justification="right"),
+        sg.Column(hideout_mode_stats_titles[1], element_justification="right"),
         sg.Column(hideout_mode_stats_values[1], element_justification="left"),
+    ]
+]
+
+
+
+#snipebot mode stuff
+
+snipebot_mode_stats_titles=[
+    [
+        [
+            sg.Text("Program Restarts: "),
+        ],
+    ],
+    [
+        [
+            sg.Text("Ruble Snipes"),
+        ],
+        [
+            sg.Text("Specific Snipes"),
+        ],
+    ],
+]
+
+snipebot_mode_stats_values=[
+    [
+        [
+            stat_box("restarts"),
+        ],
+    ],
+    [
+        [
+            stat_box("ruble_snipes"),
+        ],
+        [
+            stat_box("specific_snipes"),
+        ],
+    ],
+]
+
+snipebot_mode_stats=[
+    [
+        sg.Column(snipebot_mode_stats_titles[0], element_justification="right"),
+        sg.Column(snipebot_mode_stats_values[0], element_justification="left"),
+        sg.Column(snipebot_mode_stats_titles[1], element_justification="right"),
+        sg.Column(snipebot_mode_stats_values[1], element_justification="left"),
     ]
 ]
