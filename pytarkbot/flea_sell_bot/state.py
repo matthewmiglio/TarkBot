@@ -1,5 +1,6 @@
 import sys
 import time
+from typing import Literal
 
 from pytarkbot.flea_sell_bot.flea import (
     get_price_of_first_seller_in_flea_items_table,
@@ -22,12 +23,11 @@ from pytarkbot.hideout_bot.stations.water_collector import find_water_collector_
 from pytarkbot.hideout_bot.stations.workbench import handle_workbench
 from pytarkbot.tarkov import restart_tarkov
 from pytarkbot.tarkov.client import click
+from pytarkbot.utils.logger import Logger
 
 
-
-#flea sell mode stuff
+# flea sell mode stuff
 def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer):
-
     if state == "restart":
         flea_mode_restart_state(logger)
         return "flea_mode"
@@ -44,7 +44,6 @@ def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer
 
 
 def state_remove_flea_offers(logger):
-
     logger.change_status("State==Remove flea offers")
 
     logger.change_status("STATE=remove_flea_offers")
@@ -111,7 +110,7 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         orientate_add_offer_window(logger)
         time.sleep(1)
 
-        if select_random_item_to_flea(logger, number_of_rows)== "restart":
+        if select_random_item_to_flea(logger, number_of_rows) == "restart":
             return "restart"
         time.sleep(1)
 
@@ -150,8 +149,24 @@ def flea_mode_restart_state(logger):
     return "flea_mode"
 
 
+def do_autorestart_check(logger: Logger):
+    AUTORESTART_BUFFER = 1 #time (hours) until autorestart actually starts happening
+    AUTORESTART_INCREMENT = 1 #time (hours) between autorestarts
 
-#hideout bot stuff
+    seconds_running = time.time() - logger.start_time
+    hours_running = seconds_running / 60 / 60
+    autorestarts = logger.autorestarts + 1
+
+    # if has been running less than 1hr, never autorestart
+    if seconds_running < AUTORESTART_BUFFER * 60 * 60:
+        return False
+
+    # otherwise, autorestart every hour
+    if hours_running/AUTORESTART_INCREMENT > autorestarts:
+        return True
+
+
+# hideout bot stuff
 def hideout_mode_state_tree(state, logger, jobs):  # -> check_fuel
     print("-------------------------------------\n")
 
@@ -188,31 +203,17 @@ def hideout_mode_state_tree(state, logger, jobs):  # -> check_fuel
     # bitcoin -> workbench -> water -> scav -> medstation -> lavatory -> bitcoin
 
     elif state == "bitcoin":
-        # if its time for autorestart, state = autorestart then return
-        print('Checking for autorestart time')
-        hours_string = logger.time_since_start
+        # run bitcoin state
+        if "Bitcoin" in jobs:
+            state: Literal["restart", "workbench"] = handle_bitcoin_miner(logger)
 
-        print('Done checking for autorestart time')
-
-        hours_running = int(hours_string)
-
-        autorestarts = logger.autorestarts
-
-        if hours_running >= autorestarts:
+        # if check for autorestart, next state = autorestart
+        if do_autorestart_check(logger):
             state = "autorestart"
-        else:
-            print("Entered bitcoin state")
 
-            if "Bitcoin" in jobs:
-                state = handle_bitcoin_miner(logger)
-            else:
-                state = "workbench"
-
-            print(f"State after bitcoin is {state}")
+        print(f"State after bitcoin is {state}")
 
     elif state == "workbench":
-        print("Entered workbench state")
-
         if "Workbench" in jobs:
             state = handle_workbench(logger)
         else:
@@ -274,6 +275,3 @@ def hideout_mode_state_tree(state, logger, jobs):  # -> check_fuel
         print(f"State after lavatory is {state}")
 
     return state
-
-
-

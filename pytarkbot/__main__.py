@@ -161,6 +161,11 @@ def main():
 
     # run the gui
     while True:
+        try:
+            if event != '__TIMEOUT__':print(event)
+        except:
+            pass
+
         # get gui vars
         read = window.read(timeout=100)
         event, values = read or (None, None)
