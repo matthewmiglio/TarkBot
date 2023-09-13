@@ -9,6 +9,7 @@ from pytarkbot.flea_sell_bot.state import hideout_mode_state_tree
 from pytarkbot.interface import (
     THEME,
     disable_keys,
+    hideout_disable_keys,
     flea_mode_layout,
     hideout_mode_layout,
     show_help_gui,
@@ -68,7 +69,7 @@ def hideout_mode_start_button_event(logger: Logger, window, values):
     # check for invalid inputs
     logger.change_status("Starting hideout mode")
 
-    for key in disable_keys:
+    for key in hideout_disable_keys:
         window[key].update(disabled=True)
 
     # unpack job list
@@ -154,32 +155,17 @@ def main():
 
     load_last_settings(window)
 
-    # start timer for autostart
-    start_time = time.time()
-    auto_start_time = 30  # seconds
-    auto_started = False
-
     # run the gui
     while True:
         try:
-            if event != '__TIMEOUT__':print(event)
+            if event != "__TIMEOUT__":
+                print(event)
         except:
             pass
 
         # get gui vars
         read = window.read(timeout=100)
         event, values = read or (None, None)
-
-        # check if bot should be autostarted
-        if (
-            thread is None
-            and values is not None
-            and values["autostart"]
-            and not auto_started
-            and time.time() - start_time > auto_start_time
-        ):
-            auto_started = True
-            event = "flea_mode_start"
 
         if event in [sg.WIN_CLOSED, "Exit"]:
             # shut down the thread if it is still running
@@ -286,6 +272,7 @@ class HideoutModeWorkerThread(StoppableThread):
                 loops += 1
 
                 state = hideout_mode_state_tree(state, self.logger, jobs)
+                time.sleep(1)
 
         except ThreadKilled:
             return

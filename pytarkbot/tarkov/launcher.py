@@ -1,3 +1,4 @@
+import random
 import subprocess
 import sys
 import time
@@ -143,6 +144,9 @@ def restart_tarkov(logger: Logger):
 
     # sleep 20 sec for play button
     for i in range(20):
+        if check_for_play_button():
+            logger.change_status("Detected the play button!")
+            break
         logger.change_status(f"Manual waiting... {20-i}/20s...")
         time.sleep(1)
 
@@ -172,6 +176,23 @@ def restart_tarkov(logger: Logger):
     logger.change_status("Waiting for tarkov client to reach main menu.")
     if wait_for_tark_main(logger) == "restart":
         restart_tarkov(logger)
+
+
+def check_for_play_button():
+    iar = numpy.asarray(screenshot())
+
+    pix_list = []
+    for _ in range(100):
+        pix_list.append(iar[random.randint(547, 571)][random.randint(992, 1090)])
+
+    positives = 0
+    for pix in pix_list:
+        if pixel_is_equal(pix, [246, 245, 221], tol=15):
+            positives += 1
+
+    if positives / len(pix_list) > 0.7:
+        return True
+    return False
 
 
 def wait_for_tarkov_to_open(logger):
@@ -222,5 +243,10 @@ def wait_for_play_button_in_launcher(logger):
 
 
 if __name__ == "__main__":
-    time.sleep(3)
-    click_play_button()
+    # time.sleep(3)
+    # click_play_button()
+
+    # restart_tarkov(Logger())
+
+    while 1:
+        check_for_play_button()

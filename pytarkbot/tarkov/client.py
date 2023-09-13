@@ -214,4 +214,5 @@ def click(x, y, clicks=1, interval=0.0, duration=0.1, button="left"):
 if __name__ == "__main__":
     # orientate_launcher()
     # print(get_launcher_res())
-    orientate_tarkov_client()
+    # orientate_tarkov_client()
+    orientate_launcher()

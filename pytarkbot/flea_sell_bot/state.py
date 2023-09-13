@@ -19,7 +19,7 @@ from pytarkbot.hideout_bot.stations.bitcoin_miner import handle_bitcoin_miner
 from pytarkbot.hideout_bot.stations.lavatory import handle_lavatory
 from pytarkbot.hideout_bot.stations.medstation import handle_medstation
 from pytarkbot.hideout_bot.stations.scav_case import handle_scav_case
-from pytarkbot.hideout_bot.stations.water_collector import find_water_collector_icon
+from pytarkbot.hideout_bot.stations.water_collector import find_water_collector_icon, handle_water_collector
 from pytarkbot.hideout_bot.stations.workbench import handle_workbench
 from pytarkbot.tarkov import restart_tarkov
 from pytarkbot.tarkov.client import click
@@ -225,7 +225,7 @@ def hideout_mode_state_tree(state, logger, jobs):  # -> check_fuel
         print("Entered water state")
 
         if "water" in jobs:
-            state = find_water_collector_icon()
+            state = handle_water_collector(logger)
         else:
             state = "scav_case"
 
