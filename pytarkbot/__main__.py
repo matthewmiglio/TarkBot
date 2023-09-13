@@ -1,4 +1,3 @@
-
 import time
 import webbrowser
 from os import path
@@ -7,22 +6,14 @@ from queue import Queue
 import PySimpleGUI as sg
 from pytarkbot.flea_sell_bot import flea_sell_mode_state_tree
 from pytarkbot.flea_sell_bot.state import hideout_mode_state_tree
-from pytarkbot.interface import (
-    THEME,
-    disable_keys,
-    hideout_disable_keys,
-    flea_mode_layout,
-    hideout_mode_layout,
-    show_help_gui,
-    snipebot_mode_layout,
-    user_config_keys,
-)
-from pytarkbot.utils import Logger, admin_check  # pylint: disable=unused-import
-from pytarkbot.utils.caching import (
-    cache_user_settings,
-    check_user_settings,
-    read_user_settings,
-)
+from pytarkbot.interface import (THEME, disable_keys, flea_mode_layout,
+                                 hideout_disable_keys, hideout_mode_layout,
+                                 show_help_gui, snipebot_mode_layout,
+                                 user_config_keys)
+from pytarkbot.utils import (Logger,  # pylint: disable=unused-import
+                             admin_check)
+from pytarkbot.utils.caching import (cache_user_settings, check_user_settings,
+                                     read_user_settings)
 from pytarkbot.utils.thread import StoppableThread, ThreadKilled
 
 sg.theme(THEME)
@@ -137,37 +128,22 @@ def main():
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
     # window layout
-    # flea_sell_tab = sg.Tab("Flea Sell", flea_mode_layout)
-    # flea_snipe_tab = sg.Tab("Flea Snipe", snipebot_mode_layout)
-    # hideout_tab = sg.Tab("Hideout", hideout_mode_layout)
-    # tab_group = sg.TabGroup(
-    #     [
-    #         [
-    #             flea_sell_tab,
-    #             flea_snipe_tab,
-    #             hideout_tab,
-    #         ]
-    #     ]
-    # )
-    # layout = [
-    #     [tab_group],
-    # ]
-    # window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True)
-
-
-
+    flea_sell_tab = sg.Tab("Flea Sell", flea_mode_layout)
+    flea_snipe_tab = sg.Tab("Flea Snipe", snipebot_mode_layout)
+    hideout_tab = sg.Tab("Hideout", hideout_mode_layout)
+    tab_group = sg.TabGroup(
+        [
+            [
+                flea_sell_tab,
+                flea_snipe_tab,
+                hideout_tab,
+            ]
+        ]
+    )
     layout = [
-        [snipebot_mode_layout],
+        [tab_group],
     ]
     window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True)
-
-
-
-
-
-
-
-
 
     load_last_settings(window)
 
@@ -175,10 +151,9 @@ def main():
     while True:
         event, values = window.read(timeout=100)
 
-
         try:
             if event != sg.TIMEOUT_KEY:
-                print('event: ',event)
+                print("event: ", event)
         except:
             pass
 
