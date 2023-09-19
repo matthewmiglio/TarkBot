@@ -72,24 +72,18 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
     logger.change_status("Getting to flea")
     if get_to_flea_tab(logger) == "restart":
         return "restart"
-    time.sleep(1)
-
-    # read money and set logger's starting money value
 
     while True:
         # open flea
         logger.change_status("Getting to flea")
         if get_to_flea_tab(logger) == "restart":
             return "restart"
-        time.sleep(1)
 
         # wait for another add offer
         logger.change_status("Waiting for another flea offer slot.")
 
         if not wait_till_can_add_another_offer(logger, remove_offers_timer):
             return "remove_flea_offers"
-
-        time.sleep(1)
 
         # click add offer
         logger.change_status("Adding another offer.")
@@ -98,9 +92,6 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
 
         logger.change_status("Orientating add offer window.")
         orientate_add_offer_window(logger)
-        time.sleep(1)
-        orientate_add_offer_window(logger)
-        time.sleep(1)
 
         select_random_item_to_flea(logger, number_of_rows)
         time.sleep(1)

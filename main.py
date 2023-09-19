@@ -1,8 +1,12 @@
+"""
+This module contains the main program for TarkBot, a bot for playing the game Escape from Tarkov.
+It includes functionality for the flea market sell mode, hideout mode, and snipebot mode.
+"""
 import webbrowser
-
 from queue import Queue
 
 import PySimpleGUI as sg
+
 from flea_bot.state import flea_sell_mode_state_tree
 from hideout_bot.states import hideout_mode_state_tree
 from interface.layout import (
@@ -85,6 +89,12 @@ def load_last_settings(window) -> None:
 
 
 class FleaSellWorkerThread(StoppableThread):
+    """
+    This class represents a worker thread for the flea market sell mode.
+    It initializes the state and loops through the state tree
+    until the shutdown flag is set. If an exception is caught, it logs the error.
+    """
+
     def __init__(self, logger: Logger, args, kwargs=None):
         """
         Initializes a worker thread for the flea market sell mode.
@@ -145,8 +155,14 @@ class HideoutModeWorkerThread(StoppableThread):
             # catch exceptions and log to not crash the main thread
             self.logger.error(str(exc))
 
-
 class SnipeModeWorkerThread(StoppableThread):
+    """
+    This class represents a worker thread for the snipe mode.
+    It initializes the state, number of rows, and remove offers timer.
+    It then loops through the state tree until the shutdown flag is set.
+    If an exception is caught, it logs the error.
+    """
+
     def __init__(self, logger: Logger, args, kwargs=None):
         """
         Initializes the SnipeModeWorkerThread class.
@@ -300,8 +316,9 @@ def snipe_mode_start_button_event(
 ) -> SnipeModeWorkerThread:
     """
     This function is called when the user clicks the "Start" button for the snipe mode.
-    It checks for invalid inputs, creates a job list based on user's selection, creates snipe_data based on user input,
-    creates args for the thread, starts the thread, enables the stop button, and returns the thread.
+    It checks for invalid inputs, creates a job list based on user's selection, creates
+    snipe_data based on user input, creates args for the thread, starts the thread,
+    enables the stop button, and returns the thread.
 
     Args:
         logger (Logger): The logger object.
@@ -454,7 +471,8 @@ def stop_button_event(logger: Logger, window, thread) -> None:
 
 def main():
     """
-    The main function of the Py-TarkBot program. Initializes the GUI window and handles user input events.
+    The main function of the Py-TarkBot program.
+    Initializes the GUI window and handles user input events.
 
     Returns:
         None

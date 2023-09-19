@@ -15,6 +15,7 @@ from tarkov import click, screenshot
 from tarkov.client import get_to_flea_tab, open_filters_window
 
 pyautogui.FAILSAFE = False
+RANDOM_ITEM_SELECTION_TIMEOUT = 30  # S
 
 
 def remove_offers(logger):
@@ -54,7 +55,6 @@ def remove_offers(logger):
             logger.change_status("No remove offer button found.")
 
 
-# digit count methods
 def get_color_list_of_current_price(image):
     # make numpy iar
     iar = numpy.asarray(image)
@@ -169,7 +169,37 @@ def find_coords_of_item_to_flea(rows_to_target):
 
     if not positive_pixel_list:
         return None
+
+    positive_pixel_list = remove_close_coords(positive_pixel_list, threshold=5)
+
     return random.choice(positive_pixel_list)
+
+
+def remove_close_coords(coord_list, threshold=5):
+    # Create a list to store the coordinates to keep
+    coords_to_keep = []
+
+    # Iterate through the list of coordinates
+    for coord in coord_list:
+        # Assume we want to keep this coordinate
+        keep_coord = True
+
+        # Check if this coordinate is within 'threshold' pixels of any other coordinate
+        for existing_coord in coords_to_keep:
+            distance = (
+                (coord[0] - existing_coord[0]) ** 2
+                + (coord[1] - existing_coord[1]) ** 2
+            ) ** 0.5
+            if distance < threshold:
+                # If it is, mark it for removal
+                keep_coord = False
+                break
+
+        # If we still want to keep this coordinate, add it to the list of coordinates to keep
+        if keep_coord:
+            coords_to_keep.append(coord)
+
+    return coords_to_keep
 
 
 def find_fbi_button():
@@ -201,52 +231,45 @@ def click_fbi_button():
     return "continue"
 
 
-def select_random_item_to_flea(logger, rows_to_target, loops=0) -> bool:
-    # ROWS TO TARGET MUST BE AN INT 1-11 THAT WILL BE GIVEN THRUGH THE GUI
-    # Rows just means the amt of rows it'll attempt to target when selecting an item to flea in the
-    # add offer tab
-
+def select_random_item_to_flea(logger, rows_to_target) -> bool:
+    # cast rows to assure its really an int
     rows_to_target = int(rows_to_target)
 
-    logger.change_status("Selecting another random item to flea.")
-    has_item_to_flea = False
-    while not has_item_to_flea:
-        # clicks the random item's FBI button
-        # click item to flea
+    logger.change_status("Selecting a random item to flea.")
 
-        loop_limit = 6
-        if loops > loop_limit:
+    # get start time
+    start_time = time.time()
+
+    # loop forever
+    while 1:
+        # timeout check
+        if time.time() - start_time > RANDOM_ITEM_SELECTION_TIMEOUT:
             logger.change_status(
-                f"Selected a bad item more than {loop_limit} times in a row. Stopping sell algorithm..."
+                "Looked for an item to flea for longer than {TIMEOUT} seconds!"
             )
-            return True
+            break
 
+        # find an item
         item_coords = find_coords_of_item_to_flea(rows_to_target)
 
+        # if no items, look  again
         if item_coords is None:
-            return False
+            continue
 
-        if item_coords is None:
-            return True
-
-        click(item_coords[0], item_coords[1])
-        time.sleep(0.33)
+        # left + right click the item
+        logger.change_status("Found a potential item to sell")
+        click(item_coords[0], item_coords[1], button="left")
+        time.sleep(0.1)
         click(item_coords[0], item_coords[1], button="right")
         time.sleep(0.33)
 
-        loops += 1
-
-        # click this item's FBI button
+        # click this item's filter by item (FBI) button
         if click_fbi_button() != "restart":
-            logger.change_status("Found item to flea.")
-            has_item_to_flea = True
             logger.change_status("Found a satisfactory item to flea.")
-        else:
-            logger.change_status(
-                "This item's filter by item button was unreadable this go-around. Finding another item."
-            )
+            return True
 
-    return True
+    # if we get here, we timed out
+    return False
 
 
 def check_if_can_add_offer():
@@ -428,7 +451,6 @@ def check_for_purchase_confirmation_popup() -> bool:
     return check_for_location(locations)
 
 
-# flea add offer window
 def orientate_add_offer_window(logger) -> bool:
     orientated = check_add_offer_window_orientation()
     loops = 0
@@ -476,17 +498,14 @@ def find_add_requirement_window() -> list[int] | None:
 
 
 def set_flea_sell_mode_filters(logger):
-    operation_delay = 0.25
-
-    logger.change_status("Setting the flea filters for price undercut recognition")
+    start_time = time.time()
+    operation_delay = 0.01
 
     # open filter window
-    logger.change_status("Opening the filters window")
     open_filters_window(logger)
     time.sleep(operation_delay)
 
     # click currency dropdown
-    logger.change_status("Filtering by roubles.")
     click(113, 62)
     time.sleep(operation_delay)
 
@@ -494,16 +513,7 @@ def set_flea_sell_mode_filters(logger):
     click(124, 100)
     time.sleep(operation_delay)
 
-    # click quantity from input
-    click(141, 116)
-    time.sleep(operation_delay)
-
-    # type 1
-    pyautogui.typewrite("1")
-    time.sleep(operation_delay)
-
     # click 'display offers from' dropdown
-    logger.change_status("Filtering by player sales only.")
     click(171, 188)
     time.sleep(operation_delay)
 
@@ -520,12 +530,14 @@ def set_flea_sell_mode_filters(logger):
     time.sleep(operation_delay)
 
     # click OK
-    logger.change_status("Clicking OK in filters tab.")
     click(83, 272)
     time.sleep(operation_delay)
 
+    logger.change_status(
+        f"Took {str(time.time() - start_time)[:5]}s to set flea sell mode filters."
+    )
 
-# removing offers methods
+
 def check_if_on_my_offers_tab():
     iar = numpy.asarray(screenshot())
 
