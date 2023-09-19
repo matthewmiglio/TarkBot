@@ -93,7 +93,7 @@ STOP_KEYS = [
 DONATE_BUTTON_KEY = "donate_button_key"
 
 
-folder_path = os.path.join(os.getcwd(), "pytarkbot", "interface", "assets")
+folder_path = os.path.join(os.getcwd(),  "interface", "assets")
 IMAGE_SOUCRES = [
     os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path)
 ]
