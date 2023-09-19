@@ -95,10 +95,7 @@ def handle_scav_case(logger, craft_type) -> Literal["restart", "medstation"]:
     # start the selected craft
     if craft_type == "moonshine":
         if check_for_moonshine_start():
-            logger.change_status("Starting moonshine scav case...")
-            click(1050, 440, clicks=2)
-            time.sleep(2)
-            logger.add_scav_case_start()
+            start_moonshine_craft(logger)
 
     elif craft_type == "intel":
         if check_for_intel_start():
@@ -129,6 +126,13 @@ def handle_scav_case(logger, craft_type) -> Literal["restart", "medstation"]:
             logger.add_scav_case_start()
 
     return "medstation"
+
+
+def start_moonshine_craft(logger):
+    logger.change_status("Starting moonshine scav case...")
+    click(1050, 440, clicks=2)
+    time.sleep(2)
+    logger.add_scav_case_start()
 
 
 def do_scav_case_scrolling() -> None:
