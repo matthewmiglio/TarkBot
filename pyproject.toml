@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Matt Main_PC <matmigg0804@gmail.com>"]
 readme = "README.md"
-packages = [{include = "py_tarkbot"}]
+packages = [{include = "pytarkbot"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"

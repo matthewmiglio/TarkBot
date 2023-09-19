@@ -10,7 +10,7 @@ COPYRIGHT = "2023 Matthew Miglio"
 ENTRY_POINT = "pytarkbot\\__main__.py"
 ICON_PATH = "assets\\pixel-pytb-multi.ico"
 GUI = True
-UPGRADE_CODE = "{484bebef-6fc5-42e5-98c8-e63457934579}"
+UPGRADE_CODE = "{484bebef-8fc9-42e5-32c4-e66666934579}"
 
 
 try:
