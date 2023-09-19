@@ -527,7 +527,7 @@ def main():
         if event in STOP_KEYS:
             stop_button_event(logger, window, thread)
 
-        if event != "__TIMEOUT__" and event != DONATE_BUTTON_KEY:
+        if event not in {"__TIMEOUT__", DONATE_BUTTON_KEY}:
             save_current_settings(values)
 
         if event == DONATE_BUTTON_KEY:

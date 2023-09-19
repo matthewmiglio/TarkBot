@@ -3,7 +3,7 @@ import random
 
 import PySimpleGUI as sg
 
-from .stats import flea_mode_stats, hideout_mode_stats, snipebot_mode_stats, stat_box
+from .stats import flea_mode_stats, hideout_mode_stats, snipebot_mode_stats
 
 
 FLEA_SELL_START_KEY = "flea_sell_start_key"
@@ -98,7 +98,7 @@ folder_path = os.path.join(os.getcwd(), 'pytarkbot',"interface", "assets")
 IMAGE_SOUCRES = [
     os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path)
 ]
-print(f"\n\n-------------------------------------\nGUI STUFF")
+print("\n\n-------------------------------------\nGUI STUFF")
 print(f"There are {len(IMAGE_SOUCRES)} images in the folder.")
 random_image_index = random.randint(0, len(IMAGE_SOUCRES)-1)
 print(f"Chose image #{random_image_index}\n-------------------------------------\n\n")
