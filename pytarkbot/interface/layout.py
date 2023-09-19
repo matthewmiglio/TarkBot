@@ -322,19 +322,25 @@ HIDEOUT_MODE_LAYOUT = [
 snipebot_info_layout = [
     [
         sg.Text(
-            "FLEA SNIPE MODE has two options: Specific item sniping, and rouble farm sniping",
+            "FLEA SNIPE MODE has two options: Specific item sniping, and rouble farm sniping.",
             size=(35, None),
         )
     ],
     [
         sg.Text(
-            "SPECIFIC ITEM SNIPING targets items below your given price and automatically purchases them",
+            "SPECIFIC ITEM SNIPING uses the item inputs to target items your want to buy at or below a given price.",
             size=(35, None),
         )
     ],
     [
         sg.Text(
-            "ROUBLE FARM SNIPING targets items below vendor price, so you can resell them for a profit.",
+            "ROUBLE FARM SNIPING automatically snipes preset items below vendor price, so you can resell them to Therapist for a profit.",
+            size=(35, None),
+        )
+    ],
+    [
+        sg.Text(
+            "Selecting both modes will rotate between either mode.",
             size=(35, None),
         )
     ],
