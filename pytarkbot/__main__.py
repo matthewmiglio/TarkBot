@@ -6,13 +6,11 @@ import webbrowser
 from queue import Queue
 
 import PySimpleGUI as sg
-
 from flea_bot.state import flea_sell_mode_state_tree
 from hideout_bot.states import hideout_mode_state_tree
 from interface.layout import (
     CONTROLS_KEYS,
     DONATE_BUTTON_KEY,
-    FLEA_MODE_LAYOUT,
     FLEA_SELL_CONTROL_KEYS,
     FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,
     FLEA_SELL_ROWS_INPUT_KEY,
@@ -21,7 +19,6 @@ from interface.layout import (
     HIDEOUT_BITCOIN_TOGGLE_KEY,
     HIDEOUT_LAVATORY_TOGGLE_KEY,
     HIDEOUT_MED_STATION_TOGGLE_KEY,
-    HIDEOUT_MODE_LAYOUT,
     HIDEOUT_SCAV_CASE_TOGGLE_KEY,
     HIDEOUT_START_KEY,
     HIDEOUT_STOP_KEY,
@@ -39,7 +36,6 @@ from interface.layout import (
     SNIPEBOT_ITEM_PRICE_3_KEY,
     SNIPEBOT_ITEM_PRICE_4_KEY,
     SNIPEBOT_ITEM_PRICE_5_KEY,
-    SNIPEBOT_MODE_LAYOUT,
     SNIPEBOT_START_KEY,
     SNIPEBOT_STOP_KEY,
     SPECIFIC_ITEM_KEY,
@@ -50,6 +46,8 @@ from snipe_bot.state import snipebot_state_tree
 from utils.caching import cache_user_settings, check_user_settings, read_user_settings
 from utils.logger import Logger
 from utils.thread import StoppableThread, ThreadKilled
+
+from interface.layout import make_tarkbot_window
 
 
 def save_current_settings(values) -> None:
@@ -483,23 +481,7 @@ def main():
     comm_queue: Queue[dict[str, str | int]] = Queue()
     logger = Logger(comm_queue, timed=False)  # dont time the inital logger
 
-    # window layout
-    flea_sell_tab = sg.Tab("Flea Sell", FLEA_MODE_LAYOUT)
-    flea_snipe_tab = sg.Tab("Flea Snipe", SNIPEBOT_MODE_LAYOUT)
-    hideout_tab = sg.Tab("Hideout", HIDEOUT_MODE_LAYOUT)
-    tab_group = sg.TabGroup(
-        [
-            [
-                flea_sell_tab,
-                flea_snipe_tab,
-                hideout_tab,
-            ]
-        ]
-    )
-    layout = [
-        [tab_group],
-    ]
-    window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True, size=(500, 590))
+    window = make_tarkbot_window()
 
     load_last_settings(window)
 

@@ -34,11 +34,11 @@ jobs:
           prerelease: true
           generate_release_notes: true
           files: |
-            ./dist/py-tark-snipe-bot*.msi
+            ./dist/TarkBot*.msi
       - name: Publish Release
         uses: softprops/action-gh-release@master
         if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'rc')
         with:
           generate_release_notes: true
           files: |
-            ./dist/py-tark-snipe-bot*.msi
+            ./dist/TarkBot*.msi

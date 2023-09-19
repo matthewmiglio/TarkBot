@@ -1,3 +1,4 @@
+from PySimpleGUI import theme
 import os
 import random
 
@@ -5,6 +6,8 @@ import PySimpleGUI as sg
 
 from .stats import flea_mode_stats, hideout_mode_stats, snipebot_mode_stats
 
+
+# region CONSTANTS
 
 FLEA_SELL_START_KEY = "flea_sell_start_key"
 FLEA_SELL_STOP_KEY = "flea_sell_stop_key"
@@ -93,15 +96,21 @@ STOP_KEYS = [
 DONATE_BUTTON_KEY = "donate_button_key"
 
 
-folder_path = os.path.join(os.getcwd(), 'pytarkbot',"interface", "assets")
+IMAGE_SOURCE_FILE_PATH = os.path.join(os.getcwd(), "pytarkbot", "interface", "assets")
 
 IMAGE_SOUCRES = [
-    os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path)
+    os.path.join(IMAGE_SOURCE_FILE_PATH, file_name)
+    for file_name in os.listdir(IMAGE_SOURCE_FILE_PATH)
 ]
-print("\n\n-------------------------------------\nGUI STUFF")
-print(f"There are {len(IMAGE_SOUCRES)} images in the folder.")
-random_image_index = random.randint(0, len(IMAGE_SOUCRES)-1)
-print(f"Chose image #{random_image_index}\n-------------------------------------\n\n")
+
+
+# endregion
+
+
+# region DONATE BUTTON LAYOUTS
+
+
+random_image_index = random.randint(0, len(IMAGE_SOUCRES) - 1)
 random_image_path = IMAGE_SOUCRES[random_image_index]
 
 
@@ -117,8 +126,10 @@ DONATE_BUTTON_LAYOUTS = [
     ],
 ]
 
+# endregion
 
-# FLEA SELL MODE INTERFACE STUFF
+
+# region FLEA SELL MODE INTERFACE STUFF
 
 flea_sell_info_layout = [
     [
@@ -212,8 +223,10 @@ FLEA_MODE_LAYOUT = [
     ],
 ]
 
+# endregion
 
-# Hideout MODE INTERFACE STUFF
+
+# region Hideout MODE INTERFACE STUFF
 
 
 hideout_info_layout = [
@@ -300,8 +313,10 @@ HIDEOUT_MODE_LAYOUT = [
     ],
 ]
 
+# endregion
 
-# SNIPE MODE INTERFACE STUFF
+
+# region SNIPE MODE INTERFACE STUFF
 
 
 snipebot_info_layout = [
@@ -415,3 +430,45 @@ SNIPEBOT_MODE_LAYOUT = [
         ),
     ],
 ]
+# endregion
+
+
+# region MAIN LAYOUT
+
+
+def make_tarkbot_window():
+    # tabs
+    flea_sell_tab = sg.Tab(
+        "Flea Sell",
+        FLEA_MODE_LAYOUT,
+    )
+    flea_snipe_tab = sg.Tab(
+        "Flea Snipe",
+        SNIPEBOT_MODE_LAYOUT,
+    )
+    hideout_tab = sg.Tab(
+        "Hideout",
+        HIDEOUT_MODE_LAYOUT,
+    )
+
+    # tab group
+    tab_group = sg.TabGroup(
+        [
+            [
+                flea_sell_tab,
+                flea_snipe_tab,
+                hideout_tab,
+            ]
+        ]
+    )
+
+    # main layout
+    layout = [
+        [tab_group],
+    ]
+
+    # return window
+    return sg.Window("Py-TarkBot v1.0.0", layout, finalize=True, size=(500, 590))
+
+
+# endregion

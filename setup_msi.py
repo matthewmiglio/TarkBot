@@ -2,7 +2,7 @@ import sys
 
 from cx_Freeze import Executable, setup
 
-PROJECT_NAME = "py-tark-bot"
+PROJECT_NAME = "TarkBot"
 AUTHOR = "Matthew Miglio"
 DESCRIPTION = "Automated Tarkov Interactions"
 KEYWORDS = "Tarkov Bot"
@@ -56,3 +56,4 @@ setup(
         "build_exe": build_exe_options,
     },
 )
+
