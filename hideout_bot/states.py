@@ -1,3 +1,9 @@
+"""
+This module contains the state tree for the hideout
+bot, which runs in a loop and executes the appropriate
+station functions based on the current state.
+"""
+
 import time
 from typing import List
 
@@ -90,7 +96,7 @@ def hideout_mode_state_tree(state: str, logger: object, jobs: List[str]) -> str:
         logger.change_status("Entered scav_case state")
 
         if "scav_case" in jobs:
-            logger.change_status('Scav case is in jobs')
+            logger.change_status("Scav case is in jobs")
             if "15000" in jobs:
                 craft_type = "15000"
             elif "95000" in jobs:
@@ -132,6 +138,17 @@ def hideout_mode_state_tree(state: str, logger: object, jobs: List[str]) -> str:
 
 
 def check_if_should_autorestart(logger):
+    """
+    Checks if the bot should be automatically restarted
+    based on the time it has been running and the number
+    of autorestarts.
+
+    Args:
+        logger: An object that logs the bot's status and autorestart count.
+
+    Returns:
+        A boolean value indicating whether the bot should be automatically restarted.
+    """
     hours_running = (time.time() - logger.start_time) / 60 / 60
 
     autorestarts = logger.autorestarts

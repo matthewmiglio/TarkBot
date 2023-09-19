@@ -1,3 +1,8 @@
+"""
+This module contains the code for handling the scav
+case station in the TarkBot hideout bot.
+"""
+
 import time
 from typing import Literal
 
@@ -20,6 +25,16 @@ from tarkov.client import (
 
 
 def handle_scav_case(logger, craft_type) -> Literal["restart", "medstation"]:
+    """
+    Handles the scav case station by collecting items and starting a craft.
+
+    Args:
+        logger: The logger object to use for logging.
+        craft_type: The type of craft to start.
+
+    Returns:
+        A string indicating whether to restart the bot or move on to the next station.
+    """
     logger.add_station_visited()
 
     logger.change_status("Handling scav case")
@@ -117,6 +132,9 @@ def handle_scav_case(logger, craft_type) -> Literal["restart", "medstation"]:
 
 
 def do_scav_case_scrolling() -> None:
+    """
+    Scrolls to the bottom of the scav case list.
+    """
     print("Doing scav case scrolling")
     coord_list = [
         [1267, 410],
@@ -143,6 +161,12 @@ def do_scav_case_scrolling() -> None:
 
 
 def check_for_95000_get_items() -> bool:
+    """
+    Checks if there are 95000 scav case items available.
+
+    Returns:
+        True if 95000 scav case items are available, False otherwise.
+    """
     current_image = screenshot([995, 670, 160, 70])
     reference_folder = "scav_case_95000_get_items"
     references = make_reference_image_list(reference_folder)
@@ -158,6 +182,12 @@ def check_for_95000_get_items() -> bool:
 
 
 def check_for_moonshine_get_items() -> bool:
+    """
+    Checks if there are moonshine scav case items available.
+
+    Returns:
+        True if moonshine scav case items are available, False otherwise.
+    """
     current_image = screenshot([1000, 411, 150, 65])
     reference_folder = "scav_case_moonshine_get_items"
     references = make_reference_image_list(reference_folder)
@@ -173,6 +203,12 @@ def check_for_moonshine_get_items() -> bool:
 
 
 def check_for_intel_get_items() -> bool:
+    """
+    Checks if there are intel scav case items available.
+
+    Returns:
+        True if intel scav case items are available, False otherwise.
+    """
     current_image = screenshot([980, 580, 220, 70])
     reference_folder = "scav_case_intel_get_items"
     references = make_reference_image_list(reference_folder)
@@ -188,7 +224,13 @@ def check_for_intel_get_items() -> bool:
 
 
 def check_for_2500_get_items() -> bool:
-    current_image = screenshot([1000, 490, 200, 80])
+    """
+    Checks if there are 2500 scav case items available.
+
+    Returns:
+        True if 2500 scav case items are available, False otherwise.
+    """
+    current_image = screenshot([1019, 667, 109, 63])
     reference_folder = "scav_case_2500_get_items"
     references = make_reference_image_list(reference_folder)
 
@@ -203,6 +245,12 @@ def check_for_2500_get_items() -> bool:
 
 
 def check_for_15000_get_items() -> bool:
+    """
+    Checks if there are 15000 scav case items available.
+
+    Returns:
+        True if 15000 scav case items are available, False otherwise.
+    """
     current_image = screenshot([1020, 760, 140, 80])
     reference_folder = "scav_case_15000_get_items"
     references = make_reference_image_list(reference_folder)
@@ -218,6 +266,12 @@ def check_for_15000_get_items() -> bool:
 
 
 def check_for_moonshine_start() -> bool:
+    """
+    Checks if there are moonshine scav case items available.
+
+    Returns:
+        True if moonshine scav case items are available, False otherwise.
+    """
     current_image = screenshot([1000, 413, 200, 65])
     reference_folder = "scav_case_moonshine_start"
     references = make_reference_image_list(reference_folder)
@@ -233,7 +287,13 @@ def check_for_moonshine_start() -> bool:
 
 
 def check_for_2500_start() -> bool:
-    current_image = screenshot([1010, 490, 220, 85])
+    """
+    Checks if there are 2500 scav case items available.
+
+    Returns:
+        True if 2500 scav case items are available, False otherwise.
+    """
+    current_image = screenshot([1022, 673, 112, 57])
     reference_folder = "scav_case_2500_start"
     references = make_reference_image_list(reference_folder)
 
@@ -248,6 +308,12 @@ def check_for_2500_start() -> bool:
 
 
 def check_for_intel_start() -> bool:
+    """
+    Checks if there are intel scav case items available.
+
+    Returns:
+        True if intel scav case items are available, False otherwise.
+    """
     current_image = screenshot([1005, 585, 125, 80])
     reference_folder = "scav_case_intel_start"
     references = make_reference_image_list(reference_folder)
@@ -263,7 +329,13 @@ def check_for_intel_start() -> bool:
 
 
 def check_for_95000_start() -> bool:
-    current_image = screenshot([1025, 675, 200, 80])
+    """
+    Checks if there are 95000 scav case items available.
+
+    Returns:
+        True if 95000 scav case items are available, False otherwise.
+    """
+    current_image = screenshot([1033, 545, 119, 54])
     reference_folder = "scav_case_95000_start"
     references = make_reference_image_list(reference_folder)
 
@@ -278,7 +350,13 @@ def check_for_95000_start() -> bool:
 
 
 def check_for_15000_start() -> bool:
-    current_image = screenshot([1025, 750, 200, 80])
+    """
+    Checks if there are 15000 scav case items available.
+
+    Returns:
+        True if 15000 scav case items are available, False otherwise.
+    """
+    current_image = screenshot([1032, 638, 137, 53])
     reference_folder = "scav_case_15000_start"
     references = make_reference_image_list(reference_folder)
 
@@ -293,6 +371,12 @@ def check_for_15000_start() -> bool:
 
 
 def get_to_scav_case():
+    """
+    Navigates to the scav case in the hideout.
+
+    Returns:
+        True if successfully navigated to the scav case, False otherwise.
+    """
     print("Getting to scav case")
 
     start_time = time.time()
@@ -321,27 +405,33 @@ def get_to_scav_case():
 
 
 def check_if_at_scav_case():
+    """
+    Checks if the player is currently at the scav case in the hideout.
+
+    Returns:
+        True if the player is at the scav case, False otherwise.
+    """
     iar = numpy.asarray(screenshot())
 
     blue_jacket_exists = True
-    for x in range(70, 135):
-        pixel = iar[278][x]
+    for x_coord in range(70, 135):
+        pixel = iar[278][x_coord]
         if pixel_is_equal(pixel, [44, 99, 83], tol=15):
             blue_jacket_exists = True
     if not blue_jacket_exists:
         return False
 
     green_wall_exists = True
-    for x in range(609, 650):
-        pixel = iar[115][x]
+    for x_coord in range(609, 650):
+        pixel = iar[115][x_coord]
         if pixel_is_equal(pixel, [109, 105, 17], tol=15):
             green_wall_exists = True
     if not green_wall_exists:
         return False
 
     green_jacket_photo_exists = True
-    for x in range(847, 883):
-        pixel = iar[181][x]
+    for x_coord in range(847, 883):
+        pixel = iar[181][x_coord]
         if pixel_is_equal(pixel, [21, 88, 21], tol=15):
             green_jacket_photo_exists = True
     if not green_jacket_photo_exists:

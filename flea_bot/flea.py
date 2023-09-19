@@ -1,9 +1,14 @@
+"""
+This module contains functions for removing offers from the flea market in Escape from Tarkov.
+"""
+
 import itertools
 import random
 import time
 
 import numpy
 import pyautogui
+
 from detection import (
     check_for_location,
     find_references,
@@ -19,6 +24,15 @@ RANDOM_ITEM_SELECTION_TIMEOUT = 30  # S
 
 
 def remove_offers(logger):
+    """
+    Removes offers from the flea market page.
+
+    Args:
+        logger: A logger object that tracks the number of offers removed.
+
+    Returns:
+        None
+    """
     # Begins on MY OFFERS tab on the flea market page
 
     logger.change_status("Removing offers.")
@@ -56,6 +70,17 @@ def remove_offers(logger):
 
 
 def get_color_list_of_current_price(image):
+    """
+    Returns a list of English color names for the pixels
+    in the current price area of the given image.
+
+    Args:
+        image (PIL.Image): The image to analyze.
+
+    Returns:
+        list: A list of English color names for the pixels
+        in the current price area of the given image.
+    """
     # make numpy iar
     iar = numpy.asarray(image)
 
@@ -80,6 +105,12 @@ def get_color_list_of_current_price(image):
 
 
 def count_digits2():
+    """
+    Counts the number of digits in the current price area of the screen.
+
+    Returns:
+        int: The number of digits in the current price area of the screen.
+    """
     ####get pix list of pixels from (900,141) -> (1000,141)
     pixel_list = []
     iar = numpy.asarray(screenshot())
@@ -120,6 +151,12 @@ def count_digits2():
 
 
 def count_digits():
+    """
+    Counts the number of digits in the current price area of the screen.
+
+    Returns:
+        int: The number of digits in the current price area of the screen.
+    """
     image = screenshot()
 
     color_list = get_color_list_of_current_price(image)
@@ -134,6 +171,17 @@ def count_digits():
 
 
 def splice_color_list_for_count_digits(color_list):
+    """
+    Splices a list of English color names for the pixels in the
+    current price area of the screen into a list of digits.
+
+    Args:
+        color_list (list): A list of English color names for the
+        pixels in the current price area of the screen.
+
+    Returns:
+        list: A list of digits in the current price area of the screen.
+    """
     pix_list = [None]
 
     for pixel in color_list:
@@ -176,6 +224,16 @@ def find_coords_of_item_to_flea(rows_to_target):
 
 
 def remove_close_coords(coord_list, threshold=5):
+    """
+    Removes coordinates from a list that are too close to each other.
+
+    Args:
+        coord_list (list): A list of coordinates.
+        threshold (int, optional): The minimum distance between coordinates to keep. Defaults to 5.
+
+    Returns:
+        list: A list of coordinates with duplicates removed.
+    """
     # Create a list to store the coordinates to keep
     coords_to_keep = []
 
@@ -203,6 +261,12 @@ def remove_close_coords(coord_list, threshold=5):
 
 
 def find_fbi_button():
+    """
+    Find the filter by item button on the screen.
+
+    Returns:
+        tuple: The coordinates of the filter by item button.
+    """
     current_image = screenshot()
     reference_folder = "filter_by_item_button"
     references = make_reference_image_list(reference_folder)
@@ -218,6 +282,12 @@ def find_fbi_button():
 
 
 def click_fbi_button():
+    """
+    Click the filter by item button.
+
+    Returns:
+        str: "restart" if the filter by item button is not found, "continue" otherwise.
+    """
     # logger.change_status("Checking whether or not the fbi button shows for the selected item.")
     fbi_coords = find_fbi_button()
     if fbi_coords is None:
@@ -232,6 +302,16 @@ def click_fbi_button():
 
 
 def select_random_item_to_flea(logger, rows_to_target) -> bool:
+    """
+    Select a random item to flea.
+
+    Args:
+        logger: The logger object.
+        rows_to_target (int): The number of rows to target.
+
+    Returns:
+        bool: True if a satisfactory item to flea is found, False otherwise.
+    """
     # cast rows to assure its really an int
     rows_to_target = int(rows_to_target)
 
@@ -245,7 +325,7 @@ def select_random_item_to_flea(logger, rows_to_target) -> bool:
         # timeout check
         if time.time() - start_time > RANDOM_ITEM_SELECTION_TIMEOUT:
             logger.change_status(
-                "Looked for an item to flea for longer than {TIMEOUT} seconds!"
+                f"Looked for an item to flea for longer than {RANDOM_ITEM_SELECTION_TIMEOUT}s!"
             )
             break
 
@@ -273,40 +353,58 @@ def select_random_item_to_flea(logger, rows_to_target) -> bool:
 
 
 def check_if_can_add_offer():
+    """
+    Check if an offer can be added.
+
+    Returns:
+        bool: True if an offer can be added, False otherwise.
+    """
     pix_list = []
     iar = numpy.asarray(screenshot())
     positive_pixel = [220, 215, 190]
-    for x, y in itertools.product(range(780, 870), range(75, 90)):
-        current_pix = iar[y][x]
+    for x_coord, y_coord in itertools.product(range(780, 870), range(75, 90)):
+        current_pix = iar[y_coord][x_coord]
         if pixel_is_equal(current_pix, positive_pixel, tol=35):
             pix_list.append(current_pix)
     return len(pix_list) > 25
 
 
 def close_add_offer_window(logger):
+    """
+    Close the add offer window.
+
+    Args:
+        logger: The logger object.
+    """
     # logger.change_status("Closing add offer window.")
     orientate_add_offer_window(logger)
     click(732, 471)
 
 
 def check_for_close_add_offer_window():
+    """
+    Check if the add offer window can be closed.
+
+    Returns:
+        bool: True if the add offer window can be closed, False otherwise.
+    """
     iar = numpy.asarray(screenshot())
 
     white_x_exists = False
-    for x in range(730, 738):
-        if pixel_is_equal(iar[470][x], [184, 193, 199], tol=35):
+    for x_coord in range(730, 738):
+        if pixel_is_equal(iar[470][x_coord], [184, 193, 199], tol=35):
             white_x_exists = True
             break
 
     grey_refresh_button_exists = False
-    for x in range(710, 722):
-        if pixel_is_equal(iar[470][x], [61, 64, 65], tol=35):
+    for x_coord in range(710, 722):
+        if pixel_is_equal(iar[470][x_coord], [61, 64, 65], tol=35):
             grey_refresh_button_exists = True
             break
 
     red_background_exists = False
-    for x in range(727, 742):
-        if pixel_is_equal(iar[470][x], [72, 13, 13], tol=35):
+    for x_coord in range(727, 742):
+        if pixel_is_equal(iar[470][x_coord], [72, 13, 13], tol=35):
             red_background_exists = True
             break
 
@@ -316,6 +414,13 @@ def check_for_close_add_offer_window():
 
 
 def find_add_offer_window():
+    """
+    Find the add offer window.
+
+    Returns:
+        list: A list containing the x and y coordinates of
+        the add offer window, or None if it cannot be found.
+    """
     current_image = screenshot()
     reference_folder = "find_add_offer_window"
     references = make_reference_image_list(reference_folder)
@@ -332,6 +437,16 @@ def find_add_offer_window():
 
 
 def wait_till_can_add_another_offer(logger, remove_offers_timer) -> bool:
+    """
+    Wait until another offer can be added.
+
+    Args:
+        logger: The logger object.
+        remove_offers_timer: The time to wait before removing offers.
+
+    Returns:
+        bool: True if another offer can be added, False otherwise.
+    """
     # False = waited too long so should remove offers
 
     # calculate how long to wait for
@@ -373,6 +488,15 @@ def wait_till_can_add_another_offer(logger, remove_offers_timer) -> bool:
 
 
 def convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer):
+    """
+    Convert the remove offers timer to an integer in seconds.
+
+    Args:
+        remove_offers_timer: The time to wait before removing offers.
+
+    Returns:
+        int: The time in seconds.
+    """
     if remove_offers_timer == "1m":
         return 60
     if remove_offers_timer == "2m":
@@ -385,6 +509,13 @@ def convert_remove_offers_timer_to_int_in_seconds(remove_offers_timer):
 
 
 def write_post_price(logger, post_price):
+    """
+    Write the post price.
+
+    Args:
+        logger: The logger object.
+        post_price: The price to write.
+    """
     # open rouble input region
 
     click(507, 709)
@@ -396,6 +527,13 @@ def write_post_price(logger, post_price):
 
 
 def post_item(logger, post_price):
+    """
+    Post an item.
+
+    Args:
+        logger: The logger object.
+        post_price: The price to post.
+    """
     operation_delay = 0.17
 
     orientate_add_offer_window(logger)
@@ -422,6 +560,12 @@ def post_item(logger, post_price):
 
 
 def check_for_post_confirmation_popup() -> bool:
+    """
+    Check if there is a post confirmation popup.
+
+    Returns:
+        bool: True if there is a post confirmation popup, False otherwise.
+    """
     current_image = screenshot()
     reference_folder = "check_for_post_confirmation_popup"
     references = make_reference_image_list(reference_folder)
@@ -436,22 +580,16 @@ def check_for_post_confirmation_popup() -> bool:
     return check_for_location(locations)
 
 
-def check_for_purchase_confirmation_popup() -> bool:
-    current_image = screenshot()
-    reference_folder = "check_for_purchase_confirmation_popup"
-    references = make_reference_image_list(reference_folder)
-
-    locations = find_references(
-        screenshot=current_image,
-        folder=reference_folder,
-        names=references,
-        tolerance=0.99,
-    )
-
-    return check_for_location(locations)
-
-
 def orientate_add_offer_window(logger) -> bool:
+    """
+    Orientate the add offer window.
+
+    Args:
+        logger: The logger object.
+
+    Returns:
+        bool: True if the add offer window is orientated, False otherwise.
+    """
     orientated = check_add_offer_window_orientation()
     loops = 0
     while not orientated:
@@ -473,6 +611,12 @@ def orientate_add_offer_window(logger) -> bool:
 
 
 def check_add_offer_window_orientation() -> bool:
+    """
+    Check if the add offer window is orientated.
+
+    Returns:
+        bool: True if the add offer window is orientated, False otherwise.
+    """
     coords = find_add_offer_window()
     if coords is None:
         return False
@@ -482,6 +626,12 @@ def check_add_offer_window_orientation() -> bool:
 
 
 def find_add_requirement_window() -> list[int] | None:
+    """
+    Find the add requirement window.
+
+    Returns:
+        list[int] | None: The coordinates of the add requirement window, or None if it is not found.
+    """
     current_image = screenshot()
     reference_folder = "find_add_requirement_window"
     references = make_reference_image_list(reference_folder)
@@ -498,6 +648,12 @@ def find_add_requirement_window() -> list[int] | None:
 
 
 def set_flea_sell_mode_filters(logger):
+    """
+    Set the flea sell mode filters.
+
+    Args:
+        logger: The logger object.
+    """
     start_time = time.time()
     operation_delay = 0.01
 
@@ -539,6 +695,12 @@ def set_flea_sell_mode_filters(logger):
 
 
 def check_if_on_my_offers_tab():
+    """
+    Check if the user is on the 'My Offers' tab.
+
+    Returns:
+        bool: True if the user is on the 'My Offers' tab, False otherwise.
+    """
     iar = numpy.asarray(screenshot())
 
     pix1 = iar[77][255]
@@ -555,6 +717,15 @@ def check_if_on_my_offers_tab():
 
 
 def get_to_my_offers_tab(logger):
+    """
+    Navigate to the 'My Offers' tab.
+
+    Args:
+        logger: The logger object.
+
+    Returns:
+        str: "restart" if the function needs to be restarted, None otherwise.
+    """
     on_offers_tab = check_if_on_my_offers_tab()
     loops = 0
     while not on_offers_tab:
@@ -569,35 +740,27 @@ def get_to_my_offers_tab(logger):
 
 
 def get_to_flea_tab_from_my_offers_tab(logger):
+    """
+    Navigate to the flea market tab from the 'My Offers' tab.
+
+    Args:
+        logger: The logger object.
+    """
     click(829, 977, clicks=2, interval=0.33)
     time.sleep(0.33)
     get_to_flea_tab(logger)
 
 
-def look_for_remove_offer_button():
-    # find red remove button coord on this page
-    color_red = [185, 6, 7]
-    iar = numpy.asarray(screenshot())
-    for y_coord in range(120, 430):
-        this_pixel = iar[y_coord][1190]
-        if pixel_is_equal(this_pixel, color_red, tol=35):
-            return [1190, y_coord]
-    return None
-
-
-def check_if_remove_offer_button_exists():
-    red_pix_list = []
-    color_red = [185, 6, 7]
-    iar = numpy.asarray(screenshot())
-    for x_coord in range(1160, 1225):
-        this_pixel = iar[152][x_coord]
-        if pixel_is_equal(this_pixel, color_red, tol=35):
-            red_pix_list.append(x_coord)
-
-    return len(red_pix_list) > 5
-
-
 def get_price_undercut(found_price):
+    """
+    Calculates the undercut price based on the found price.
+
+    Args:
+        found_price (str): The price found in the image.
+
+    Returns:
+        int: The undercut price.
+    """
     if (found_price is None) or (found_price == ""):
         return None
     found_price = int(found_price)
@@ -608,6 +771,12 @@ def get_price_undercut(found_price):
 
 
 def get_price_of_first_seller_in_flea_items_table():
+    """
+    Gets the price of the first seller in the flea items table.
+
+    Returns:
+        str: The price of the first seller in the flea items table.
+    """
     # returns digits and the significant figures of the price
     num = None
 
@@ -628,14 +797,14 @@ def get_price_of_first_seller_in_flea_items_table():
         if num is None:
             return None
         num = f"{num}50"
-    if digits == 4:
+    elif digits == 4:
         image = screenshot([918, 138, 16, 16])
         # show_image(image)
         num = get_number_from_image(image)
         if num is None:
             return None
         num = f"{num}500"
-    if digits == 5:
+    elif digits == 5:
         image_1 = screenshot([916, 137, 12, 18])
         image_2 = screenshot([926, 137, 12, 18])
         digit1 = get_number_from_image(image_1)
@@ -643,7 +812,7 @@ def get_price_of_first_seller_in_flea_items_table():
         if (digit1 is None) or (digit2 is None):
             return None
         num = digit1 + digit2 + "500"
-    if digits == 6:
+    elif digits == 6:
         image1 = screenshot([909, 139, 11, 14])
         image2 = screenshot([918, 139, 11, 14])
         image3 = screenshot([928, 139, 11, 14])
@@ -658,32 +827,50 @@ def get_price_of_first_seller_in_flea_items_table():
 
 
 def get_number_from_image(image):
+    """
+    Gets the number from the given image.
+
+    Args:
+        image (PIL.Image): The image to get the number from.
+
+    Returns:
+        str: The number found in the image.
+    """
     # sourcery skip: assign-if-exp, reintroduce-else
     if check_for_1_in_image_for_selling_price(image):
         return "1"
-    if check_for_2_in_image_for_selling_price(image):
+    elif check_for_2_in_image_for_selling_price(image):
         return "2"
-    if check_for_3_in_image_for_selling_price(image):
+    elif check_for_3_in_image_for_selling_price(image):
         return "3"
-    if check_for_4_in_image_for_selling_price(image):
+    elif check_for_4_in_image_for_selling_price(image):
         return "4"
-    if check_for_5_in_image_for_selling_price(image):
+    elif check_for_5_in_image_for_selling_price(image):
         return "5"
-    if check_for_6_in_image_for_selling_price(image):
+    elif check_for_6_in_image_for_selling_price(image):
         return "6"
-    if check_for_7_in_image_for_selling_price(image):
+    elif check_for_7_in_image_for_selling_price(image):
         return "7"
-    if check_for_8_in_image_for_selling_price(image):
+    elif check_for_8_in_image_for_selling_price(image):
         return "8"
-    if check_for_9_in_image_for_selling_price(image):
+    elif check_for_9_in_image_for_selling_price(image):
         return "9"
-    if check_for_0_in_image_for_selling_price(image):
+    elif check_for_0_in_image_for_selling_price(image):
         return "0"
 
     return None
 
 
 def check_for_1_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 1.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 1, False otherwise.
+    """
     reference_folder = "check_for_1_in_image"
     references = make_reference_image_list(reference_folder)
 
@@ -697,6 +884,15 @@ def check_for_1_in_image_for_selling_price(current_image):
 
 
 def check_for_2_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 2.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 2, False otherwise.
+    """
     reference_folder = "check_for_2_in_image"
     references = make_reference_image_list(reference_folder)
 
@@ -710,6 +906,15 @@ def check_for_2_in_image_for_selling_price(current_image):
 
 
 def check_for_3_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 3.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 3, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_3_in_image"
     references = make_reference_image_list(reference_folder)
@@ -724,6 +929,15 @@ def check_for_3_in_image_for_selling_price(current_image):
 
 
 def check_for_4_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 4.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 4, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_4_in_image"
     references = make_reference_image_list(reference_folder)
@@ -738,6 +952,15 @@ def check_for_4_in_image_for_selling_price(current_image):
 
 
 def check_for_5_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 5.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 5, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_5_in_image"
     references = make_reference_image_list(reference_folder)
@@ -752,6 +975,15 @@ def check_for_5_in_image_for_selling_price(current_image):
 
 
 def check_for_6_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 6.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 6, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_6_in_image"
     references = make_reference_image_list(reference_folder)
@@ -766,6 +998,15 @@ def check_for_6_in_image_for_selling_price(current_image):
 
 
 def check_for_7_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 7.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 7, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_7_in_image"
     references = make_reference_image_list(reference_folder)
@@ -780,6 +1021,15 @@ def check_for_7_in_image_for_selling_price(current_image):
 
 
 def check_for_8_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 8.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 8, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_8_in_image"
     references = make_reference_image_list(reference_folder)
@@ -794,6 +1044,15 @@ def check_for_8_in_image_for_selling_price(current_image):
 
 
 def check_for_9_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 9.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 9, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_9_in_image"
     references = [
@@ -815,6 +1074,15 @@ def check_for_9_in_image_for_selling_price(current_image):
 
 
 def check_for_0_in_image_for_selling_price(current_image):
+    """
+    Checks if the given image contains the number 0.
+
+    Args:
+        current_image (PIL.Image): The image to check.
+
+    Returns:
+        bool: True if the image contains the number 0, False otherwise.
+    """
     # show_image(current_image)
     reference_folder = "check_for_0_in_image"
     references = [
@@ -838,6 +1106,12 @@ def check_for_0_in_image_for_selling_price(current_image):
 
 
 def check_if_remove_offer_button_exists_for_item_index_1():
+    """
+    Checks if the remove offer button exists for item index 1.
+
+    Returns:
+        bool: True if the remove offer button exists, False otherwise.
+    """
     # if this is true click (1200,150)
 
     red_pix_list = []
@@ -852,6 +1126,12 @@ def check_if_remove_offer_button_exists_for_item_index_1():
 
 
 def check_if_remove_offer_button_exists_for_item_index_2():
+    """
+    Checks if the remove offer button exists for item index 2.
+
+    Returns:
+        bool: True if the remove offer button exists, False otherwise.
+    """
     # if this is true click (1185,200)
 
     red_pix_list = []
@@ -863,89 +1143,3 @@ def check_if_remove_offer_button_exists_for_item_index_2():
             red_pix_list.append(x_coord)
 
     return len(red_pix_list) > 5
-
-
-def check_if_has_item_to_flea_selected():
-    iar = numpy.asarray(screenshot())
-
-    requirements_text_exists = False
-    for x in range(460, 500):
-        this_pixel = iar[680][x]
-        if pixel_is_equal(this_pixel, [165, 163, 149], tol=45):
-            requirements_text_exists = True
-
-    expires_in_text_exists = False
-    for x in range(460, 480):
-        this_pixel = iar[820][x]
-        if pixel_is_equal(this_pixel, [180, 179, 163], tol=45):
-            expires_in_text_exists = True
-
-    fee_text_exists = False
-    for x in range(455, 480):
-        this_pixel = iar[910][x]
-        if pixel_is_equal(this_pixel, [190, 188, 171], tol=45):
-            fee_text_exists = True
-
-    if requirements_text_exists and expires_in_text_exists and fee_text_exists:
-        return True
-    return False
-
-
-def splice_money_text(text):
-    text = text[1:]
-
-    new_text = ""
-    for char in text:
-        if char == " ":
-            continue
-        new_text += char
-
-    return new_text
-
-
-def add_this_requirement():
-    while 1:
-        click(1169, 961)
-        time.sleep(0.17)
-        window_coords = find_add_requirement_window()
-        if window_coords is None:
-            break
-
-
-def check_for_post_confirmation_popup_2():
-    iar = numpy.asarray(screenshot())
-
-    confirmation_text_exists = False
-    for x in range(550, 570):
-        if pixel_is_equal(iar[461][x], [132, 133, 133], tol=35):
-            confirmation_text_exists = True
-
-    yes_text_exists = False
-    for x in range(592, 613):
-        if pixel_is_equal(iar[547][x], [152, 151, 140], tol=35):
-            yes_text_exists = True
-
-    no_text_exists = False
-    for x in range(715, 739):
-        if pixel_is_equal(iar[546][x], [184, 182, 169], tol=35):
-            no_text_exists = True
-
-    red_x_exists = False
-    for x in range(782, 800):
-        if pixel_is_equal(iar[461][x], [70, 13, 13], tol=35):
-            red_x_exists = True
-
-    grey_background_on_top = False
-    for x in range(590, 630):
-        if pixel_is_equal(iar[460][x], [25, 27, 27], tol=5):
-            grey_background_on_top = True
-
-    if (
-        confirmation_text_exists
-        and yes_text_exists
-        and no_text_exists
-        and red_x_exists
-        and grey_background_on_top
-    ):
-        return True
-    return False

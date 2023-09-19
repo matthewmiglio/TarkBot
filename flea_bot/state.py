@@ -1,8 +1,10 @@
+"""
+This module contains the state machine for the flea bot. It
+includes functions for removing flea offers and adding new ones.
+"""
+
 import sys
 import time
-
-from tarkov.client import click
-from tarkov.launcher import restart_tarkov
 
 from flea_bot.flea import (
     get_price_of_first_seller_in_flea_items_table,
@@ -16,11 +18,27 @@ from flea_bot.flea import (
     set_flea_sell_mode_filters,
     wait_till_can_add_another_offer,
 )
-from tarkov.client import get_to_flea_tab
+from tarkov.client import click, get_to_flea_tab
+from tarkov.launcher import restart_tarkov
+
+POST_REMOVE_OFFER_SLEEP_TIME = 30
 
 
-# flea sell mode stuff
 def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer):
+    """
+    This function represents the state machine for the flea bot.
+    It takes in a logger object, the current state, the number of rows,
+    and the remove offers timer. It returns the new state of the machine.
+
+    Args:
+        logger (Logger): The logger object used to log messages.
+        state (str): The current state of the machine.
+        number_of_rows (int): The number of rows in the flea market.
+        remove_offers_timer (int): The timer for removing offers.
+
+    Returns:
+        str: The new state of the machine.
+    """
     if state == "restart":
         flea_mode_restart_state(logger)
         return "flea_mode"
@@ -37,6 +55,15 @@ def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer
 
 
 def state_remove_flea_offers(logger):
+    """
+    This function removes flea offers. It takes in a logger object and returns None.
+
+    Args:
+        logger (Logger): The logger object used to log messages.
+
+    Returns:
+        None
+    """
     logger.change_status("State==Remove flea offers")
 
     logger.change_status("STATE=remove_flea_offers")
@@ -55,17 +82,29 @@ def state_remove_flea_offers(logger):
     logger.change_status("Returning to browse page in the flea.")
     get_to_flea_tab_from_my_offers_tab(logger)
 
-    sleep_time = 30
-    for n in range(sleep_time):
-        if n % 5 == 0:
+    for second in range(POST_REMOVE_OFFER_SLEEP_TIME):
+        if second % 5 == 0:
             logger.change_status(
-                f"Waiting {sleep_time-n} seconds to restart after removing offers."
+                f"Waiting {POST_REMOVE_OFFER_SLEEP_TIME-second}s to restart after removing offers."
             )
         time.sleep(1)
     return None
 
 
 def state_flea_mode(logger, number_of_rows, remove_offers_timer):
+    """
+    This function represents the flea mode state. It takes in a logger
+    object, the number of rows, and the remove offers timer. It returns
+    the new state of the machine.
+
+    Args:
+        logger (Logger): The logger object used to log messages.
+        number_of_rows (int): The number of rows in the flea market.
+        remove_offers_timer (int): The timer for removing offers.
+
+    Returns:
+        str: The new state of the machine.
+    """
     logger.change_status("Beginning flea alg.\n")
 
     # get to flea
@@ -121,6 +160,16 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
 
 
 def flea_mode_restart_state(logger):
+    """
+    This function represents the restart state of the flea bot. It
+    takes in a logger object and returns the new state of the machine.
+
+    Args:
+        logger (Logger): The logger object used to log messages.
+
+    Returns:
+        str: The new state of the machine.
+    """
     logger.change_status("\n\nState==Restart")
 
     # add to logger

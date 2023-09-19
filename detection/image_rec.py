@@ -10,7 +10,6 @@ from joblib import Parallel, delayed
 from PIL import Image
 
 
-
 def coords_is_equal(coords_a, coords_b, tol=30):
     if (coords_a is None) or (coords_b is None):
         return None
@@ -121,6 +120,7 @@ def find_reference(
     """
     top_level = dirname(__file__)
     reference_folder = join(top_level, "reference_images")
+
     return compare_images(
         screenshot, Image.open(join(reference_folder, folder, name)), tolerance
     )
@@ -182,7 +182,6 @@ def compare_images(
     return None if len(loc[0]) != 1 else [int(loc[0][0]), int(loc[1][0])]
 
 
-
 def make_reference_image_list(file_name):
     # Method to make a reference array of a given size
     reference_image_list = []
@@ -210,4 +209,3 @@ def get_file_count(folder):
     directory = join(directory, "reference_images", folder)
 
     return sum(len(files) for root_dir, cur_dir, files in os.walk(directory))
-
