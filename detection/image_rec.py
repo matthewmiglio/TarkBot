@@ -1,3 +1,7 @@
+"""
+This module contains functions for detecting and locating images within a screenshot.
+"""
+
 import multiprocessing
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,6 +15,18 @@ from PIL import Image
 
 
 def coords_is_equal(coords_a, coords_b, tol=30):
+    """
+    Check if two sets of coordinates are equal within a certain tolerance.
+
+    Args:
+        coords_a (list[int]): First set of coordinates.
+        coords_b (list[int]): Second set of coordinates.
+        tol (int, optional): Tolerance for equality. Defaults to 30.
+
+    Returns:
+        bool: True if the coordinates are equal within the tolerance, False otherwise.
+        None: If either set of coordinates is None.
+    """
     if (coords_a is None) or (coords_b is None):
         return None
     coords_1_diff = abs(coords_a[0] - coords_b[0])
@@ -183,18 +199,24 @@ def compare_images(
 
 
 def make_reference_image_list(file_name):
-    # Method to make a reference array of a given size
+    """Creates a list of reference images for a given file name
+
+    Args:
+        file_name (str): Name of the file to create reference images for
+
+    Returns:
+        list[str]: List of reference image names
+    """
     reference_image_list = []
 
     size = get_file_count(file_name)
 
-    for n in range(size):
-        n = n + 1
-        image_name = f"{n}.png"
+    for i in range(size):
+        i = i + 1
+        image_name = f"{i}.png"
         reference_image_list.append(image_name)
 
     return reference_image_list
-
 
 def get_file_count(folder):
     """Method to return the amount of a files in a given directory

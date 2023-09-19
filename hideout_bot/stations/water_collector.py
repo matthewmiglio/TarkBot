@@ -1,3 +1,8 @@
+"""
+This module contains functions for handling the water collector station in the Tarkov hideout.
+
+"""
+
 import random
 import time
 from typing import Literal
@@ -22,6 +27,16 @@ from utils.logger import Logger
 
 
 def handle_water_collector(logger: Logger) -> Literal["restart", "scav_case"]:
+    """
+    Handles the water collector station in the Tarkov hideout.
+
+    Args:
+        logger (Logger): The logger object to use for logging.
+
+    Returns:
+        Literal["restart", "scav_case"]: A string indicating whether
+        to restart or move on to the scav case station.
+    """
     logger.add_station_visited()
 
     if not get_to_hideout():
@@ -39,6 +54,15 @@ def handle_water_collector(logger: Logger) -> Literal["restart", "scav_case"]:
 
 
 def do_water_collector_checks(logger: Logger):
+    """
+    Performs checks and actions for the water collector station in the Tarkov hideout.
+
+    Args:
+        logger (Logger): The logger object to use for logging.
+
+    Returns:
+        bool: True if the checks and actions were successful, False otherwise.
+    """
     if check_for_water_collector_get_items():
         logger.change_status("Collecting water collector items")
         click(x=1051, y=796, clicks=2)
@@ -68,23 +92,35 @@ def do_water_collector_checks(logger: Logger):
 
 
 def find_water_collector_in_dropdown():
+    """
+    Finds the water collector in the filters dropdown and returns its coordinates.
+
+    Returns:
+        tuple: The coordinates of the water collector in the filters dropdown.
+    """
     positive_color = [124, 212, 255]
     iar = numpy.asarray(screenshot())
 
     positive_pixels = []
-    for x in range(945, 1210):
-        for y in range(749, 916):
-            this_pixel = iar[y][x]
+    for x_coord in range(945, 1210):
+        for y_coord in range(749, 916):
+            this_pixel = iar[y_coord][x_coord]
             if pixel_is_equal(this_pixel, positive_color, tol=10):
-                positive_pixels.append((x, y))
+                positive_pixels.append((x_coord, y_coord))
 
     if len(positive_pixels) == 0:
         return False
-    else:
-        return random.choice(positive_pixels)
+
+    return random.choice(positive_pixels)
 
 
 def check_if_at_water_collector():
+    """
+    Checks if the user is at the water collector station in the Tarkov hideout.
+
+    Returns:
+        bool: True if the user is at the water collector station, False otherwise.
+    """
     iar = numpy.asarray(screenshot())
 
     water_collector_text_exists = False
@@ -109,8 +145,14 @@ def check_if_at_water_collector():
         return True
     return False
 
-
 def find_water_collector_icon():
+    """
+    Finds the water collector icon on the screen.
+
+    Returns:
+        tuple: A tuple containing the x and y coordinates
+        of the top-left corner of the water collector icon.
+    """
     current_image = screenshot()
     reference_folder = "water_collector_icon"
     references = make_reference_image_list(reference_folder)
@@ -126,6 +168,12 @@ def find_water_collector_icon():
 
 
 def get_to_water_collector():
+    """
+    Navigates to the water collector station in the Tarkov hideout.
+
+    Returns:
+        str: "restart" if the function takes longer than 120 seconds to complete, None otherwise.
+    """
     print("Getting to water")
 
     start_time = time.time()
@@ -151,6 +199,12 @@ def get_to_water_collector():
 
 
 def check_for_water_collector_get_items():
+    """
+    Checks if the "Get Items" button is visible on the water collector station screen.
+
+    Returns:
+        bool: True if the button is visible, False otherwise.
+    """
     current_image = screenshot()
     reference_folder = "water_collector_get_items"
     references = make_reference_image_list(reference_folder)
@@ -166,6 +220,12 @@ def check_for_water_collector_get_items():
 
 
 def check_for_water_collector_filter():
+    """
+    Checks if the "Filter" button is visible on the water collector station screen.
+
+    Returns:
+        bool: True if the button is visible, False otherwise.
+    """
     iar = numpy.asarray(screenshot())
     pixel = iar[796][845]
     if pixel_is_equal(pixel, [116, 205, 248], tol=15):
