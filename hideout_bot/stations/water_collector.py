@@ -1,3 +1,4 @@
+import random
 import time
 from typing import Literal
 
@@ -49,17 +50,38 @@ def do_water_collector_checks(logger: Logger):
     if not check_for_water_collector_filter():
         logger.change_status("Adding a filter to water collector")
 
-        # click filters dropdown
-        click(x=930, y=790)
-        time.sleep(1)
+        while 1:
+            # click filters dropdown
+            click(x=930, y=790)
+            time.sleep(1)
 
-        # click topleft most filter
-        click(x=975, y=796)
-        time.sleep(3)
+            # click topleft most filter
+            filter_coord = find_water_collector_in_dropdown()
+            if filter_coord:
+                click(x=filter_coord[0], y=filter_coord[1])
+                time.sleep(1)
+                break
 
         logger.add_water_filter()
 
     return True
+
+
+def find_water_collector_in_dropdown():
+    positive_color = [124, 212, 255]
+    iar = numpy.asarray(screenshot())
+
+    positive_pixels = []
+    for x in range(945, 1210):
+        for y in range(749, 916):
+            this_pixel = iar[y][x]
+            if pixel_is_equal(this_pixel, positive_color, tol=10):
+                positive_pixels.append((x, y))
+
+    if len(positive_pixels) == 0:
+        return False
+    else:
+        return random.choice(positive_pixels)
 
 
 def check_if_at_water_collector():
@@ -149,7 +171,3 @@ def check_for_water_collector_filter():
     if pixel_is_equal(pixel, [116, 205, 248], tol=15):
         return True
     return False
-
-
-print(check_if_at_water_collector())
-

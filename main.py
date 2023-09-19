@@ -9,6 +9,7 @@ import PySimpleGUI as sg
 
 from flea_bot.state import flea_sell_mode_state_tree
 from hideout_bot.states import hideout_mode_state_tree
+from hideout_bot.stations.water_collector import do_water_collector_checks
 from interface.layout import (
     CONTROLS_KEYS,
     DONATE_BUTTON_KEY,
@@ -558,4 +559,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    logger=Logger()
+    do_water_collector_checks(logger)
