@@ -7,13 +7,13 @@ station functions based on the current state.
 import time
 from typing import List
 
-from hideout_bot.stations.bitcoin_miner import handle_bitcoin_miner
-from hideout_bot.stations.lavatory import handle_lavatory
-from hideout_bot.stations.medstation import handle_medstation
-from hideout_bot.stations.scav_case import handle_scav_case
-from hideout_bot.stations.water_collector import handle_water_collector
-from hideout_bot.stations.workbench import handle_workbench
-from tarkov.launcher import restart_tarkov
+from pytarkbot.hideout_bot.stations.bitcoin_miner import handle_bitcoin_miner
+from pytarkbot.hideout_bot.stations.lavatory import handle_lavatory
+from pytarkbot.hideout_bot.stations.medstation import handle_medstation
+from pytarkbot.hideout_bot.stations.scav_case import handle_scav_case
+from pytarkbot.hideout_bot.stations.water_collector import handle_water_collector
+from pytarkbot.hideout_bot.stations.workbench import handle_workbench
+from pytarkbot.tarkov.launcher import restart_tarkov
 
 
 def hideout_mode_state_tree(state: str, logger: object, jobs: List[str]) -> str:

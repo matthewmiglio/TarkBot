@@ -1,8 +1,8 @@
 import random
 import time
 
-from snipe_bot.ruble_snipe_data import RUBLE_SNIPE_DATA
-from tarkov.client import (
+from pytarkbot.snipe_bot.ruble_snipe_data import RUBLE_SNIPE_DATA
+from pytarkbot.tarkov.client import (
     buy_this_offer,
     get_to_flea_tab,
     orientate_tarkov_client,
@@ -10,7 +10,7 @@ from tarkov.client import (
     search_for_item,
     set_specific_snipe_flea_filters,
 )
-from tarkov.launcher import restart_tarkov
+from pytarkbot.tarkov.launcher import restart_tarkov
 
 LOOPS_PER_STATE = 6
 

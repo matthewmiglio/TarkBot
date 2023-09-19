@@ -2,21 +2,21 @@ import time
 
 import numpy
 
-from detection.image_rec import (
+from pytarkbot.detection.image_rec import (
     check_for_location,
     find_references,
     get_first_location,
     make_reference_image_list,
     pixel_is_equal,
 )
-from tarkov.client import (
+from pytarkbot.tarkov.client import (
     check_if_in_hideout_cycle_mode,
     click,
     cycle_hideout_tab,
     get_to_hideout,
     screenshot,
 )
-from utils.logger import Logger
+from pytarkbot.utils.logger import Logger
 
 
 def handle_workbench(logger: Logger):

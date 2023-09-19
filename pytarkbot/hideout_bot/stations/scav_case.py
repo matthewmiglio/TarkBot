@@ -9,13 +9,13 @@ from typing import Literal
 import numpy
 import pyautogui
 
-from detection.image_rec import (
+from pytarkbot.detection.image_rec import (
     check_for_location,
     find_references,
     make_reference_image_list,
     pixel_is_equal,
 )
-from tarkov.client import (
+from pytarkbot.tarkov.client import (
     check_if_in_hideout_cycle_mode,
     click,
     cycle_hideout_tab,

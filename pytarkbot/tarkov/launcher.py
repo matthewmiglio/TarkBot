@@ -7,17 +7,17 @@ import tkinter.messagebox
 import numpy
 import pygetwindow
 
-from detection import check_for_location, find_references, pixel_is_equal
-from tarkov import (
+from pytarkbot.detection import check_for_location, find_references, pixel_is_equal
+from pytarkbot.tarkov import (
     click,
     orientate_launcher,
     orientate_tarkov_client,
     screenshot,
 )
-from tarkov.client import get_launcher_res, orientate_terminal
-from tarkov.graphics_config import change_fullscreenmode_line
-from utils.dependency import get_bsg_launcher_path
-from utils.logger import Logger
+from pytarkbot.tarkov.client import get_launcher_res, orientate_terminal
+from pytarkbot.tarkov.graphics_config import change_fullscreenmode_line
+from pytarkbot.utils.dependency import get_bsg_launcher_path
+from pytarkbot.utils.logger import Logger
 
 
 def click_play_button():

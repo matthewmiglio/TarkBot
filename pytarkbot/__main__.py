@@ -6,9 +6,9 @@ import webbrowser
 from queue import Queue
 
 import PySimpleGUI as sg
-from flea_bot.state import flea_sell_mode_state_tree
-from hideout_bot.states import hideout_mode_state_tree
-from interface.layout import (
+from pytarkbot.flea_bot.state import flea_sell_mode_state_tree
+from pytarkbot.hideout_bot.states import hideout_mode_state_tree
+from pytarkbot.interface.layout import (
     CONTROLS_KEYS,
     DONATE_BUTTON_KEY,
     FLEA_SELL_CONTROL_KEYS,
@@ -42,12 +42,12 @@ from interface.layout import (
     START_KEYS,
     STOP_KEYS,
 )
-from snipe_bot.state import snipebot_state_tree
-from utils.caching import cache_user_settings, check_user_settings, read_user_settings
-from utils.logger import Logger
-from utils.thread import StoppableThread, ThreadKilled
+from pytarkbot.snipe_bot.state import snipebot_state_tree
+from pytarkbot.utils.caching import cache_user_settings, check_user_settings, read_user_settings
+from pytarkbot.utils.logger import Logger
+from pytarkbot.utils.thread import StoppableThread, ThreadKilled
 
-from interface.layout import make_tarkbot_window
+from pytarkbot.interface.layout import make_tarkbot_window
 
 
 def save_current_settings(values) -> None:

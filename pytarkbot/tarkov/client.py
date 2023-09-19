@@ -8,8 +8,8 @@ import numpy
 import pyautogui
 import pygetwindow
 
-from detection import pixel_is_equal
-from detection.image_rec import (
+from pytarkbot.detection import pixel_is_equal
+from pytarkbot.detection.image_rec import (
     check_for_location,
     find_references,
     get_first_location,

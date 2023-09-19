@@ -9,15 +9,15 @@ import time
 import numpy
 import pyautogui
 
-from detection import (
+from pytarkbot.detection import (
     check_for_location,
     find_references,
     get_first_location,
     pixel_is_equal,
 )
-from detection.image_rec import make_reference_image_list
-from tarkov import click, screenshot
-from tarkov.client import get_to_flea_tab, open_filters_window
+from pytarkbot.detection.image_rec import make_reference_image_list
+from pytarkbot.tarkov import click, screenshot
+from pytarkbot.tarkov.client import get_to_flea_tab, open_filters_window
 
 pyautogui.FAILSAFE = False
 RANDOM_ITEM_SELECTION_TIMEOUT = 30  # S

@@ -6,7 +6,7 @@ includes functions for removing flea offers and adding new ones.
 import sys
 import time
 
-from flea_bot.flea import (
+from pytarkbot.flea_bot.flea import (
     get_price_of_first_seller_in_flea_items_table,
     get_price_undercut,
     get_to_flea_tab_from_my_offers_tab,
@@ -18,8 +18,8 @@ from flea_bot.flea import (
     set_flea_sell_mode_filters,
     wait_till_can_add_another_offer,
 )
-from tarkov.client import click, get_to_flea_tab
-from tarkov.launcher import restart_tarkov
+from pytarkbot.tarkov.client import click, get_to_flea_tab
+from pytarkbot.tarkov.launcher import restart_tarkov
 
 POST_REMOVE_OFFER_SLEEP_TIME = 30
 
