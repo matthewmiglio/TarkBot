@@ -93,14 +93,14 @@ STOP_KEYS = [
 DONATE_BUTTON_KEY = "donate_button_key"
 
 
-folder_path = os.path.join(os.getcwd(), "interface", "assets")
+folder_path = os.path.join(os.getcwd(), 'pytarkbot',"interface", "assets")
 
 IMAGE_SOUCRES = [
     os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path)
 ]
 print(f"\n\n-------------------------------------\nGUI STUFF")
 print(f"There are {len(IMAGE_SOUCRES)} images in the folder.")
-random_image_index = random.randint(0, len(IMAGE_SOUCRES))
+random_image_index = random.randint(0, len(IMAGE_SOUCRES)-1)
 print(f"Chose image #{random_image_index}\n-------------------------------------\n\n")
 random_image_path = IMAGE_SOUCRES[random_image_index]
 
