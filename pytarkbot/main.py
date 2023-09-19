@@ -1,3 +1,5 @@
+import webbrowser
+
 from queue import Queue
 
 import PySimpleGUI as sg
@@ -5,6 +7,7 @@ from flea_bot.state import flea_sell_mode_state_tree
 from hideout_bot.states import hideout_mode_state_tree
 from interface.layout import (
     CONTROLS_KEYS,
+    DONATE_BUTTON_KEY,
     FLEA_MODE_LAYOUT,
     FLEA_SELL_CONTROL_KEYS,
     FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,
@@ -505,8 +508,17 @@ def main():
         if event in STOP_KEYS:
             stop_button_event(logger, window, thread)
 
-        if event != "__TIMEOUT__":
+        if event != "__TIMEOUT__" and event != DONATE_BUTTON_KEY:
             save_current_settings(values)
+
+        if event == DONATE_BUTTON_KEY:
+            webbrowser.open(
+                "https://www.paypal.com/donate/"
+                + "?business=YE72ZEB3KWGVY"
+                + "&no_recurring=0"
+                + "&item_name=Support+my+projects%21"
+                + "&currency_code=USD"
+            )
 
         # handle when thread is finished
         if thread is not None and not thread.is_alive():
