@@ -1,5 +1,10 @@
+import os
+import random
+
 import PySimpleGUI as sg
-from .stats import stat_box, flea_mode_stats, hideout_mode_stats, snipebot_mode_stats
+
+from .stats import flea_mode_stats, hideout_mode_stats, snipebot_mode_stats, stat_box
+
 
 FLEA_SELL_START_KEY = "flea_sell_start_key"
 FLEA_SELL_STOP_KEY = "flea_sell_stop_key"
@@ -84,6 +89,28 @@ STOP_KEYS = [
     SNIPEBOT_STOP_KEY,
 ]
 
+# donate button stuff
+DONATE_BUTTON_KEY = "donate_button_key"
+
+
+folder_path = os.path.join(os.getcwd(), "pytarkbot", "interface", "assets")
+IMAGE_SOUCRES = [
+    os.path.join(folder_path, file_name) for file_name in os.listdir(folder_path)
+]
+
+
+DONATE_BUTTON_LAYOUTS = [
+    [
+        [
+            sg.Button(
+                image_source=random.choice(IMAGE_SOUCRES),
+                size=(55, 7),
+                key=DONATE_BUTTON_KEY,
+            )
+        ]
+    ],
+]
+
 
 # FLEA SELL MODE INTERFACE STUFF
 
@@ -96,7 +123,7 @@ flea_sell_info_layout = [
     ],
     [
         sg.Text(
-            "Select the number of rows in your stash you want to sell, and how long to wait before removing offers.",
+            "Select the number of rows in your stash (from the top) you want to sell, and how long to wait before removing offers.",
             size=(35, None),
         )
     ],
@@ -130,7 +157,6 @@ feal_sell_mode_buttons_layout = [
         sg.Button("Stop", key=FLEA_SELL_STOP_KEY),
     ],
 ]
-
 
 FLEA_MODE_LAYOUT = [
     # info frame
@@ -169,6 +195,15 @@ FLEA_MODE_LAYOUT = [
             expand_x=True,
         ),
     ],
+    # donate button frame
+    [
+        sg.Frame(
+            layout=random.choice(DONATE_BUTTON_LAYOUTS),
+            title="",
+            relief=sg.RELIEF_SUNKEN,
+            expand_x=True,
+        ),
+    ],
 ]
 
 
@@ -194,7 +229,9 @@ hideout_info_layout = [
 hideout_mode_controls_layout = [
     [
         sg.Checkbox(text="Scav case", key=HIDEOUT_SCAV_CASE_TOGGLE_KEY, default=True),
-        sg.Checkbox(text="Med Station ", key=HIDEOUT_MED_STATION_TOGGLE_KEY, default=True),
+        sg.Checkbox(
+            text="Med Station ", key=HIDEOUT_MED_STATION_TOGGLE_KEY, default=True
+        ),
         sg.Checkbox(text="Lavatory ", key=HIDEOUT_LAVATORY_TOGGLE_KEY, default=True),
     ],
     [
@@ -243,8 +280,17 @@ HIDEOUT_MODE_LAYOUT = [
     ],
     # start/stop buttons
     [
-        sg.Button("Start", key=HIDEOUT_START_KEY),
-        sg.Button("Stop", key=HIDEOUT_STOP_KEY),
+        sg.Frame(
+            layout=[
+                [
+                    sg.Button("Start", key=HIDEOUT_START_KEY),
+                    sg.Button("Stop", key=HIDEOUT_STOP_KEY),
+                ]
+            ],
+            title="",
+            relief=sg.RELIEF_SUNKEN,
+            expand_x=True,
+        ),
     ],
 ]
 
@@ -339,6 +385,7 @@ SNIPEBOT_MODE_LAYOUT = [
             expand_x=True,
         ),
     ],
+    # stats
     [
         sg.Frame(
             layout=snipebot_mode_stats,
@@ -347,8 +394,18 @@ SNIPEBOT_MODE_LAYOUT = [
             expand_x=True,
         ),
     ],
+    # start/stop buttons
     [
-        sg.Button("Start", key=SNIPEBOT_START_KEY),
-        sg.Button("Stop", key=SNIPEBOT_STOP_KEY),
+        sg.Frame(
+            layout=[
+                [
+                    sg.Button("Start", key=SNIPEBOT_START_KEY),
+                    sg.Button("Stop", key=SNIPEBOT_STOP_KEY),
+                ]
+            ],
+            title="",
+            relief=sg.RELIEF_SUNKEN,
+            expand_x=True,
+        ),
     ],
 ]

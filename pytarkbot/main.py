@@ -57,8 +57,8 @@ def save_current_settings(values) -> None:
     """
     # read the currently selected values for each key in user_config_keys
     user_settings = {key: values[key] for key in CONTROLS_KEYS if key in values}
-    # cache the user settings
     cache_user_settings(user_settings)
+    print("Cached user settings")
 
 
 def load_last_settings(window) -> None:
@@ -145,6 +145,14 @@ class HideoutModeWorkerThread(StoppableThread):
 
 class SnipeModeWorkerThread(StoppableThread):
     def __init__(self, logger: Logger, args, kwargs=None):
+        """
+        Initializes the SnipeModeWorkerThread class.
+
+        Args:
+        - logger (Logger): The logger object.
+        - args (dict): The arguments to pass to the thread.
+        - kwargs (dict): The keyword arguments to pass to the thread.
+        """
         super().__init__(args, kwargs)
         self.logger = logger
 
@@ -171,7 +179,9 @@ class SnipeModeWorkerThread(StoppableThread):
             self.logger.error(str(exc))
 
 
-def hideout_mode_start_button_event(logger: Logger, window, values):
+def hideout_mode_start_button_event(
+    logger: Logger, window, values
+) -> HideoutModeWorkerThread:
     """
     This function is called when the "Start" button is clicked in hideout mode.
     It disables the start button keys and config keys for this mode, creates args for the thread,
@@ -194,11 +204,7 @@ def hideout_mode_start_button_event(logger: Logger, window, values):
 
     # create args for thread
 
-    jobs = [
-
-    ]
-
-
+    jobs = []
 
     # job checkboxes
     if values[HIDEOUT_BITCOIN_TOGGLE_KEY] is True:
@@ -229,6 +235,8 @@ def hideout_mode_start_button_event(logger: Logger, window, values):
         print(job)
     print("\n")
 
+    save_current_settings(values)
+
     # start thread
     thread = HideoutModeWorkerThread(logger, jobs)
     thread.start()
@@ -240,7 +248,20 @@ def hideout_mode_start_button_event(logger: Logger, window, values):
     return thread
 
 
-def flea_sell_mode_start_button_event(logger: Logger, window, values):
+def flea_sell_mode_start_button_event(
+    logger: Logger, window, values
+) -> FleaSellWorkerThread:
+    """
+    Event handler for the flea sell mode start button.
+
+    Args:
+        logger (Logger): The logger instance.
+        window (sg.Window): The PySimpleGUI window instance.
+        values (dict): The dictionary of values from the PySimpleGUI window.
+
+    Returns:
+        FleaSellWorkerThread: The thread instance that was started.
+    """
     # check for invalid inputs
     logger.change_status("Starting flea sell mode mode")
 
@@ -258,6 +279,8 @@ def flea_sell_mode_start_button_event(logger: Logger, window, values):
         "remove_offers_timer": values[FLEA_SELL_REMOVE_OFFERS_TIMER_KEY],
     }
 
+    save_current_settings(values)
+
     # start thread
     thread = FleaSellWorkerThread(logger, args)
     thread.start()
@@ -269,24 +292,9 @@ def flea_sell_mode_start_button_event(logger: Logger, window, values):
     return thread
 
 
-def check_if_int(var: str) -> bool:
-    """
-    Check if a given variable can be converted to an integer.
-
-    Args:
-        var (str): The variable to check.
-
-    Returns:
-        bool: True if the variable can be converted to an integer, False otherwise.
-    """
-    try:
-        int(var)
-        return True
-    except ValueError:
-        return False
-
-
-def snipe_mode_start_button_event(logger: Logger, window, values):
+def snipe_mode_start_button_event(
+    logger: Logger, window, values
+) -> SnipeModeWorkerThread:
     """
     This function is called when the user clicks the "Start" button for the snipe mode.
     It checks for invalid inputs, creates a job list based on user's selection, creates snipe_data based on user input,
@@ -323,6 +331,8 @@ def snipe_mode_start_button_event(logger: Logger, window, values):
         SNIPEBOT_ITEM_PRICE_4_KEY,
         SNIPEBOT_ITEM_PRICE_5_KEY,
     ]
+
+    save_current_settings(values)
 
     # Create job_list based on user's selection
     job_list = ["ruble_sniping"] if values[RUBLE_FARM_KEY] else []
@@ -363,23 +373,69 @@ def snipe_mode_start_button_event(logger: Logger, window, values):
     return thread
 
 
-def shutdown_thread(thread: StoppableThread | None, kill=True):
+def check_if_int(var: str) -> bool:
+    """
+    Check if a given variable can be converted to an integer.
+
+    Args:
+        var (str): The variable to check.
+
+    Returns:
+        bool: True if the variable can be converted to an integer, False otherwise.
+    """
+    try:
+        int(var)
+        return True
+    except ValueError:
+        return False
+
+
+def shutdown_thread(thread: StoppableThread | None, kill=True) -> None:
+    """
+    Sends a shutdown flag to a given thread and kills it if specified.
+
+    Args:
+        thread (StoppableThread | None): The thread to shutdown.
+        kill (bool): Whether to kill the thread or not. Defaults to True.
+
+    Returns:
+        None
+    """
     if thread is not None:
         thread.shutdown_flag.set()
         if kill:
             thread.kill()
 
 
-def update_layout(window: sg.Window, logger: Logger):
-    # comm_queue: Queue[dict[str, str | int]] = logger.queue
-    # update the statistics in the gui
+def update_layout(window: sg.Window, logger: Logger) -> None:
+    """
+    Updates the statistics in the GUI window with the values from the logger queue.
+
+    Args:
+        window (sg.Window): The PySimpleGUI window object.
+        logger (Logger): The logger object.
+
+    Returns:
+        None
+    """
     if not logger.queue.empty():
         # read the statistics from the logger
         for stat, val in logger.queue.get().items():
             window[stat].update(val)  # type: ignore
 
 
-def stop_button_event(logger: Logger, window, thread):
+def stop_button_event(logger: Logger, window, thread) -> None:
+    """
+    Event handler for the stop button. Sends a shutdown flag to the given thread and kills it.
+
+    Args:
+        logger (Logger): The logger object.
+        window (sg.Window): The PySimpleGUI window object.
+        thread (StoppableThread | None): The thread to shutdown.
+
+    Returns:
+        None
+    """
     logger.change_status("Stopping")
 
     # disable stop keys
@@ -394,7 +450,12 @@ def stop_button_event(logger: Logger, window, thread):
 
 
 def main():
-    # orientate_terminal()
+    """
+    The main function of the Py-TarkBot program. Initializes the GUI window and handles user input events.
+
+    Returns:
+        None
+    """
 
     thread: FleaSellWorkerThread | None = None
     comm_queue: Queue[dict[str, str | int]] = Queue()
@@ -416,7 +477,7 @@ def main():
     layout = [
         [tab_group],
     ]
-    window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True, size=(500, 700))
+    window = sg.Window("Py-TarkBot v1.0.0", layout, finalize=True, size=(500, 590))
 
     load_last_settings(window)
 
@@ -443,6 +504,9 @@ def main():
 
         if event in STOP_KEYS:
             stop_button_event(logger, window, thread)
+
+        if event != "__TIMEOUT__":
+            save_current_settings(values)
 
         # handle when thread is finished
         if thread is not None and not thread.is_alive():
