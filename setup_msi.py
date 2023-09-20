@@ -21,7 +21,27 @@ except ValueError:
 
 build_exe_options = {
     "excludes": ["test", "setuptools"],
-    "include_files": ["assets\\pixel-pytb-multi.ico"],
+    "include_files": [
+        "assets\\pixel-pytb-multi.ico",
+        "pytarkbot\\interface\\assets\\donate1.png",
+        "pytarkbot\\interface\\assets\\donate18.png",
+        "pytarkbot\\interface\\assets\\donate2.png",
+        "pytarkbot\\interface\\assets\\donate3.png",
+        "pytarkbot\\interface\\assets\\donate4.png",
+        "pytarkbot\\interface\\assets\\donate5.png",
+        "pytarkbot\\interface\\assets\\donate6.png",
+        "pytarkbot\\interface\\assets\\donate7.png",
+        "pytarkbot\\interface\\assets\\donate8.png",
+        "pytarkbot\\interface\\assets\\donate9.png",
+        "pytarkbot\\interface\\assets\\donate10.png",
+        "pytarkbot\\interface\\assets\\donate11.png",
+        "pytarkbot\\interface\\assets\\donate12.png",
+        "pytarkbot\\interface\\assets\\donate13.png",
+        "pytarkbot\\interface\\assets\\donate14.png",
+        "pytarkbot\\interface\\assets\\donate15.png",
+        "pytarkbot\\interface\\assets\\donate16.png",
+        "pytarkbot\\interface\\assets\\donate17.png",
+    ],
     "include_msvcr": True,
 }
 
@@ -56,4 +76,3 @@ setup(
         "build_exe": build_exe_options,
     },
 )
-
