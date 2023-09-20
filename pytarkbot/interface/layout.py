@@ -96,13 +96,16 @@ STOP_KEYS = [
 DONATE_BUTTON_KEY = "donate_button_key"
 
 
-IMAGE_SOURCE_FILE_PATH = os.path.join(os.getcwd(), "pytarkbot", "interface", "assets")
+IMAGE_SOUCRES = os.listdir()
 
-IMAGE_SOUCRES = [
-    os.path.join(IMAGE_SOURCE_FILE_PATH, file_name)
-    for file_name in os.listdir(IMAGE_SOURCE_FILE_PATH)
-]
+if ".github" in IMAGE_SOUCRES:
+    IMAGE_SOUCRES = [
+        os.path.join("pytarkbot/interface/assets", file_name)
+        for file_name in os.listdir("pytarkbot/interface/assets")
+    ]
 
+
+print(IMAGE_SOUCRES)
 
 # endregion
 

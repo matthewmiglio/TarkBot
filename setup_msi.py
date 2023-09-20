@@ -24,7 +24,6 @@ build_exe_options = {
     "include_files": [
         "assets\\pixel-pytb-multi.ico",
         "pytarkbot\\interface\\assets\\donate1.png",
-        "pytarkbot\\interface\\assets\\donate18.png",
         "pytarkbot\\interface\\assets\\donate2.png",
         "pytarkbot\\interface\\assets\\donate3.png",
         "pytarkbot\\interface\\assets\\donate4.png",
@@ -41,6 +40,7 @@ build_exe_options = {
         "pytarkbot\\interface\\assets\\donate15.png",
         "pytarkbot\\interface\\assets\\donate16.png",
         "pytarkbot\\interface\\assets\\donate17.png",
+        "pytarkbot\\interface\\assets\\donate18.png",
     ],
     "include_msvcr": True,
 }
