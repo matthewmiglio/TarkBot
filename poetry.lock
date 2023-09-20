@@ -248,11 +248,7 @@ files = [
 ]
 
 [package.dependencies]
-numpy = [
-    {version = ">=1.23.5", markers = "python_version >= \"3.11\""},
-    {version = ">=1.21.4", markers = "python_version >= \"3.10\" and platform_system == \"Darwin\" and python_version < \"3.11\""},
-    {version = ">=1.21.2", markers = "platform_system != \"Darwin\" and python_version >= \"3.10\" and python_version < \"3.11\""},
-]
+numpy = {version = ">=1.23.5", markers = "python_version >= \"3.11\""}
 
 [[package]]
 name = "patchelf"
@@ -489,10 +485,7 @@ files = [
 ]
 
 [package.dependencies]
-Pillow = [
-    {version = ">=9.3.0", markers = "python_version == \"3.11\""},
-    {version = ">=9.2.0", markers = "python_version == \"3.10\""},
-]
+Pillow = {version = ">=9.3.0", markers = "python_version == \"3.11\""}
 pyscreenshot = "*"
 
 [[package]]
@@ -573,5 +566,5 @@ test = ["pytest (>=6.0.0)", "setuptools (>=65)"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.10"
-content-hash = "642bb803f87f80c4aebd67f172f008336bf5f683c3501300fc047fb6ba51f830"
+python-versions = "^3.11"
+content-hash = "1a0d0891dc8419fb74bc6d131af775e9ab3f0d803cc14aaa8d304e2495f21c7d"
