@@ -1,4 +1,3 @@
-from PySimpleGUI import theme
 import os
 import random
 
@@ -93,23 +92,10 @@ STOP_KEYS = [
 ]
 
 # donate button stuff
+
+
 DONATE_BUTTON_KEY = "donate_button_key"
 
-
-DONATE_IMAGE_SOURCES = os.listdir()
-
-if ".github" in DONATE_IMAGE_SOURCES:
-    DONATE_IMAGE_SOURCES = []
-
-    files = os.listdir("pytarkbot/interface/assets")
-    for file in files:
-        path = os.path.join("pytarkbot/interface/assets", file)
-        if '.png' not in path or 'donate' not in path:
-            continue
-        DONATE_IMAGE_SOURCES.append(path)
-
-
-print(DONATE_IMAGE_SOURCES)
 
 # endregion
 
@@ -117,8 +103,37 @@ print(DONATE_IMAGE_SOURCES)
 # region DONATE BUTTON LAYOUTS
 
 
-random_image_index = random.randint(0, len(DONATE_IMAGE_SOURCES) - 1)
-random_image_path = DONATE_IMAGE_SOURCES[random_image_index]
+def filter_donate_image_sources(path_list):
+    good_paths = []
+
+    for path in path_list:
+        if ".png" not in path or "donate" not in path:
+            continue
+        good_paths.append(path)
+
+    return good_paths
+
+
+# grab all the donate images
+donate_image_sources = os.listdir()
+
+# if 'github exists in the list, then we're in a source code version of the bot, so source the images from the assets folder
+if ".github" in donate_image_sources:
+    donate_image_sources = []
+
+    files = os.listdir("pytarkbot/interface/assets")
+    for file in files:
+        path = os.path.join("pytarkbot/interface/assets", file)
+        donate_image_sources.append(path)
+
+
+donate_image_sources = filter_donate_image_sources(donate_image_sources)
+
+print(donate_image_sources)
+
+
+random_image_index = random.randint(0, len(donate_image_sources) - 1)
+random_image_path = donate_image_sources[random_image_index]
 
 
 DONATE_BUTTON_LAYOUTS = [
