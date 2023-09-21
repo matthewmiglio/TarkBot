@@ -96,16 +96,20 @@ STOP_KEYS = [
 DONATE_BUTTON_KEY = "donate_button_key"
 
 
-IMAGE_SOUCRES = os.listdir()
+DONATE_IMAGE_SOURCES = os.listdir()
 
-if ".github" in IMAGE_SOUCRES:
-    IMAGE_SOUCRES = [
-        os.path.join("pytarkbot/interface/assets", file_name)
-        for file_name in os.listdir("pytarkbot/interface/assets")
-    ]
+if ".github" in DONATE_IMAGE_SOURCES:
+    DONATE_IMAGE_SOURCES = []
+
+    files = os.listdir("pytarkbot/interface/assets")
+    for file in files:
+        path = os.path.join("pytarkbot/interface/assets", file)
+        if '.png' not in path or 'donate' not in path:
+            continue
+        DONATE_IMAGE_SOURCES.append(path)
 
 
-print(IMAGE_SOUCRES)
+print(DONATE_IMAGE_SOURCES)
 
 # endregion
 
@@ -113,8 +117,8 @@ print(IMAGE_SOUCRES)
 # region DONATE BUTTON LAYOUTS
 
 
-random_image_index = random.randint(0, len(IMAGE_SOUCRES) - 1)
-random_image_path = IMAGE_SOUCRES[random_image_index]
+random_image_index = random.randint(0, len(DONATE_IMAGE_SOURCES) - 1)
+random_image_path = DONATE_IMAGE_SOURCES[random_image_index]
 
 
 DONATE_BUTTON_LAYOUTS = [
