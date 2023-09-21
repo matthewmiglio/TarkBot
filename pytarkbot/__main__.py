@@ -43,7 +43,11 @@ from pytarkbot.interface.layout import (
     STOP_KEYS,
 )
 from pytarkbot.snipe_bot.state import snipebot_state_tree
-from pytarkbot.utils.caching import cache_user_settings, check_user_settings, read_user_settings
+from pytarkbot.utils.caching import (
+    cache_user_settings,
+    check_user_settings,
+    read_user_settings,
+)
 from pytarkbot.utils.logger import Logger
 from pytarkbot.utils.thread import StoppableThread, ThreadKilled
 
