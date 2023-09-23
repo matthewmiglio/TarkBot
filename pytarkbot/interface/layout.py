@@ -5,7 +5,6 @@ import PySimpleGUI as sg
 
 from .stats import flea_mode_stats, hideout_mode_stats, snipebot_mode_stats
 
-
 # region CONSTANTS
 
 FLEA_SELL_START_KEY = "flea_sell_start_key"
@@ -43,10 +42,9 @@ SNIPEBOT_ITEM_NAME_2_KEY = "item_name_2"
 SNIPEBOT_ITEM_PRICE_2_KEY = "item_price_2"
 SNIPEBOT_ITEM_NAME_3_KEY = "item_name_3"
 SNIPEBOT_ITEM_NAME_4_KEY = "item_name_4"
-SNIPEBOT_ITEM_PRICE_5_KEY = "item_price_5"
-SNIPEBOT_ITEM_PRICE_4_KEY = "item_price_4"
 SNIPEBOT_ITEM_NAME_5_KEY = "item_name_5"
 SNIPEBOT_ITEM_PRICE_3_KEY = "item_price_3"
+SNIPEBOT_ITEM_PRICE_4_KEY = "item_price_4"
 
 # snipebot job toggle keys
 
@@ -70,10 +68,8 @@ CONTROLS_KEYS = [
     SNIPEBOT_ITEM_NAME_2_KEY,
     SNIPEBOT_ITEM_PRICE_2_KEY,
     SNIPEBOT_ITEM_NAME_3_KEY,
-    SNIPEBOT_ITEM_PRICE_5_KEY,
     SNIPEBOT_ITEM_NAME_4_KEY,
     SNIPEBOT_ITEM_PRICE_4_KEY,
-    SNIPEBOT_ITEM_NAME_5_KEY,
     SNIPEBOT_ITEM_PRICE_3_KEY,
 ]
 
@@ -114,33 +110,33 @@ def filter_donate_image_sources(path_list):
     return good_paths
 
 
-# grab all the donate images
-donate_image_sources = os.listdir()
+def get_random_donate_image_path():
+    # grab all the donate images
+    donate_image_sources = os.listdir()
 
-# if 'github exists in the list, then we're in a source code version of the bot, so source the images from the assets folder
-if ".github" in donate_image_sources:
-    donate_image_sources = []
+    # if 'github exists in the list, then we're in a source code version of the bot, so source the images from the assets folder
+    if ".github" in donate_image_sources:
+        donate_image_sources = []
 
-    files = os.listdir("pytarkbot/interface/assets")
-    for file in files:
-        path = os.path.join("pytarkbot/interface/assets", file)
-        donate_image_sources.append(path)
+        files = os.listdir("pytarkbot/interface/assets")
+        for file in files:
+            path = os.path.join("pytarkbot/interface/assets", file)
+            donate_image_sources.append(path)
 
+    donate_image_sources = filter_donate_image_sources(donate_image_sources)
 
-donate_image_sources = filter_donate_image_sources(donate_image_sources)
+    print(donate_image_sources)
 
-print(donate_image_sources)
-
-
-random_image_index = random.randint(0, len(donate_image_sources) - 1)
-random_image_path = donate_image_sources[random_image_index]
+    random_image_index = random.randint(0, len(donate_image_sources) - 1)
+    random_image_path = donate_image_sources[random_image_index]
+    return random_image_path
 
 
 DONATE_BUTTON_LAYOUTS = [
     [
         [
             sg.Button(
-                image_source=random_image_path,
+                image_source=get_random_donate_image_path(),
                 size=(55, 7),
                 key=DONATE_BUTTON_KEY,
             )
@@ -391,10 +387,7 @@ snipe_mode_controls_layout = [
         sg.Input(key=SNIPEBOT_ITEM_NAME_4_KEY),
         sg.Input(key=SNIPEBOT_ITEM_PRICE_4_KEY),
     ],
-    [
-        sg.Input(key=SNIPEBOT_ITEM_NAME_5_KEY),
-        sg.Input(key=SNIPEBOT_ITEM_PRICE_5_KEY),
-    ],
+
 ]
 
 

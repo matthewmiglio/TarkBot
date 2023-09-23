@@ -23,12 +23,12 @@ flea_sell_mode_stats_titles = [
         ],
         [
             sg.Text("Roubles Made: "),
-        ],[
+        ],
+        [
             sg.Text("Sale Attempts: "),
         ],
     ],
     [
-
         [
             sg.Text("Offers Removed: "),
         ],
@@ -49,12 +49,12 @@ flea_sell_mode_stats_values = [
         ],
         [
             stat_box("roubles_made"),
-        ],[
+        ],
+        [
             stat_box("sale_attempts"),
         ],
     ],
     [
-
         [
             stat_box("offers_removed"),
         ],
@@ -227,11 +227,25 @@ snipebot_mode_stats_values = [
     ],
 ]
 
+
 snipebot_mode_stats = [
     [
-        sg.Column(snipebot_mode_stats_titles[0], element_justification="right"),
-        sg.Column(snipebot_mode_stats_values[0], element_justification="left"),
-        sg.Column(snipebot_mode_stats_titles[1], element_justification="right"),
-        sg.Column(snipebot_mode_stats_values[1], element_justification="left"),
+        sg.Text("Program Restarts: "),
+        stat_box("restarts"),
+        
+        sg.Text("Ruble Snipes"),
+        stat_box("ruble_snipes"),
+
+        sg.Text("Specific Snipes"),
+        stat_box("specific_snipes"),
     ]
 ]
+
+# snipebot_mode_stats = [
+#     [
+#         sg.Column(snipebot_mode_stats_titles[0], element_justification="right"),
+#         sg.Column(snipebot_mode_stats_values[0], element_justification="left"),
+#         sg.Column(snipebot_mode_stats_titles[1], element_justification="right"),
+#         sg.Column(snipebot_mode_stats_values[1], element_justification="left"),
+#     ]
+# ]

@@ -30,12 +30,10 @@ from pytarkbot.interface.layout import (
     SNIPEBOT_ITEM_NAME_2_KEY,
     SNIPEBOT_ITEM_NAME_3_KEY,
     SNIPEBOT_ITEM_NAME_4_KEY,
-    SNIPEBOT_ITEM_NAME_5_KEY,
     SNIPEBOT_ITEM_PRICE_1_KEY,
     SNIPEBOT_ITEM_PRICE_2_KEY,
     SNIPEBOT_ITEM_PRICE_3_KEY,
     SNIPEBOT_ITEM_PRICE_4_KEY,
-    SNIPEBOT_ITEM_PRICE_5_KEY,
     SNIPEBOT_START_KEY,
     SNIPEBOT_STOP_KEY,
     SPECIFIC_ITEM_KEY,
@@ -221,10 +219,10 @@ def hideout_mode_start_button_event(
     logger.change_status("Starting hideout mode")
 
     # disable this mode's keys
-    # for key in hideout_disable_keys:
-    #     window[key].update(disabled=True)
+    keys = [HIDEOUT_START_KEY,SNIPEBOT_START_KEY, FLEA_SELL_START_KEY] +CONTROLS_KEYS
+    for key in keys:
+        window[key].update(disabled=True)
 
-    # create args for thread
 
     jobs = []
 
@@ -344,7 +342,6 @@ def snipe_mode_start_button_event(
         SNIPEBOT_ITEM_NAME_2_KEY,
         SNIPEBOT_ITEM_NAME_3_KEY,
         SNIPEBOT_ITEM_NAME_4_KEY,
-        SNIPEBOT_ITEM_NAME_5_KEY,
     ]
 
     price_keys = [
@@ -352,7 +349,6 @@ def snipe_mode_start_button_event(
         SNIPEBOT_ITEM_PRICE_2_KEY,
         SNIPEBOT_ITEM_PRICE_3_KEY,
         SNIPEBOT_ITEM_PRICE_4_KEY,
-        SNIPEBOT_ITEM_PRICE_5_KEY,
     ]
 
     save_current_settings(values)
