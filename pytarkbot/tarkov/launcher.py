@@ -46,18 +46,24 @@ def check_if_on_tark_main(logger):
 
 
 def wait_for_tark_main(logger):
-    on_main = check_if_on_tark_main(logger)
-    loops = 0
-    while not on_main:
+    TARK_MAIN_TIMEOUT = 120
+    TARK_MAIN_WAIT_START_TIME = time.time()
+    while time.time() - TARK_MAIN_WAIT_START_TIME < TARK_MAIN_TIMEOUT:
+        logger.change_status(f'Waiting for tark main for: {str(time.time() - TARK_MAIN_WAIT_START_TIME)[:4]}s')
+
+        close_launcher()
         orientate_terminal()
         orientate_tarkov_client()
-        logger.change_status(f"Waiting for tark main {loops}")
-        loops = loops + 2
-        time.sleep(2)
-        on_main = check_if_on_tark_main(logger)
-        if loops > 120:
-            return "restart"
-    logger.change_status("Made it to tarkov main.")
+        
+        if check_if_on_tark_main():
+            return True
+        
+        time.sleep(5)
+
+    return 'restart'
+
+
+
 
 
 def close_tarkov_client(logger, tark_window):
@@ -175,7 +181,10 @@ def restart_tarkov(logger: Logger):
     # wait for us to reach main menu
     logger.change_status("Waiting for tarkov client to reach main menu.")
     if wait_for_tark_main(logger) == "restart":
+        
         restart_tarkov(logger)
+
+    
 
 
 def check_for_play_button():
