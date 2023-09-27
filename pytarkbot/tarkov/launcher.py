@@ -177,7 +177,9 @@ def restart_tarkov(logger: Logger):
         time.sleep(2)
 
     # orientate tark client
+    print('Orientating client')
     orientate_tarkov_client()
+    print('Orientating terminal')
     orientate_terminal()
     time.sleep(1)
 
@@ -185,7 +187,7 @@ def restart_tarkov(logger: Logger):
     logger.change_status("Waiting for tarkov client to reach main menu.")
     if wait_for_tark_main(logger) == "restart":
         restart_tarkov(logger)
-
+    print('Done waiting for tark main')
 
 def check_for_play_button():
     iar = numpy.asarray(screenshot())
