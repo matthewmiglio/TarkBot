@@ -54,14 +54,14 @@ def wait_for_tark_main(logger):
         )
 
         # close launcher if launcher open
-        tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
-        if len(tark_launcher) != 0:
-            close_launcher(logger, tark_launcher)
+        tark_launcher_windows = pygetwindow.getWindowsWithTitle("BsgLauncher")
+        if len(tark_launcher_windows) != 0:
+            close_launcher(logger, tark_launcher_windows)
 
         orientate_terminal()
         orientate_tarkov_client()
 
-        if check_if_on_tark_main():
+        if check_if_on_tark_main(logger):
             return True
 
         time.sleep(5)
@@ -249,3 +249,7 @@ def wait_for_play_button_in_launcher(logger):
         time.sleep(1)
 
     logger.change_status("Done waiting for play button to appear.")
+
+
+if __name__ == '__main__':
+    wait_for_tark_main(Logger())
