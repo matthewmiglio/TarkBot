@@ -49,21 +49,24 @@ def wait_for_tark_main(logger):
     TARK_MAIN_TIMEOUT = 120
     TARK_MAIN_WAIT_START_TIME = time.time()
     while time.time() - TARK_MAIN_WAIT_START_TIME < TARK_MAIN_TIMEOUT:
-        logger.change_status(f'Waiting for tark main for: {str(time.time() - TARK_MAIN_WAIT_START_TIME)[:4]}s')
+        logger.change_status(
+            f"Waiting for tark main for: {str(time.time() - TARK_MAIN_WAIT_START_TIME)[:4]}s"
+        )
 
-        close_launcher()
+        # close launcher if launcher open
+        tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
+        if len(tark_launcher) != 0:
+            close_launcher(logger, tark_launcher)
+
         orientate_terminal()
         orientate_tarkov_client()
-        
+
         if check_if_on_tark_main():
             return True
-        
+
         time.sleep(5)
 
-    return 'restart'
-
-
-
+    return "restart"
 
 
 def close_tarkov_client(logger, tark_window):
@@ -115,7 +118,6 @@ def restart_tarkov(logger: Logger):
 
     # check if tarkov is open
     tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
-    tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
 
     # if tark open
     if len(tark_window) != 0:
@@ -124,7 +126,8 @@ def restart_tarkov(logger: Logger):
         close_tarkov_client(logger, tark_window)
         time.sleep(5)
 
-    # if launcher open
+    # close launcher if launcher open
+    tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
     if len(tark_launcher) != 0:
         logger.change_status("Tarkov launcher detected. Closing it.")
         orientate_terminal()
@@ -181,10 +184,7 @@ def restart_tarkov(logger: Logger):
     # wait for us to reach main menu
     logger.change_status("Waiting for tarkov client to reach main menu.")
     if wait_for_tark_main(logger) == "restart":
-        
         restart_tarkov(logger)
-
-    
 
 
 def check_for_play_button():
