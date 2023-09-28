@@ -616,3 +616,5 @@ def get_to_flea_tab(logger, print_mode=True):
         on_flea = check_if_on_flea_page()
     if print_mode:
         logger.change_status("Made it to flea tab.")
+
+
