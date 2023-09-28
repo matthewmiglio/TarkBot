@@ -188,12 +188,10 @@ def orientate_tarkov_client():
     Returns:
     - None
     """
-    try:
-        tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")[0]
-        tark_window.moveTo(0, 0)
-        tark_window.resizeTo(1299, 999)
-    except:
-        print("Couldn't orientate tarkov client!")
+    tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")[0]
+    tark_window.moveTo(0, 0)
+    tark_window.resizeTo(1299, 999)
+    print("Couldn't orientate tarkov client!")
 
 
 def orientate_launcher():

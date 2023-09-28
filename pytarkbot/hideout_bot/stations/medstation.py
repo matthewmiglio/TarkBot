@@ -120,7 +120,7 @@ def get_to_medstation() -> bool:
     while not check_if_at_medstation():
         time_taken = time.time() - start_time
 
-        if time_taken > 120:
+        if time_taken > 180:
             print("Took too long to get to medstation")
             return False
         cycle_hideout_tab()
