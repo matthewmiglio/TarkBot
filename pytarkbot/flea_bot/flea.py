@@ -52,7 +52,7 @@ def remove_offers(logger):
 
             # increment logger
             logger.add_offer_removed()
-            logger.change_status("Incremented offers removed to", logger.offers_removed)
+            logger.change_status(f"Incremented offers removed to {logger.offers_removed}")
 
         # check the next slot for a remove offer button
         elif check_if_remove_offer_button_exists_for_item_index_2():
