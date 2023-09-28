@@ -88,8 +88,9 @@ def get_to_bitcoin_miner(logger) -> bool:
         if time_taken > 120:
             logger.change_status("Took too long to get to bitcoin miner")
             return False
+
         cycle_hideout_tab()
-        time.sleep(1.5)
+        time.sleep(3)
 
     time_taken = time.time() - start_time
     logger.change_status(f"made it to bitcoin miner in {str(time_taken)[:4]}")

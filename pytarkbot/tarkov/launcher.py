@@ -19,6 +19,7 @@ from pytarkbot.tarkov.client import get_launcher_res, orientate_terminal
 from pytarkbot.tarkov.graphics_config import change_fullscreenmode_line
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 from pytarkbot.utils.logger import Logger
+TARK_MAIN_TIMEOUT = 180
 
 
 def click_play_button():
@@ -31,7 +32,6 @@ def click_play_button():
 
 
 def check_if_on_tark_main(logger):
-    logger.change_status("Checking if on tark main")
     iar = numpy.asarray(screenshot())
     pix_list = [
         iar[613][762],
@@ -47,11 +47,10 @@ def check_if_on_tark_main(logger):
 
 
 def wait_for_tark_main(logger):
-    TARK_MAIN_TIMEOUT = 120
-    TARK_MAIN_WAIT_START_TIME = time.time()
-    while time.time() - TARK_MAIN_WAIT_START_TIME < TARK_MAIN_TIMEOUT:
+    tark_main_wait_start_time = time.time()
+    while time.time() - tark_main_wait_start_time < TARK_MAIN_TIMEOUT:
         logger.change_status(
-            f"Waiting for tark main for: {str(time.time() - TARK_MAIN_WAIT_START_TIME)[:4]}s"
+            f"Waiting for tark main for: {str(time.time() - tark_main_wait_start_time)[:4]}s"
         )
 
         # close launcher if launcher open

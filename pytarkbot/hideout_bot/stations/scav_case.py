@@ -393,7 +393,6 @@ def get_to_scav_case():
     time.sleep(4)
 
     while not check_if_at_scav_case():
-        cycle_hideout_tab()
 
         time_taken = time.time() - start_time
 
@@ -401,7 +400,8 @@ def get_to_scav_case():
             print("Took too long getting to scav case. restarting")
             return False
 
-        time.sleep(1.5)
+        cycle_hideout_tab()
+        time.sleep(3)
 
     time_taken = time.time() - start_time
     print(f"made it to scav case in {str(time_taken)[:4]} sec")

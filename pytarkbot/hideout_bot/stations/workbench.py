@@ -140,7 +140,7 @@ def get_to_workbench() -> bool:
             print("Took too long to get to workbench")
             return False
         cycle_hideout_tab()
-        time.sleep(1.5)
+        time.sleep(3)
 
     time_taken = time.time() - start_time
     print(f"made it to workbench in {str(time_taken)[:4]}")

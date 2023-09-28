@@ -187,8 +187,9 @@ def get_to_lavatory():
         if time_taken > 120:
             print("Took too long to get to lavatory")
             return False
+        
         cycle_hideout_tab()
-        time.sleep(1.5)
+        time.sleep(3)
 
     time_taken = time.time() - start_time
     print(f"made it to lavatory in {str(time_taken)[:4]}")
