@@ -601,18 +601,20 @@ def get_to_flea_tab(logger, print_mode=True):
     """
     Navigate to the flea market tab.
     """
+    GET_TO_FLEA_PAGE_TIMEOUT = 60  # s
+    get_to_flea_start_time = time.time()
+
     if print_mode:
         logger.change_status("Getting to flea tab")
-    on_flea = check_if_on_flea_page()
-    loops = 0
-    while not on_flea:
-        if loops > 20:
-            print("#92537982735 Failure with get_to_flea_tab()")
-            return "restart"
-        loops = loops + 1
+
+    while time.time() - get_to_flea_start_time < GET_TO_FLEA_PAGE_TIMEOUT:
+        if check_if_on_flea_page():
+            if print_mode:
+                logger.change_status("At flea tab")
+            return True
 
         click(829, 977)
-        time.sleep(0.17)
-        on_flea = check_if_on_flea_page()
-    if print_mode:
-        logger.change_status("Made it to flea tab.")
+        time.sleep(5)
+
+    logger.change_status("Failure getting to flea tab")
+    return "restart"
