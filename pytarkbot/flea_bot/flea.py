@@ -63,7 +63,7 @@ def remove_offers(logger):
 
             # increment logger
             logger.add_offer_removed()
-            logger.change_status("Incremented offers removed to", logger.offers_removed)
+            logger.change_status(f"Incremented offers removed to {logger.offers_removed}" )
 
         else:
             logger.change_status("No remove offer button found.")
