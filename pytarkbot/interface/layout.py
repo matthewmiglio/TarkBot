@@ -125,7 +125,10 @@ def get_random_donate_image_path():
 
     donate_image_sources = filter_donate_image_sources(donate_image_sources)
 
-    print(donate_image_sources)
+    print('\nDonate images:')
+    for image_path in donate_image_sources:
+        print(image_path)
+    print('\n')
 
     random_image_index = random.randint(0, len(donate_image_sources) - 1)
     random_image_path = donate_image_sources[random_image_index]
@@ -387,7 +390,6 @@ snipe_mode_controls_layout = [
         sg.Input(key=SNIPEBOT_ITEM_NAME_4_KEY),
         sg.Input(key=SNIPEBOT_ITEM_PRICE_4_KEY),
     ],
-
 ]
 
 
