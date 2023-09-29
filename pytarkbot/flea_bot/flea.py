@@ -312,6 +312,10 @@ def select_random_item_to_flea(logger, rows_to_target) -> bool:
     Returns:
         bool: True if a satisfactory item to flea is found, False otherwise.
     """
+    #click add offer button
+    click(837, 82)
+    time.sleep(0.33)
+
     # cast rows to assure its really an int
     rows_to_target = int(rows_to_target)
 
