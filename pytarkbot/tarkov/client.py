@@ -391,7 +391,7 @@ def orientate_terminal() -> bool:
         width, _ = terminal_res
         terminal_window = pygetwindow.getWindowsWithTitle(TERMINAL_NAME)[0]
         terminal_window.moveTo(pyautogui.size()[0] - width, 0)
-    except IndexError:
+    except:
         pass
 
 

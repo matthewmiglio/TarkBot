@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 import tkinter.messagebox
+import psutil
 
 import numpy
 import pygetwindow
@@ -18,6 +19,7 @@ from pytarkbot.tarkov.client import get_launcher_res, orientate_terminal
 from pytarkbot.tarkov.graphics_config import change_fullscreenmode_line
 from pytarkbot.utils.dependency import get_bsg_launcher_path
 from pytarkbot.utils.logger import Logger
+TARK_MAIN_TIMEOUT = 180
 
 
 def click_play_button():
@@ -30,7 +32,6 @@ def click_play_button():
 
 
 def check_if_on_tark_main(logger):
-    logger.change_status("Checking if on tark main")
     iar = numpy.asarray(screenshot())
     pix_list = [
         iar[613][762],
@@ -46,18 +47,26 @@ def check_if_on_tark_main(logger):
 
 
 def wait_for_tark_main(logger):
-    on_main = check_if_on_tark_main(logger)
-    loops = 0
-    while not on_main:
+    tark_main_wait_start_time = time.time()
+    while time.time() - tark_main_wait_start_time < TARK_MAIN_TIMEOUT:
+        logger.change_status(
+            f"Waiting for tark main for: {str(time.time() - tark_main_wait_start_time)[:4]}s"
+        )
+
+        # close launcher if launcher open
+        tark_launcher_windows = pygetwindow.getWindowsWithTitle("BsgLauncher")
+        if len(tark_launcher_windows) != 0:
+            close_launcher(logger, tark_launcher_windows)
+
         orientate_terminal()
         orientate_tarkov_client()
-        logger.change_status(f"Waiting for tark main {loops}")
-        loops = loops + 2
-        time.sleep(2)
-        on_main = check_if_on_tark_main(logger)
-        if loops > 120:
-            return "restart"
-    logger.change_status("Made it to tarkov main.")
+
+        if check_if_on_tark_main(logger):
+            return True
+
+        time.sleep(5)
+
+    return "restart"
 
 
 def close_tarkov_client(logger, tark_window):
@@ -73,6 +82,22 @@ def close_launcher(logger, tark_launcher):
     logger.change_status("Tark launcher found open. Closing it.")
     tark_launcher = tark_launcher[0]
     tark_launcher.close()
+
+
+
+def close_program_by_name(program_name):
+    for process in psutil.process_iter(attrs=["pid", "name"]):
+        pid = process.info["pid"]
+        name = process.info["name"]
+
+        # close process in question
+        if name == program_name:
+            process = psutil.Process(pid)
+            process.terminate()
+            print(f"Terminated process with PID {pid} ({program_name})")
+
+
+
 
 
 def open_tark_launcher(logger):
@@ -107,18 +132,19 @@ def restart_tarkov(logger: Logger):
     # sourcery skip: extract-duplicate-method, extract-method
     orientate_terminal()
 
-    # check if tarkov is open
-    tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
-    tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
-
-    # if tark open
-    if len(tark_window) != 0:
-        logger.change_status("Tarkov client detected. Closing it.")
+    # close existing tark client until it closes
+    close_attempts=0
+    while len(pygetwindow.getWindowsWithTitle("EscapeFromTarkov")) != 0:
+        close_attempts+=1
+        logger.change_status(f"Tarkov client detected. Closing it #{close_attempts}")
+        tark_window = pygetwindow.getWindowsWithTitle("EscapeFromTarkov")
         orientate_terminal()
         close_tarkov_client(logger, tark_window)
+        close_program_by_name('EscapeFromTarkov.exe')
         time.sleep(5)
 
-    # if launcher open
+    # close launcher if launcher open
+    tark_launcher = pygetwindow.getWindowsWithTitle("BsgLauncher")
     if len(tark_launcher) != 0:
         logger.change_status("Tarkov launcher detected. Closing it.")
         orientate_terminal()
@@ -168,7 +194,9 @@ def restart_tarkov(logger: Logger):
         time.sleep(2)
 
     # orientate tark client
+    print("Orientating client")
     orientate_tarkov_client()
+    print("Orientating terminal")
     orientate_terminal()
     time.sleep(1)
 
@@ -176,6 +204,7 @@ def restart_tarkov(logger: Logger):
     logger.change_status("Waiting for tarkov client to reach main menu.")
     if wait_for_tark_main(logger) == "restart":
         restart_tarkov(logger)
+    print("Done waiting for tark main")
 
 
 def check_for_play_button():
@@ -240,3 +269,7 @@ def wait_for_play_button_in_launcher(logger):
         time.sleep(1)
 
     logger.change_status("Done waiting for play button to appear.")
+
+
+if __name__ == "__main__":
+    wait_for_tark_main(Logger())
