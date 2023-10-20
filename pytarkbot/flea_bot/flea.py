@@ -578,20 +578,22 @@ def select_random_item_to_flea(
     while 1:
         close_scav_case()
 
-        select_mode = random.choice(["scav_case", "stash"]) if select_mode is True else 'stash'
+        select_mode = (
+            random.choice(["scav_case", "stash"]) if select_mode is True else "stash"
+        )
 
-        logger.change_status(f'\nAttempting {select_mode} mode item selection.')
+        logger.change_status(f"\nAttempting {select_mode} mode item selection.")
 
         if select_mode == "scav_case":
             if select_item_from_scav_case(logger) is not False:
-                logger.change_status('Failed selecting item from junkbox. Retrying...')
+                logger.change_status("Failed selecting item from junkbox. Retrying...")
                 return
         else:
             if select_random_item_from_stash(logger, rows_to_target) is not False:
-                logger.change_status('Failed selecting item from stash. Retrying...')
+                logger.change_status("Failed selecting item from stash. Retrying...")
                 return
 
-        logger.change_status('Failed selecting an item. Retrying...')
+        logger.change_status("Failed selecting an item. Retrying...")
 
 
 def check_if_can_add_offer():

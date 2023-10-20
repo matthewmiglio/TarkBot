@@ -608,8 +608,8 @@ def get_to_flea_tab(logger, print_mode=True):
     if print_mode:
         logger.change_status("Getting to flea tab")
 
-    #close scav case coord
-    click(1280,386)
+    # close scav case coord
+    click(1280, 386)
     time.sleep(0.22)
 
     while time.time() - get_to_flea_start_time < GET_TO_FLEA_PAGE_TIMEOUT:
