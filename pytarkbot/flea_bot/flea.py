@@ -485,8 +485,6 @@ def find_junk_box_icon():
 
 
 def open_scav_case_from_add_offer_window():
-
-
     scav_case_coord = find_scav_case()
     scav_case_coord = [scav_case_coord[1], scav_case_coord[0]]
     click(scav_case_coord[0], scav_case_coord[1], button="right")
@@ -549,7 +547,7 @@ def select_item_from_scav_case(logger):
 
 
 def close_scav_case():
-    click(1280,386)
+    click(1280, 386)
 
 
 def select_random_item_to_flea(
@@ -568,7 +566,7 @@ def select_random_item_to_flea(
 
     print("select_from_scav_case_toggle", select_from_scav_case_toggle)
 
-    #close the scav case if its open
+    # close the scav case if its open
     close_scav_case()
     time.sleep(2)
 
@@ -577,20 +575,22 @@ def select_random_item_to_flea(
 
     logger.change_status("Selecting a random item to flea.")
 
-    if select_from_scav_case_toggle:
-        select_mode = random.choice(['scav_case', 'stash'])
+    while 1:
+        close_scav_case()
+        select_mode = "stash"
+        if select_from_scav_case_toggle:
+            select_mode = random.choice(["scav_case", "stash"])
 
-    # if scav case item select mode
-    if select_mode == 'scav_case':
-        print('Doing scav case item select mode...')
-        while select_item_from_scav_case(logger) is False:
-            logger.change_status('Failed to select a random item from scav case... retrying')
-        return
+        logger.change_status(f'Attempting {select_mode} mode item selection.')
 
-    # if regular item select mode
-    print('Doing stash item select mode...')
-    while select_random_item_from_stash(logger, rows_to_target) is False:
-        logger.change_status("Failed to select a random item from stash... retrying")
+        if select_mode == "scav_case":
+            if select_item_from_scav_case(logger) is not False:
+                return
+        else:
+            if select_random_item_from_stash(logger, rows_to_target) is not False:
+                return
+
+        logger.change_status('Failed selecting an item. Retrying...')
 
 
 def check_if_can_add_offer():
@@ -1388,5 +1388,3 @@ def check_if_remove_offer_button_exists_for_item_index_2():
 
 if __name__ == "__main__":
     logger = Logger()
-
-
