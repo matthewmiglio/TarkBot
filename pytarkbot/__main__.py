@@ -12,7 +12,7 @@ from pytarkbot.interface.layout import (
     CONTROLS_KEYS,
     DONATE_BUTTON_KEY,
     FLEA_SELL_CONTROL_KEYS,
-    FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,
+    FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,SELECT_FROM_SCAV_CASE_TOGGLE_KEY,
     FLEA_SELL_ROWS_INPUT_KEY,
     FLEA_SELL_START_KEY,
     FLEA_SELL_STOP_KEY,
@@ -115,11 +115,12 @@ class FleaSellWorkerThread(StoppableThread):
         try:
             state = "restart"
             number_of_rows = self.args["rows"]
+            select_from_scav_case_toggle = self.args["select_from_scav_case_toggle"]
             remove_offers_timer = self.args["remove_offers_timer"]
 
             while not self.shutdown_flag.is_set():
                 state = flea_sell_mode_state_tree(
-                    self.logger, state, number_of_rows, remove_offers_timer
+                    self.logger, state, number_of_rows, remove_offers_timer,select_from_scav_case_toggle
                 )
 
         except ThreadKilled:
@@ -297,6 +298,7 @@ def flea_sell_mode_start_button_event(
     args = {
         "rows": values[FLEA_SELL_ROWS_INPUT_KEY],
         "remove_offers_timer": values[FLEA_SELL_REMOVE_OFFERS_TIMER_KEY],
+        'select_from_scav_case_toggle': values[SELECT_FROM_SCAV_CASE_TOGGLE_KEY],
     }
 
     save_current_settings(values)

@@ -4,6 +4,7 @@ This module contains functions for removing offers from the flea market in Escap
 
 import itertools
 import random
+from re import L
 import time
 
 import numpy
@@ -17,7 +18,12 @@ from pytarkbot.detection import (
 )
 from pytarkbot.detection.image_rec import make_reference_image_list
 from pytarkbot.tarkov import click, screenshot
-from pytarkbot.tarkov.client import get_to_flea_tab, open_filters_window
+from pytarkbot.tarkov.client import (
+    get_to_flea_tab,
+    open_filters_window,
+    orientate_tarkov_client,
+)
+from pytarkbot.utils.logger import Logger
 
 pyautogui.FAILSAFE = False
 RANDOM_ITEM_SELECTION_TIMEOUT = 30  # S
@@ -52,7 +58,9 @@ def remove_offers(logger):
 
             # increment logger
             logger.add_offer_removed()
-            logger.change_status(f"Incremented offers removed to {logger.offers_removed}")
+            logger.change_status(
+                f"Incremented offers removed to {logger.offers_removed}"
+            )
 
         # check the next slot for a remove offer button
         elif check_if_remove_offer_button_exists_for_item_index_2():
@@ -63,7 +71,9 @@ def remove_offers(logger):
 
             # increment logger
             logger.add_offer_removed()
-            logger.change_status(f"Incremented offers removed to {logger.offers_removed}" )
+            logger.change_status(
+                f"Incremented offers removed to {logger.offers_removed}"
+            )
 
         else:
             logger.change_status("No remove offer button found.")
@@ -301,23 +311,8 @@ def click_fbi_button():
     return "continue"
 
 
-def select_random_item_to_flea(logger, rows_to_target) -> bool:
-    """
-    Select a random item to flea.
-
-    Args:
-        logger: The logger object.
-        rows_to_target (int): The number of rows to target.
-
-    Returns:
-        bool: True if a satisfactory item to flea is found, False otherwise.
-    """
-
-
-    # cast rows to assure its really an int
-    rows_to_target = int(rows_to_target)
-
-    logger.change_status("Selecting a random item to flea.")
+def select_random_item_from_stash(logger, rows_to_target):
+    orientate_add_offer_window_to_bottom_left(logger)
 
     # get start time
     start_time = time.time()
@@ -331,7 +326,7 @@ def select_random_item_to_flea(logger, rows_to_target) -> bool:
             )
             break
 
-        #click add offer button
+        # click add offer button
         click(837, 82)
         time.sleep(1)
 
@@ -343,7 +338,6 @@ def select_random_item_to_flea(logger, rows_to_target) -> bool:
             continue
 
         # left + right click the item
-        logger.change_status("Found a potential item to sell")
         click(item_coords[0], item_coords[1], button="left")
         time.sleep(0.1)
         click(item_coords[0], item_coords[1], button="right")
@@ -351,11 +345,252 @@ def select_random_item_to_flea(logger, rows_to_target) -> bool:
 
         # click this item's filter by item (FBI) button
         if click_fbi_button() != "restart":
-            logger.change_status("Found a satisfactory item to flea.")
+            logger.change_status("Found a potential item to sell from stash")
             return True
-
-    # if we get here, we timed out
     return False
+
+
+def check_add_offer_window_orientation_to_topleft() -> bool:
+    """
+    Check if the add offer window is orientated.
+
+    Returns:
+        bool: True if the add offer window is orientated, False otherwise.
+    """
+    coords = find_add_offer_window()
+    if coords is None:
+        return False
+    value1 = abs(coords[0] - 22)
+    value2 = abs(coords[1] - 38)
+    return value1 <= 3 and value2 <= 3
+
+
+def check_junk_box_window_orientation() -> bool:
+    """
+    Check if the add offer window is orientated.
+
+    Returns:
+        bool: True if the add offer window is orientated, False otherwise.
+    """
+    coords = find_junk_box_icon()
+    if coords is None:
+        return False
+    value1 = abs(coords[0] - 695)
+    value2 = abs(coords[1] - 379)
+    return value1 <= 3 and value2 <= 3
+
+
+def orientate_junk_box_window(logger):
+    """
+    Orientate the add offer window to the topleft.
+
+    Args:
+        logger: The logger object.
+
+    Returns:
+        bool: True if the add offer window is orientated, False otherwise.
+    """
+    orientated = check_junk_box_window_orientation()
+    loops = 0
+    while not orientated:
+        if loops > 10:
+            return False
+        loops = loops + 1
+
+        coords = find_junk_box_icon()
+        if coords is None:
+            return False
+        origin = pyautogui.position()
+        pyautogui.moveTo(coords[0] + 3, coords[1] + 3, duration=0.1)
+        time.sleep(0.1)
+        pyautogui.dragTo(900, 900, duration=0.3)
+        pyautogui.moveTo(origin[0], origin[1])
+        time.sleep(0.33)
+        orientated = check_junk_box_window_orientation()
+    logger.change_status("Orientated junk box to bottom right")
+    return True
+
+
+def orientate_add_offer_window_to_topleft(logger):
+    """
+    Orientate the add offer window to the topleft.
+
+    Args:
+        logger: The logger object.
+
+    Returns:
+        bool: True if the add offer window is orientated, False otherwise.
+    """
+    orientated = check_add_offer_window_orientation_to_topleft()
+    loops = 0
+    while not orientated:
+        if loops > 10:
+            return False
+        loops = loops + 1
+
+        coords = find_add_offer_window()
+        if coords is None:
+            return False
+        origin = pyautogui.position()
+        pyautogui.moveTo(coords[0], coords[1], duration=0.1)
+        time.sleep(0.1)
+        pyautogui.dragTo(0, 0, duration=0.3)
+        pyautogui.moveTo(origin[0], origin[1])
+        orientated = check_add_offer_window_orientation_to_topleft()
+    logger.change_status("Orientated add offer window to topleft.")
+    return True
+
+
+def find_scav_case():
+    """
+    Find the filter by item button on the screen.
+
+    Returns:
+        tuple: The coordinates of the filter by item button.
+    """
+    current_image = screenshot()
+    reference_folder = "scav_case_in_add_offer"
+    references = make_reference_image_list(reference_folder)
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99,
+    )
+
+    return get_first_location(locations)
+
+
+def find_junk_box_icon():
+    """
+    Find the filter by item button on the screen.
+
+    Returns:
+        tuple: The coordinates of the filter by item button.
+    """
+    current_image = screenshot()
+    reference_folder = "junk_box_icon"
+    references = make_reference_image_list(reference_folder)
+
+    locations = find_references(
+        screenshot=current_image,
+        folder=reference_folder,
+        names=references,
+        tolerance=0.99,
+    )
+
+    coord = get_first_location(locations)
+    return [coord[1], coord[0]]
+
+
+def open_scav_case_from_add_offer_window():
+
+
+    scav_case_coord = find_scav_case()
+    scav_case_coord = [scav_case_coord[1], scav_case_coord[0]]
+    click(scav_case_coord[0], scav_case_coord[1], button="right")
+    time.sleep(0.31)
+    click(scav_case_coord[0] + 10, scav_case_coord[1] + 23, button="left")
+    time.sleep(0.31)
+
+
+def scan_scav_case_region_for_items():
+    iar = numpy.asarray(screenshot())
+
+    scan_increment = random.choice([7, 11, 13, 17])
+
+    # make a coord list containing coordinates that have pixels that are not [22,22,22]
+    coord_list = []
+    for x_coord, y_coord in itertools.product(
+        range(703, 1280, scan_increment), range(401, 980, scan_increment)
+    ):
+        if not pixel_is_equal(iar[y_coord][x_coord], [22, 22, 22], tol=10):
+            coord_list.append([x_coord, y_coord])
+
+    # if there are no coords in coord_list, return None
+    if not coord_list:
+        return None
+
+    # return random coord from coord list
+    return random.choice(coord_list)
+
+
+def select_item_from_scav_case(logger):
+    logger.change_status("Adding another offer.")
+    click(837, 82)
+    time.sleep(1)
+
+    # orientate add offer window
+    orientate_add_offer_window_to_topleft(logger)
+
+    # open scav case
+    open_scav_case_from_add_offer_window()
+
+    # orientate the scav case
+    orientate_junk_box_window(logger)
+
+    # select random item in the scav case
+    item_coord = scan_scav_case_region_for_items()
+    while item_coord is None:
+        item_coord = scan_scav_case_region_for_items()
+
+    # left + right click the item
+    click(item_coord[0], item_coord[1], button="left")
+    time.sleep(0.31)
+    click(item_coord[0], item_coord[1], button="right")
+    time.sleep(2)
+
+    # click this item's filter by item (FBI) button
+    if click_fbi_button() != "restart":
+        logger.change_status("Found a potential item to sell from scav case")
+        return True
+    return False
+
+
+def close_scav_case():
+    click(1280,386)
+
+
+def select_random_item_to_flea(
+    logger, rows_to_target, select_from_scav_case_toggle
+) -> bool:
+    """
+    Select a random item to flea.
+
+    Args:
+        logger: The logger object.
+        rows_to_target (int): The number of rows to target.
+
+    Returns:
+        bool: True if a satisfactory item to flea is found, False otherwise.
+    """
+
+    print("select_from_scav_case_toggle", select_from_scav_case_toggle)
+
+    #close the scav case if its open
+    close_scav_case()
+    time.sleep(2)
+
+    # cast rows to assure its really an int
+    rows_to_target = int(rows_to_target)
+
+    logger.change_status("Selecting a random item to flea.")
+
+    if select_from_scav_case_toggle:
+        select_mode = random.choice(['scav_case', 'stash'])
+
+    # if scav case item select mode
+    if select_mode == 'scav_case':
+        print('Doing scav case item select mode...')
+        while select_item_from_scav_case(logger) is False:
+            logger.change_status('Failed to select a random item from scav case... retrying')
+        return
+
+    # if regular item select mode
+    print('Doing stash item select mode...')
+    while select_random_item_from_stash(logger, rows_to_target) is False:
+        logger.change_status("Failed to select a random item from stash... retrying")
 
 
 def check_if_can_add_offer():
@@ -383,7 +618,7 @@ def close_add_offer_window(logger):
         logger: The logger object.
     """
     # logger.change_status("Closing add offer window.")
-    orientate_add_offer_window(logger)
+    orientate_add_offer_window_to_bottom_left(logger)
     click(732, 471)
 
 
@@ -542,7 +777,7 @@ def post_item(logger, post_price):
     """
     operation_delay = 0.17
 
-    orientate_add_offer_window(logger)
+    orientate_add_offer_window_to_bottom_left(logger)
 
     write_post_price(logger, post_price)
     time.sleep(operation_delay)
@@ -586,7 +821,7 @@ def check_for_post_confirmation_popup() -> bool:
     return check_for_location(locations)
 
 
-def orientate_add_offer_window(logger) -> bool:
+def orientate_add_offer_window_to_bottom_left(logger) -> bool:
     """
     Orientate the add offer window.
 
@@ -609,7 +844,7 @@ def orientate_add_offer_window(logger) -> bool:
         origin = pyautogui.position()
         pyautogui.moveTo(coords[0], coords[1], duration=0.1)
         time.sleep(0.1)
-        pyautogui.dragTo(0, 980, duration=0.7)
+        pyautogui.dragTo(0, 980, duration=0.3)
         pyautogui.moveTo(origin[0], origin[1])
         orientated = check_add_offer_window_orientation()
     logger.change_status("Orientated add offer window.")
@@ -1149,3 +1384,9 @@ def check_if_remove_offer_button_exists_for_item_index_2():
             red_pix_list.append(x_coord)
 
     return len(red_pix_list) > 5
+
+
+if __name__ == "__main__":
+    logger = Logger()
+
+

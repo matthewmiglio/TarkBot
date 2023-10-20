@@ -20,9 +20,10 @@ SNIPEBOT_STOP_KEY = "snipebot_stop_key"
 # flea sell controls keys
 FLEA_SELL_ROWS_INPUT_KEY = "flea_sell_rows_input_key"
 FLEA_SELL_REMOVE_OFFERS_TIMER_KEY = "flea_sell_remove_offers_timer_key"
+SELECT_FROM_SCAV_CASE_TOGGLE_KEY = 'select_from_scav_case_toggle'
 
 
-FLEA_SELL_CONTROL_KEYS = [FLEA_SELL_ROWS_INPUT_KEY, FLEA_SELL_REMOVE_OFFERS_TIMER_KEY]
+FLEA_SELL_CONTROL_KEYS = [FLEA_SELL_ROWS_INPUT_KEY, FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,SELECT_FROM_SCAV_CASE_TOGGLE_KEY]
 
 
 # hideout controls keys
@@ -55,6 +56,7 @@ SPECIFIC_ITEM_KEY = "specific_snipe_farm_toggle_key"
 CONTROLS_KEYS = [
     FLEA_SELL_ROWS_INPUT_KEY,
     FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,
+    SELECT_FROM_SCAV_CASE_TOGGLE_KEY,
     HIDEOUT_SCAV_CASE_TOGGLE_KEY,
     HIDEOUT_MED_STATION_TOGGLE_KEY,
     HIDEOUT_LAVATORY_TOGGLE_KEY,
@@ -185,6 +187,10 @@ flea_sell_mode_controls_layout = [
             key=FLEA_SELL_REMOVE_OFFERS_TIMER_KEY,
             default_value="2m",
         ),
+    ],
+    #checkbox with title 'select from scav case'
+    [
+        sg.Checkbox(text="Select from Scav Case", key=SELECT_FROM_SCAV_CASE_TOGGLE_KEY, default=False),
     ],
 ]
 

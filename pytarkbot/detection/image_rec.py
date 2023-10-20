@@ -218,6 +218,7 @@ def make_reference_image_list(file_name):
 
     return reference_image_list
 
+
 def get_file_count(folder):
     """Method to return the amount of a files in a given directory
 

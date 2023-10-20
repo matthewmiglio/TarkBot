@@ -11,7 +11,7 @@ from pytarkbot.flea_bot.flea import (
     get_price_undercut,
     get_to_flea_tab_from_my_offers_tab,
     get_to_my_offers_tab,
-    orientate_add_offer_window,
+    orientate_add_offer_window_to_bottom_left,
     post_item,
     remove_offers,
     select_random_item_to_flea,
@@ -20,11 +20,14 @@ from pytarkbot.flea_bot.flea import (
 )
 from pytarkbot.tarkov.client import click, get_to_flea_tab
 from pytarkbot.tarkov.launcher import restart_tarkov
+from pytarkbot.utils.logger import Logger
 
 POST_REMOVE_OFFER_SLEEP_TIME = 30
 
 
-def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer):
+def flea_sell_mode_state_tree(
+    logger, state, number_of_rows, remove_offers_timer, select_from_scav_case_toggle
+):
     """
     This function represents the state machine for the flea bot.
     It takes in a logger object, the current state, the number of rows,
@@ -44,7 +47,9 @@ def flea_sell_mode_state_tree(logger, state, number_of_rows, remove_offers_timer
         return "flea_mode"
 
     if state == "flea_mode":
-        state = state_flea_mode(logger, number_of_rows, remove_offers_timer)
+        state = state_flea_mode(
+            logger, number_of_rows, remove_offers_timer, select_from_scav_case_toggle
+        )
         if state == "Done":
             sys.exit()
 
@@ -91,7 +96,9 @@ def state_remove_flea_offers(logger):
     return None
 
 
-def state_flea_mode(logger, number_of_rows, remove_offers_timer):
+def state_flea_mode(
+    logger, number_of_rows, remove_offers_timer, select_from_scav_case_toggle
+):
     """
     This function represents the flea mode state. It takes in a logger
     object, the number of rows, and the remove offers timer. It returns
@@ -106,11 +113,6 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         str: The new state of the machine.
     """
     logger.change_status("Beginning flea alg.\n")
-
-    # get to flea
-    logger.change_status("Getting to flea")
-    if get_to_flea_tab(logger) == "restart":
-        return "restart"
 
     while True:
         # open flea
@@ -130,10 +132,11 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         time.sleep(0.33)
 
         logger.change_status("Orientating add offer window.")
-        orientate_add_offer_window(logger)
 
-        select_random_item_to_flea(logger, number_of_rows)
+        select_random_item_to_flea(logger, number_of_rows, select_from_scav_case_toggle)
         time.sleep(1)
+
+        orientate_add_offer_window_to_bottom_left(logger)
 
         # set flea filter
         logger.change_status("Setting the flea filters to only RUB/players only.")
@@ -157,6 +160,8 @@ def state_flea_mode(logger, number_of_rows, remove_offers_timer):
         # read current money and set logger's current money value
 
         logger.add_flea_sale_attempt()
+
+        time.sleep(3)
 
 
 def flea_mode_restart_state(logger):
