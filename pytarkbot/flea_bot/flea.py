@@ -579,7 +579,7 @@ def select_random_item_to_flea(
         close_scav_case()
 
         select_mode = (
-            random.choice(["scav_case", "stash"]) if select_mode is True else "stash"
+            random.choice(["scav_case", "stash"]) if select_from_scav_case_toggle is True else "stash"
         )
 
         logger.change_status(f"\nAttempting {select_mode} mode item selection.")
