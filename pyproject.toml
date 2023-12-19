@@ -14,7 +14,7 @@ cx-freeze = "^6.15.11"
 pysimplegui = "^4.60.5"
 numpy = "^1.26.2"
 opencv-python = "^4.8.1.78"
-psutil = "^5.9.6"
+psutil = "^5.9.7"
 
 
 [build-system]
