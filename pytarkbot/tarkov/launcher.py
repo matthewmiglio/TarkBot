@@ -23,6 +23,7 @@ TARK_MAIN_TIMEOUT = 180
 
 
 def click_play_button():
+    print('Clicking play button')
     w, h = get_launcher_res()
     x = 0.9 * w
     y = 0.9 * h
@@ -272,4 +273,8 @@ def wait_for_play_button_in_launcher(logger):
 
 
 if __name__ == "__main__":
-    wait_for_tark_main(Logger())
+    # wait_for_tark_main(Logger())
+    orientate_launcher()
+
+
+    click_play_button()

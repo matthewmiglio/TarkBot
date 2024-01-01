@@ -612,6 +612,9 @@ def get_to_flea_tab(logger, print_mode=True):
     click(1280, 386)
     time.sleep(0.22)
 
+    #press N to clear popups
+    pyautogui.press("n")
+
     while time.time() - get_to_flea_start_time < GET_TO_FLEA_PAGE_TIMEOUT:
         if check_if_on_flea_page():
             if print_mode:
