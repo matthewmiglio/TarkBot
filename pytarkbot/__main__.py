@@ -52,6 +52,8 @@ from pytarkbot.utils.thread import StoppableThread, ThreadKilled
 
 from pytarkbot.interface.layout import make_tarkbot_window
 
+import pytarkbot.utils.medal
+
 
 def save_current_settings(values) -> None:
     """
