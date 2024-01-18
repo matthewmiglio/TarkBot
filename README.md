@@ -16,7 +16,7 @@ The Hideout Bot takes care of your in-game hideout, providing automation for ess
 ## SnipeBot
 The SnipeBot is your vigilant market watcher, constantly scanning for underpriced items on the market. This mode ensures that you don't miss any opportunities to acquire valuable assets at a bargain. TarkBot executes swift buying actions, enabling you to capitalize on market fluctuations and make strategic purchases.
 
-<img src="https://github.com/matthewmiglio/Py-Tark-Hideout-Bot/blob/main/assets/hideout_bot_demo.gif?raw=true" width="70%"/><img src="https://github.com/matthewmiglio/Py-Tark-Hideout-Bot/blob/main/assets/hideout_bot_demo_gui.png?raw=true" width="30%"/>
+
 
 # Install
 
