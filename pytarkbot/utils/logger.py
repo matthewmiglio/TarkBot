@@ -1,6 +1,7 @@
 import time
 from functools import wraps
 from queue import Queue
+from pytarkbot.utils.file_logging import make_new_log_dir, add_line_to_log_file
 
 
 class Logger:
@@ -16,6 +17,7 @@ class Logger:
         self.restarts = 0
         self.autorestarts = 0
         self.errored = False
+        self.log_file_path = make_new_log_dir()
 
         # flea sell mode stats
         self.roubles_made = 0
@@ -38,7 +40,7 @@ class Logger:
         self.hideout_profit = 0
         self.stations_visited = 0
 
-        #snipebot stats
+        # snipebot stats
         self.ruble_snipes = 0
         self.specific_snipes = 0
 
@@ -51,18 +53,12 @@ class Logger:
             # bot stats
             "restarts": self.restarts,
             "autorestarts": self.autorestarts,
-
-
-
-
-
             # flea mode stats
             "item_sold": self.item_sold,
             "roubles_made": self.format_money(self.roubles_made),
             "sale_attempts": self.sale_attempts,
             "success_rate": self.calc_success_rate(),
             "offers_removed": self.offers_removed,
-
             # hideout mode stats
             "workbench_starts": self.workbench_starts,
             "workbench_collects": self.workbench_collects,
@@ -77,12 +73,9 @@ class Logger:
             "scav_case_collects": self.scav_case_collects,
             "hideout_profit": self.hideout_profit,
             "station_time": self.calculate_station_time(),
-
-
-            #snipebot stats
+            # snipebot stats
             "ruble_snipes": self.ruble_snipes,
             "specific_snipes": self.specific_snipes,
-
         }
         self.queue.put(statistics)
 
@@ -108,6 +101,7 @@ class Logger:
     @_updates_queue
     def change_status(self, message):
         self.status = message
+        add_line_to_log_file(self.log_file_path, message)
         print(message)
 
     @_updates_queue
@@ -220,7 +214,6 @@ class Logger:
     @_updates_queue
     def add_scav_case_collect(self):
         self.scav_case_collects += 1
-
 
     @_updates_queue
     def add_ruble_snipe(self):
