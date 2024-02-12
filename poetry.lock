@@ -379,6 +379,17 @@ files = [
 test = ["enum34", "ipaddress", "mock", "pywin32", "wmi"]
 
 [[package]]
+name = "pyasn1"
+version = "0.5.1"
+description = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
+files = [
+    {file = "pyasn1-0.5.1-py2.py3-none-any.whl", hash = "sha256:4439847c58d40b1d0a573d07e3856e95333f1976294494c325775aeca506eb58"},
+    {file = "pyasn1-0.5.1.tar.gz", hash = "sha256:6d391a96e59b23130a5cfa74d6fd7f388dbbe26cc8f1edf39fdddf08d9d6676c"},
+]
+
+[[package]]
 name = "pyautogui"
 version = "0.9.54"
 description = "PyAutoGUI lets Python control the mouse and keyboard, and other GUI automation tasks. For Windows, macOS, and Linux, on Python 3 and 2."
@@ -532,14 +543,17 @@ pyscreenshot = "*"
 
 [[package]]
 name = "pysimplegui"
-version = "4.60.5"
-description = "Python GUIs for Humans. Launched in 2018. It's 2022 & PySimpleGUI is an ACTIVE & supported project. Super-simple to create custom GUI's. 325+ Demo programs & Cookbook for rapid start. Extensive documentation. Main docs at www.PySimpleGUI.org. Fun & your success are the focus. Examples using Machine Learning (GUI, OpenCV Integration), Rainmeter Style Desktop Widgets, Matplotlib + Pyplot, PIL support, add GUI to command line scripts, PDF & Image Viewers. Great for beginners & advanced GUI programmers."
+version = "5.0.0"
+description = "Python GUIs for Humans! PySimpleGUI is the top-rated Python application development environment. Launched in 2018 and actively developed, maintained, and supported in 2024. Transforms tkinter, Qt, WxPython, and Remi into a simple, intuitive, and fun experience for both hobbyists and expert users."
 optional = false
-python-versions = "*"
+python-versions = ">=3.6"
 files = [
-    {file = "PySimpleGUI-4.60.5-py3-none-any.whl", hash = "sha256:004f33311ee685a5287fad54f500f7290b40d7c806044e478b1384f85dedce64"},
-    {file = "PySimpleGUI-4.60.5.tar.gz", hash = "sha256:31014d1cc5eef1373d7e93564ff2604662645cc774a939b1f01aa253e7f9d78b"},
+    {file = "PySimpleGUI-5.0.0-py3-none-any.whl", hash = "sha256:7d78ec2caf7c505da53a4c7e83a739ba29b2270b6c514a3ba25c1226efc40c03"},
+    {file = "PySimpleGUI-5.0.0.tar.gz", hash = "sha256:13f37a90f6207de6574e74648bd5a54feff89a97227b455c40f019e5210a1115"},
 ]
+
+[package.dependencies]
+rsa = "*"
 
 [[package]]
 name = "python3-xlib"
@@ -560,6 +574,20 @@ python-versions = "*"
 files = [
     {file = "pytweening-1.0.7.tar.gz", hash = "sha256:767134f1bf57b76c1ce9f692dd1cfc776d9a279de6724e8d04854508fd7ededb"},
 ]
+
+[[package]]
+name = "rsa"
+version = "4.9"
+description = "Pure-Python RSA implementation"
+optional = false
+python-versions = ">=3.6,<4"
+files = [
+    {file = "rsa-4.9-py3-none-any.whl", hash = "sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7"},
+    {file = "rsa-4.9.tar.gz", hash = "sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21"},
+]
+
+[package.dependencies]
+pyasn1 = ">=0.1.3"
 
 [[package]]
 name = "rubicon-objc"
@@ -609,4 +637,4 @@ test = ["pytest (>=6.0.0)", "setuptools (>=65)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "00e1e20c3b7d418c0e3a87b906eb7b59066b0f3a2ab3e08ef64bc817341a0bac"
+content-hash = "5e048ededec2c946b4b0d80f79f2c7578f6a216d20edb6770124514676e18156"
