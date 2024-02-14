@@ -543,13 +543,13 @@ pyscreenshot = "*"
 
 [[package]]
 name = "pysimplegui"
-version = "5.0.0"
+version = "5.0.2"
 description = "Python GUIs for Humans! PySimpleGUI is the top-rated Python application development environment. Launched in 2018 and actively developed, maintained, and supported in 2024. Transforms tkinter, Qt, WxPython, and Remi into a simple, intuitive, and fun experience for both hobbyists and expert users."
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "PySimpleGUI-5.0.0-py3-none-any.whl", hash = "sha256:7d78ec2caf7c505da53a4c7e83a739ba29b2270b6c514a3ba25c1226efc40c03"},
-    {file = "PySimpleGUI-5.0.0.tar.gz", hash = "sha256:13f37a90f6207de6574e74648bd5a54feff89a97227b455c40f019e5210a1115"},
+    {file = "PySimpleGUI-5.0.2-py3-none-any.whl", hash = "sha256:74f111768181be8693a93af43cb140695305669c286e9a76d16be15e6d12b21b"},
+    {file = "PySimpleGUI-5.0.2.tar.gz", hash = "sha256:aacd1fa9bb7366aa6699fc73bac928d4e9656c67e8b6376d01381f5e4477926f"},
 ]
 
 [package.dependencies]
@@ -637,4 +637,4 @@ test = ["pytest (>=6.0.0)", "setuptools (>=65)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "5e048ededec2c946b4b0d80f79f2c7578f6a216d20edb6770124514676e18156"
+content-hash = "640b3312cfaa0575d6fdbbdfc92061b25b34cbed174e7d1648cc0a454c684d1a"
