@@ -33,8 +33,8 @@ All contributions are welcome, open a pull request to contribute.
 For developers, to install the source code with the following:
 
 ```bash
-git clone https://github.com/matthewmiglio/Py-Tark-Hideout-Bot.git
-cd Py-Tark-Hideout-Bot
+git clone https://github.com/matthewmiglio/TarkBot.git
+cd Py-TarkBot
 python -m pip install poetry # install poetry for dependency management if you don't have it
 poetry install --with dev # --with build # install dependencies
 poetry run pre-commit install # optional, but highly recommended for contributing
