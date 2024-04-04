@@ -380,7 +380,7 @@ def check_junk_box_window_orientation() -> bool:
     return value1 <= 3 and value2 <= 3
 
 
-def orientate_junk_box_window(logger):
+def orientate_junk_box_window(logger) -> bool:
     """
     Orientate the add offer window to the topleft.
 
@@ -390,23 +390,25 @@ def orientate_junk_box_window(logger):
     Returns:
         bool: True if the add offer window is orientated, False otherwise.
     """
-    orientated = check_junk_box_window_orientation()
-    loops = 0
-    while not orientated:
-        if loops > 10:
+    timeout = 10#s
+    start_time = time.time()
+    while not check_junk_box_window_orientation():
+        if time.time() - start_time > timeout:
+            logger.change_status('Timed out while orientating junk box')
             return False
-        loops = loops + 1
+
 
         coords = find_junk_box_icon()
         if coords is None:
-            return False
+            continue
+
         origin = pyautogui.position()
         pyautogui.moveTo(coords[0] + 3, coords[1] + 3, duration=0.1)
         time.sleep(0.1)
         pyautogui.dragTo(900, 900, duration=0.3)
         pyautogui.moveTo(origin[0], origin[1])
         time.sleep(0.33)
-        orientated = check_junk_box_window_orientation()
+
     logger.change_status("Orientated junk box to bottom right")
     return True
 
@@ -421,22 +423,25 @@ def orientate_add_offer_window_to_topleft(logger):
     Returns:
         bool: True if the add offer window is orientated, False otherwise.
     """
-    orientated = check_add_offer_window_orientation_to_topleft()
-    loops = 0
-    while not orientated:
-        if loops > 10:
+    start_time = time.time()
+    timeout = 10#s
+    while not check_add_offer_window_orientation_to_topleft():
+        #timeout check
+        if time.time() - start_time  > timeout:
             return False
-        loops = loops + 1
 
+        #get coords of window
         coords = find_add_offer_window()
         if coords is None:
-            return False
+            continue
+
+        #drag window to topleft, reutnr mouse to origin
         origin = pyautogui.position()
         pyautogui.moveTo(coords[0], coords[1], duration=0.1)
         time.sleep(0.1)
         pyautogui.dragTo(0, 0, duration=0.3)
         pyautogui.moveTo(origin[0], origin[1])
-        orientated = check_add_offer_window_orientation_to_topleft()
+
     logger.change_status("Orientated add offer window to topleft.")
     return True
 
@@ -486,11 +491,18 @@ def find_junk_box_icon():
 
 def open_scav_case_from_add_offer_window():
     scav_case_coord = find_scav_case()
+    if scav_case_coord is None:
+        print('Couldnt find scav case icon')
+        return False
+
+    #open scav case
     scav_case_coord = [scav_case_coord[1], scav_case_coord[0]]
     click(scav_case_coord[0], scav_case_coord[1], button="right")
     time.sleep(0.31)
     click(scav_case_coord[0] + 10, scav_case_coord[1] + 23, button="left")
     time.sleep(0.31)
+
+    return True
 
 
 def scan_scav_case_region_for_items():
@@ -514,24 +526,43 @@ def scan_scav_case_region_for_items():
     return random.choice(coord_list)
 
 
+def select_random_item_from_scav_case():# -> Any | None:
+    start_time = time.time()
+    timeout= 10#s
+    coord = None
+    while coord is None:
+        if time.time() - start_time > timeout:
+            return None
+
+        coord = scan_scav_case_region_for_items()
+
+    return coord
+
+
 def select_item_from_scav_case(logger):
-    logger.change_status("Adding another offer.")
+    logger.change_status("Adding another offer from scav case.")
     click(837, 82)
     time.sleep(1)
 
     # orientate add offer window
-    orientate_add_offer_window_to_topleft(logger)
+    if orientate_add_offer_window_to_topleft(logger) is False:
+        return False
 
     # open scav case
-    open_scav_case_from_add_offer_window()
+    if open_scav_case_from_add_offer_window() is False:
+        print('Failed to open scav case')
+        return False
 
     # orientate the scav case
-    orientate_junk_box_window(logger)
+    if orientate_junk_box_window(logger) is False:
+        print('Failed to orientate junk box')
+        return False
 
     # select random item in the scav case
-    item_coord = scan_scav_case_region_for_items()
-    while item_coord is None:
-        item_coord = scan_scav_case_region_for_items()
+    item_coord = select_random_item_from_scav_case()
+    if item_coord is None:
+        print('Failed to select random item from scav case')
+        return False
 
     # left + right click the item
     click(item_coord[0], item_coord[1], button="left")
@@ -543,6 +574,7 @@ def select_item_from_scav_case(logger):
     if click_fbi_button() != "restart":
         logger.change_status("Found a potential item to sell from scav case")
         return True
+
     return False
 
 
@@ -579,7 +611,9 @@ def select_random_item_to_flea(
         close_scav_case()
 
         select_mode = (
-            random.choice(["scav_case", "stash"]) if select_from_scav_case_toggle is True else "stash"
+            random.choice(["scav_case", "stash"])
+            if select_from_scav_case_toggle is True
+            else "stash"
         )
 
         logger.change_status(f"\nAttempting {select_mode} mode item selection.")
