@@ -2,6 +2,7 @@
 This module contains the main program for TarkBot, a bot for playing the game Escape from Tarkov.
 It includes functionality for the flea market sell mode, hideout mode, and snipebot mode.
 """
+
 import webbrowser
 from queue import Queue
 
