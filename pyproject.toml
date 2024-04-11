@@ -9,7 +9,7 @@ packages = [{include = "pytarkbot"}]
 [tool.poetry.dependencies]
 python = "^3.11"
 pyautogui = "^0.9.54"
-joblib = "^1.3.2"
+joblib = "^1.4.0"
 cx-freeze = "^6.15.16"
 pysimplegui = "^4.0.0"
 numpy = "^1.26.4"
