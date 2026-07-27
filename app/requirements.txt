@@ -1,0 +1,6 @@
+pyautogui
+pyscreeze
+opencv-python  # required by pyscreeze for confidence= matching in interact/find.py
+numpy
+pillow         # ocr.py glyph work, and the GUI's composited backdrop
+matplotlib     # tests/view_screenshot.py only
