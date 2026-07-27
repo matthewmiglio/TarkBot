@@ -1,0 +1,63 @@
+"""GUI preferences, kept in %APPDATA%/tarkbot/settings.json.
+
+Self-check (writes to a temp dir, not your real settings):  python -m gui.settings
+"""
+import json
+import os
+from pathlib import Path
+
+APP_DIR = Path(os.environ.get('APPDATA') or Path.home()) / 'tarkbot'
+SETTINGS_PATH = APP_DIR / 'settings.json'
+DEFAULTS = {'background': 'camp.png', 'mode': 'inventory'}
+
+
+def load(path=SETTINGS_PATH):
+    """Saved preferences, with defaults filling any gap.
+
+    Never raises. A missing, unreadable or corrupt file is one we ignore: the GUI has to open
+    either way, and a bad settings file is not worth refusing to start over.
+    """
+    try:
+        saved = json.loads(Path(path).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        saved = {}
+    if not isinstance(saved, dict):
+        saved = {}
+    return {**DEFAULTS, **{key: saved[key] for key in DEFAULTS if key in saved}}
+
+
+def save(settings, path=SETTINGS_PATH):
+    """Write the known keys back. Returns True if it landed, False if the disk said no.
+
+    Unknown keys are dropped rather than kept, so an old settings file cannot smuggle a stale
+    option back into a newer build.
+    """
+    path = Path(path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {key: settings.get(key, DEFAULTS[key]) for key in DEFAULTS}
+        path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+        return True
+    except OSError:
+        return False
+
+
+if __name__ == '__main__':
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = Path(tmp) / 'nested' / 'settings.json'
+        assert load(probe) == DEFAULTS, 'a missing file is all defaults'
+
+        assert save({'background': 'factory.png', 'mode': 'scav', 'junk': 1}, probe)
+        assert load(probe) == {'background': 'factory.png', 'mode': 'scav'}, 'junk key survived'
+
+        probe.write_text('{not json', encoding='utf-8')
+        assert load(probe) == DEFAULTS, 'a corrupt file must not stop the GUI opening'
+
+        probe.write_text('["a list"]', encoding='utf-8')
+        assert load(probe) == DEFAULTS, 'json that is not an object must not stop it either'
+
+        probe.write_text('{"mode": "scav"}', encoding='utf-8')
+        assert load(probe) == {'background': 'camp.png', 'mode': 'scav'}, 'half a file fills in'
+    print(f'ok, real settings live at {SETTINGS_PATH}')
