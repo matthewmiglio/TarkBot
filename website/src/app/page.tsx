@@ -34,23 +34,34 @@ export default function Page() {
   return (
     <main className="flex-1 mx-auto w-full max-w-5xl px-6">
       <header className="flex items-center justify-between py-4">
-        <span className="text-lg font-semibold tracking-[0.3em] uppercase">
+        <span className="text-lg font-semibold tracking-[0.2em] sm:tracking-[0.3em] uppercase">
           Tarkbot
         </span>
-        <nav className="flex items-center gap-6 text-sm text-ink-dim">
+        {/* ponytail: hidden on phones rather than folded into a hamburger. The
+            wordmark plus four links needs ~360px of text, so nothing fits at
+            375px anyway, and on a one pager every link is just a scroll. */}
+        <nav className="hidden sm:flex items-center gap-6 text-sm text-ink-dim whitespace-nowrap">
           <a href="#demo" className="hover:text-ink transition-colors">Demo</a>
           <a href="#how" className="hover:text-ink transition-colors">How it works</a>
           <a href="#features" className="hover:text-ink transition-colors">Features</a>
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink transition-colors">Discord</a>
         </nav>
+        {/* Discord is the one link worth keeping reachable from the top on a phone. */}
+        <a
+          href={DISCORD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="sm:hidden text-sm text-ink-dim hover:text-ink transition-colors"
+        >
+          Discord
+        </a>
       </header>
       <Rule />
 
       <section className="py-20 sm:py-28">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-ink-faint">
-          <span className="size-2 rounded-full bg-running" />
+        <p className="text-xs uppercase tracking-[0.2em] text-ink-faint">
           Free · Escape From Tarkov · Windows
-        </div>
+        </p>
         <h1 className="mt-6 text-5xl sm:text-7xl font-light leading-[0.95] tracking-tight">
           It sells your loot
           <br />
