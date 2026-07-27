@@ -12,7 +12,7 @@ import tkinter as tk
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from bot import MODES, STAT_LABELS, Tarkbot  # noqa: E402
+from bot import DEFAULT_STALE, MODES, STALE_THRESHOLDS, STAT_LABELS, Tarkbot  # noqa: E402
 import tarkov_window  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
@@ -20,8 +20,9 @@ JOIN_TIMEOUT = 10  # seconds to give the bot to unwind before the window goes an
 COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 
 ROW_TOP = 152  # first stat row's baseline, inside the status panel
-ROW_STEP = 42
+ROW_STEP = 37  # tuned to the row count: nine rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
+TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
 
 
 def claim_taskbar_identity(app_id='tarkbot'):
@@ -65,6 +66,43 @@ def clock(seconds):
     """Seconds as hh:mm:ss."""
     seconds = int(seconds)
     return f'{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}'
+
+
+class Tip:
+    """Hover text for one widget. tk has no tooltip and a library for one string is silly.
+
+    A Toplevel rather than a canvas item, because it has to be able to draw outside the
+    window, and it is built on show rather than kept hidden so nothing lingers if the widget
+    goes away underneath it.
+    """
+
+    def __init__(self, widget, text, font, delay=TIP_DELAY):
+        self.widget, self.text, self.font, self.delay = widget, text, font, delay
+        self.window = self.pending = None
+        widget.bind('<Enter>', self._enter, add='+')
+        widget.bind('<Leave>', self._hide, add='+')
+        widget.bind('<Button-1>', self._hide, add='+')  # or it sits over the opened menu
+
+    def _enter(self, _event):
+        self.pending = self.widget.after(self.delay, self._show)
+
+    def _hide(self, _event=None):
+        if self.pending:
+            self.widget.after_cancel(self.pending)
+            self.pending = None
+        if self.window:
+            self.window.destroy()
+            self.window = None
+
+    def _show(self):
+        self.pending = None
+        self.window = tk.Toplevel(self.widget)
+        self.window.overrideredirect(True)
+        self.window.attributes('-topmost', True)
+        tk.Label(self.window, text=self.text, bg=theme.PLATE, fg=theme.INK, font=self.font,
+                 bd=1, relief='solid', padx=8, pady=4).pack()
+        self.window.geometry(f'+{self.widget.winfo_rootx()}'
+                             f'+{self.widget.winfo_rooty() + self.widget.winfo_height() + 6}')
 
 
 class Plate:
@@ -196,21 +234,27 @@ class App:
         self.canvas.itemconfig(self.backdrop_id, image=self.backdrop)
 
     def _draw_chrome(self):
+        # The subtitle that used to sit beside the title is gone: three dropdowns need the
+        # width more than 'FLEA MARKET OPERATOR' does.
         self.canvas.create_text(PAD, 29, anchor='w', text=spaced('TARKBOT'),
                                 fill=theme.INK, font=self.fonts['title'])
-        self.canvas.create_text(PAD + 148, 31, anchor='w', text=spaced('FLEA MARKET OPERATOR'),
-                                fill=theme.INK_FAINT, font=self.fonts['small'])
 
+        if self.prefs['stale'] not in STALE_THRESHOLDS:  # an edited settings file must not wedge it
+            self.prefs['stale'] = DEFAULT_STALE
+        self.stale_var = self._dropdown(
+            'STALE OFFER THRESHOLD', 452, list(STALE_THRESHOLDS), self.prefs['stale'],
+            self._pick_stale, 62,
+            tip='How long to wait for offers to sell before removing stale offers')
         names = theme.backgrounds()
         if self.prefs['background'] not in names and names:  # a deleted png must not wedge it
             self.prefs['background'] = names[0]
-        self.background_var = self._dropdown('BACKGROUND', 646, names or ['none'],
-                                             self.prefs['background'], self._pick_background, 128)
+        self.background_var = self._dropdown('BACKGROUND', 684, names or ['none'],
+                                             self.prefs['background'], self._pick_background, 112)
         labels = [label for label, _, _ in MODES.values()]
         current = MODES.get(self.prefs['mode'], MODES['inventory'])[0]
-        self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 160)
+        self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 150)
 
-    def _dropdown(self, caption, right, values, current, command, width):
+    def _dropdown(self, caption, right, values, current, command, width, tip=None):
         """A caption and a tk OptionMenu, right-aligned to x. The one real widget style here."""
         var = tk.StringVar(value=current)
         menu = tk.OptionMenu(self.canvas, var, *values, command=command)
@@ -225,6 +269,8 @@ class App:
         self.canvas.create_window(right, 29, anchor='e', window=menu, width=width, height=24)
         self.canvas.create_text(right - width - 10, 30, anchor='e', text=spaced(caption),
                                 fill=theme.INK_FAINT, font=self.fonts['small'])
+        if tip:
+            Tip(menu, tip, self.fonts['label'])  # held by the widget's own bindings, not by us
         return var
 
     def _draw_stats(self):
@@ -284,6 +330,10 @@ class App:
                 break
         settings.save(self.prefs)
 
+    def _pick_stale(self, label):
+        self.prefs['stale'] = label  # the dropdown's labels are the keys, so no lookup
+        settings.save(self.prefs)
+
     # ------------------------------------------------------------------ running
 
     def _run(self):
@@ -299,8 +349,9 @@ class App:
             return
         self.start_plate.config(False)
         _, scav, chance = MODES.get(self.prefs['mode'], MODES['inventory'])
+        stale = STALE_THRESHOLDS.get(self.prefs['stale'], STALE_THRESHOLDS[DEFAULT_STALE])
         try:
-            self.bot = Tarkbot(target_scav_cases=scav, scav_chance=chance)
+            self.bot = Tarkbot(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale)
         except tarkov_window.WindowError as e:
             self.bot = None
             self.start_plate.config(True)

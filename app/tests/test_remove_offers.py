@@ -1,0 +1,76 @@
+"""Run the whole stale-offer sweep on the live screen: my offers, cancel everything, back to browse.
+
+Run:  python tests/test_remove_offers.py
+      python tests/test_remove_offers.py --settle 5    (skip most of the 2 minute wait)
+
+Assumes the flea market is already open, on any tab. This one really does cancel offers, so
+there is a countdown before it starts and Ctrl+C during it costs nothing. Writes
+tests/output/remove_offers_before.png, _rows.png and _after.png. Exits non-zero if it never
+found the my-offers tab, or if it did not end up back on the browse tab.
+"""
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pyautogui  # noqa: E402
+from PIL import ImageDraw  # noqa: E402
+
+import tarkov_window  # noqa: E402
+from interact import find, sell  # noqa: E402
+
+OUT = Path(__file__).parent / 'output'
+COUNTDOWN = 5  # seconds to alt-tab into Tarkov, or to change your mind
+
+if __name__ == '__main__':
+    settle = sell.STALE_SETTLE
+    if '--settle' in sys.argv:
+        settle = float(sys.argv[sys.argv.index('--settle') + 1])
+
+    hwnd = tarkov_window.handle()
+    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    OUT.mkdir(exist_ok=True)
+
+    if not sell.is_flea_open(region):
+        sys.exit('FAILED: the flea market is not open. Open it and run this again.')
+
+    rows = sell.stale_offer_rows(region)
+    print(f'window {region}, {len(rows)} rows from {rows[0]} to {rows[-1]}, settle {settle:.0f}s')
+
+    # The click points drawn over the screen, numbered in the order they get clicked, so both
+    # a wrong offset and a flipped sweep direction are obvious in the picture rather than only
+    # in the clicking. 1 has to be the bottom one: removing an offer slides everything below
+    # it upwards, so anything already clicked must sit below anything still to come.
+    shot = pyautogui.screenshot(region=region)
+    draw = ImageDraw.Draw(shot)
+    for order, (x, y) in enumerate(reversed(rows), start=1):
+        local = (x - region[0], y - region[1])
+        draw.ellipse((local[0] - 5, local[1] - 5, local[0] + 5, local[1] + 5), outline='red', width=2)
+        draw.text((local[0] + 10, local[1] - 6), str(order), fill='red')
+    shot.save(OUT / 'remove_offers_rows.png')
+    pyautogui.screenshot(region=region).save(OUT / 'remove_offers_before.png')
+    print(f'wrote {OUT / "remove_offers_rows.png"} (click column) and _before.png')
+
+    print(f'THIS CANCELS REAL OFFERS. Starting in {COUNTDOWN}s, Ctrl+C to bail.')
+    for left in range(COUNTDOWN, 0, -1):
+        print(f'  {left}...')
+        time.sleep(1)
+
+    started = time.monotonic()
+    removed = sell.remove_stale_offers(region, settle=settle)
+    elapsed = time.monotonic() - started
+
+    pyautogui.screenshot(region=region).save(OUT / 'remove_offers_after.png')
+    print(f'removed {removed} offers in {elapsed:.0f}s, wrote {OUT / "remove_offers_after.png"}')
+
+    # Ending back on browse is the half the bot depends on: the next pass looks for the add
+    # offer button and finds nothing if we were left sat on my-offers. The reference images
+    # only capture each tab in one state, so which of them still matches is not a reliable
+    # read of where we are; the add offer button is, and it only exists on the browse tab.
+    if not find.find(sell.MY_OFFERS_TAB_TARGET, region):
+        sys.exit('FAILED: no my-offers tab on screen, so the flea is not where we left it. '
+                 'Check remove_offers_after.png')
+    if sell.add_offer_brightness(region) is None:
+        sys.exit('FAILED: no add offer button, so we never got back to the browse tab. '
+                 'Check remove_offers_after.png')
+    print(f'back on the browse flea tab, {removed} offers removed')

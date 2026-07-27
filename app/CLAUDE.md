@@ -29,7 +29,8 @@ scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at t
 scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
                      after editing the svg; the ico is committed. Wants cairosvg.
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, the
-                     stats, a background picker and an item-source picker. Run: python -m gui.app
+                     stats, and three pickers: background, item source and stale offer
+                     threshold. Run: python -m gui.app
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
                      the glass; the two dropdowns are the only real widgets. The system title
@@ -81,8 +82,11 @@ interact/reference_images/<target>/*.png
 - **Finding items** `find_sell_pixels` masks out empty slots using a 256³ boolean cube built
   from every colour in `reference_images/dead_pixels/`, ±5 per channel. Scav case boxes are
   expanded 15% and excluded.
-- **Acting** `click_all_button`, `click_add_offer`, `wait_for_offer_slot` (no timeout by
-  design; pass a threading.Event as `stop` to make it interruptible),
+- **Acting** `click_all_button`, `click_add_offer`, `wait_for_offer_slot` (no timeout unless
+  asked for one; pass a threading.Event as `stop` to make it interruptible),
+  `remove_stale_offers` (my-offers tab, walk `stale_offer_rows` bottom upwards clicking every
+  remove button found, lowest first, so a cancelled offer cannot shift a point still to be
+  clicked; settle, back to browse; returns how many it cancelled),
   `disable_autoselect_similar`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
@@ -112,6 +116,8 @@ test_find.py [target]        find() over every reference folder, match box drawn
 test_more_offers.py          [true|false] is the add offer button lit or greyed out.
 test_autoselect_ticked.py    [true|false] is the similar-items checkbox ticked.
 test_disable_autoselect_similar.py   Untick it, no-op if it is already off.
+test_remove_offers.py        The whole stale-offer sweep, flea already open. Cancels real
+                             offers, so it counts down first. --settle N shortens the wait.
 test_flea_open.py            Is the flea market open.
 test_get_price.py            Read the price region right now.
 test_grab_price_window.py    Crop the price region and show what was cropped.

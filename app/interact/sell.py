@@ -22,9 +22,12 @@ DEAD_TOL = 5  # per-channel slack; this close to a known slot colour still count
 MENU_DELAY = 0.3  # seconds for the right-click menu to draw before we go looking for it
 WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab its title bar
 SELECT_ATTEMPTS = 50  # clicks to try before admitting we cannot land on an item
-# The select loop runs up to SELECT_ATTEMPTS times, so it uses half the usual waits: a miss
-# now costs a left click and a glance at the offer panel, not a whole right-click menu round.
-SELECT_POLL_DELAY = MENU_DELAY / 2  # after a click, before reading what it did
+# After a left click, before asking the offer panel what it did. Was MENU_DELAY / 2, which
+# was under the panel's own redraw: the read landed on the *previous* attempt's panel, so a
+# hit read as a miss (click on, one slot later) and a miss read as a hit (right click a gap,
+# no filter by item, esc). Both of those look like the bot flailing. Nothing on screen says
+# when the panel is done, so this is measured slack, not a signal.
+SELECT_POLL_DELAY = 0.5  # after a click, before reading what it did
 SELECT_WINDOW_DELAY = WINDOW_DELAY / 2  # after filter by item, for the flea panel to catch up
 ADD_OFFER_TARGET = 'add_offer'  # the button that opens the offer creation window
 OFFER_TARGET = 'offer_creation'  # reference images for the offer creation window
@@ -63,6 +66,21 @@ DROPDOWN_DELAY = 0.3  # seconds for the currency dropdown to unroll
 OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
 CHECKMARK_TARGET = 'checkmark'  # the tick beside the autoselect similar button
 CHECKMARK_MARGIN = 0.30  # that button's box grows this much per side before we look inside it
+MY_OFFERS_TAB_TARGET = 'my_offers_tab_button'  # the flea tab listing what we have up for sale
+BROWSE_FLEA_TAB_TARGET = 'browse_flea_tab_button'  # and the tab to go back to afterwards
+REMOVE_BUTTON_TARGET = 'remove_button'  # cancels one offer; several can be on screen at once
+# The column of our own offers, walked top to bottom to expand each row. Fractions of the
+# window rather than pixels, measured at 1920x1080: x 250, y 153 down to 380, every 20px.
+STALE_X_FRACTION = 250 / 1920
+STALE_TOP_FRACTION = 153 / 1080
+STALE_BOTTOM_FRACTION = 380 / 1080
+STALE_STEP_FRACTION = 20 / 1080
+# After clicking a row, before looking for its remove buttons. Its own constant rather than
+# the select loop's poll: that one is tuned for fifty cheap retries, and here a search that
+# runs early just finds nothing and silently leaves the offer up.
+STALE_ROW_DELAY = 1.5
+STALE_CONFIRM_DELAY = 0.33  # seconds either side of the y that answers the are-you-sure dialog
+STALE_SETTLE = 120  # seconds to let the flea catch up after cancelling, before selling again
 
 
 def click_all_button(region=None):
@@ -190,24 +208,93 @@ def more_offers_available(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
     return brightness is not None and brightness >= threshold
 
 
-def wait_for_offer_slot(region=None, poll=OFFER_SLOT_POLL, stop=None):
+def _sleep(seconds, stop=None):
+    """time.sleep, but cut short the moment stop is set. True if it was cut short."""
+    if stop is None:
+        time.sleep(seconds)
+        return False
+    return stop.wait(seconds)
+
+
+def wait_for_offer_slot(region=None, poll=OFFER_SLOT_POLL, stop=None, timeout=None):
     """Block until the add offer button lights up. Returns the seconds spent waiting.
 
-    No timeout on purpose: a full offer board clears when something sells or expires, and
-    there is nothing else worth doing in the meantime. Pass a threading.Event as stop to
-    make it abandon the wait the moment that is set; without one only Ctrl+C gets you out.
+    A full offer board clears when something sells or expires, so by default there is no
+    timeout: waiting is the only useful thing to do. Pass timeout to give up after that many
+    seconds anyway, which is what lets the caller go and cancel the offers that never sold.
+    Returning is not proof a slot opened, so a caller that passes timeout has to re-check
+    more_offers_available itself. Pass a threading.Event as stop to abandon the wait the
+    moment that is set; without one only Ctrl+C gets you out.
     """
     started = time.monotonic()
     announced = False
     while not more_offers_available(region):
+        if timeout is not None and time.monotonic() - started >= timeout:
+            break
         if not announced:  # once, not every poll, or the log is nothing but this
             print(f'all offer slots full, rechecking every {poll:.0f}s')
             announced = True
-        if stop is None:
-            time.sleep(poll)
-        elif stop.wait(poll):  # woken by stop rather than by the timeout
+        if _sleep(poll, stop):  # woken by stop rather than by the timeout
             break  # the caller checks the same flag and unwinds from there
     return time.monotonic() - started
+
+
+def stale_offer_rows(region=None):
+    """Screen (x, y) of every offer row to expand, top to bottom.
+
+    A fixed column of points rather than a template match: the rows are a uniform grid and
+    each one has to be clicked to reveal its remove button, so there is nothing to match
+    against until after the click.
+    """
+    left, top, width, height = region or (0, 0, *pyautogui.size())
+    x = left + round(width * STALE_X_FRACTION)
+    first = top + round(height * STALE_TOP_FRACTION)
+    last = top + round(height * STALE_BOTTOM_FRACTION)
+    step = max(1, round(height * STALE_STEP_FRACTION))  # a 0 step would be an infinite range
+    return [(x, y) for y in range(first, last + 1, step)]
+
+
+def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
+    """Cancel every offer that is still sitting on the my-offers tab, then go back to browse.
+
+    Returns how many remove buttons were clicked, which is what the GUI counts. 0 means
+    either a clean board or a tab button that was not on screen; both mean nothing was
+    cancelled, so neither is worth distinguishing.
+
+    Bottom up at both levels, the rows and the remove buttons within a row: cancelling an
+    offer closes its gap and everything *below* it slides up, so working upwards means every
+    point still to be clicked is one the removal could not have moved. Top down, each removal
+    invalidates the rest of the sweep. Each removal takes a y to confirm, and until that lands
+    the dialog is modal, so the next click would go nowhere.
+    """
+    point = find.find_center(MY_OFFERS_TAB_TARGET, region)
+    if not point:
+        print('no my offers tab on screen, leaving the offers alone')
+        return 0
+    pyautogui.click(*point)
+    time.sleep(WINDOW_DELAY)
+
+    removed = 0
+    for row in reversed(stale_offer_rows(region)):  # lowest row first, see above
+        pyautogui.click(*row)
+        time.sleep(STALE_ROW_DELAY)
+        found = find.find_all(REMOVE_BUTTON_TARGET, region)
+        for box in sorted(found, key=lambda b: b.top, reverse=True):  # and lowest button first
+            pyautogui.click(*pyautogui.center(box))
+            time.sleep(STALE_CONFIRM_DELAY)
+            pyautogui.press('y')  # the are-you-sure dialog; nothing is cancelled without it
+            time.sleep(STALE_CONFIRM_DELAY)
+            removed += 1
+        if stop is not None and stop.is_set():
+            break  # mid sweep, the caller unwinds; the tab click below still runs
+
+    print(f'removed {removed} stale offers, settling for {settle:.0f}s')
+    _sleep(settle, stop)
+    point = find.find_center(BROWSE_FLEA_TAB_TARGET, region)
+    if point:
+        pyautogui.click(*point)
+        time.sleep(WINDOW_DELAY)
+    return removed
 
 
 def click_add_offer(region=None):
@@ -450,7 +537,7 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
         if not is_item_selected(region):
             continue  # landed on a gap, the placeholder is still showing
         pyautogui.rightClick(*chosen)
-        time.sleep(SELECT_POLL_DELAY)
+        time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
             pyautogui.press('esc')  # shut whatever did open, or the next find hits a stale menu
@@ -631,9 +718,10 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
         if not is_item_selected(region):
             continue  # landed on a gap, the placeholder is still showing
         pyautogui.rightClick(*chosen)
-        time.sleep(SELECT_POLL_DELAY)
+        time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
+            pyautogui.press('esc')  # same as the inventory path: a left open menu eats the next click
             continue
         point = pyautogui.center(box)
         pyautogui.click(*point)
@@ -685,6 +773,14 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
 
     assert grab_price_region((0, 0, 1920, 1080)) == (1339, 147, 159, 39)  # where it was measured
     assert grab_price_region((0, 0, 3840, 2160)) == (2678, 294, 318, 78)  # scales with the window
+
+    rows = stale_offer_rows((0, 0, 1920, 1080))  # where the column was measured
+    assert rows[0] == (250, 153) and rows[-1] == (250, 373), rows[:1] + rows[-1:]
+    assert rows[1][1] - rows[0][1] == 20, 'the 20px step'
+    assert all(x == 250 for x, _ in rows), 'one fixed column'
+    big = stale_offer_rows((0, 0, 3840, 2160))
+    assert big[0] == (500, 306) and len(big) == len(rows), 'scales, same number of rows'
+    assert stale_offer_rows((100, 40, 1920, 1080))[0] == (350, 193), 'offset by the window origin'
     assert _scav_region_from(Box(100, 50, 200, 20), Box(500, 50, 20, 20), 1080) == (100, 75, 420, 875)
     try:  # a close button left of the title would invert it
         _scav_region_from(Box(100, 50, 200, 20), Box(10, 50, 20, 20), 1080)

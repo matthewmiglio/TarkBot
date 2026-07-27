@@ -14,6 +14,10 @@ SCAV_CHANCE = 0.5  # how often to sell out of a scav case instead of the stash, 
 MODES = {'inventory': ('INVENTORY ONLY', False, 0.0),
          'both': ('INVENTORY + SCAV', True, SCAV_CHANCE),
          'scav': ('SCAV CASES ONLY', True, 1.0)}
+# How long a full offer board is allowed to sit before we cancel what has not sold. GUI label
+# -> minutes, so the dropdown, the saved setting and the wait all read off one definition.
+STALE_THRESHOLDS = {'5m': 5, '10m': 10, '30m': 30}
+DEFAULT_STALE = '10m'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
 # How many escapes it takes to get back to a clean screen from wherever a pass gave up.
@@ -29,7 +33,8 @@ STAT_LABELS = (('selected', 'Items found'),
                ('price_missing', 'Prices unreadable'),
                ('posted', 'Items posted'),
                ('posted_scav', '  from scav cases'),
-               ('posted_inventory', '  from inventory'))
+               ('posted_inventory', '  from inventory'),
+               ('stale_removed', 'Stale offers removed'))
 
 # What select_item picked, where it came from, and how many escapes back out of that screen.
 Selection = namedtuple('Selection', 'point escapes source')
@@ -48,7 +53,8 @@ class Retry(Exception):
 
 
 class Tarkbot:
-    def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE):
+    def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
+                 stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE]):
         print('Initalizing Tarkbot')
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
@@ -56,6 +62,7 @@ class Tarkbot:
         self.region = self.position + self.size  # (left, top, width, height) to search in
         self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
+        self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
         print(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
         self.stats = {key: 0 for key, _ in STAT_LABELS}  # ponytail: GUI polls this dict
         self._stop = threading.Event()  # set from whichever thread owns the stop button
@@ -71,15 +78,33 @@ class Tarkbot:
         if self._stop.wait(seconds):  # wait(0) is just a check, no sleep
             raise Stopped()
 
+    def _await_offer_slot(self):
+        """Block until there is a slot to sell into, cancelling stale offers to make one.
+
+        The board only frees up when something sells or expires, so waiting is usually the
+        whole job. Past stale_minutes though, waiting longer is just betting on offers that
+        have already proved they will not sell, so those get cancelled and the wait restarts.
+        Loops rather than doing it once, since a sweep that removes nothing leaves us right
+        back where we started and the next threshold is the only thing left to try.
+        """
+        timeout = self.stale_minutes * 60
+        while True:
+            waited = sell.wait_for_offer_slot(self.region, stop=self._stop, timeout=timeout)
+            self._pause()  # a stop during the wait unwinds here, before any clicking
+            if waited:
+                print(f'waited {waited:.0f}s for an offer slot')
+            if sell.more_offers_available(self.region):  # returning is not proof one opened
+                return
+            print(f'no slot after {self.stale_minutes}m, clearing out the offers that never sold')
+            self.stats['stale_removed'] += sell.remove_stale_offers(self.region, stop=self._stop)
+            self._pause()
+
     def open_offer_creation(self):
         """Get from wherever we are to an offer creation window sat in the top left corner."""
         if not sell.open_flea(self.region):
             raise RuntimeError('could not open the flea market')
         self._pause()
-        waited = sell.wait_for_offer_slot(self.region, stop=self._stop)  # can block for hours
-        self._pause()
-        if waited:
-            print(f'waited {waited:.0f}s for an offer slot')
+        self._await_offer_slot()  # can block for hours, minus the odd stale-offer sweep
         if not sell.apply_flea_filters(self.region):
             raise RuntimeError('could not apply the flea filters')
         self._pause()
