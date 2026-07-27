@@ -1,0 +1,52 @@
+name: release
+
+# The tag is the version. Nothing in source holds one: setup_msi.py writes the tag into
+# app/__version__ at build time. Push v1.2.3 and this produces the installer for it.
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, e.g. v0.1.0. Builds only, publishes nothing."
+        required: true
+        default: v0.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: app/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt cx_Freeze
+
+      - name: Build the MSI
+        run: python scripts/setup_msi.py bdist_msi --target-version ${{ github.event.inputs.version || github.ref_name }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tarkbot-msi
+          path: app/dist/*.msi
+          retention-days: 30
+
+      # Tag pushes publish. A manual run stops at the artifact above, so the workflow can be
+      # exercised without minting a release.
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: app/dist/*.msi
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, 'rc') }}
