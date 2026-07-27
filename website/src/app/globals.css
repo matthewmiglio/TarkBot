@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Palette lifted straight from app/gui/theme.py so the site and the tool read as
+   one product. Muted, matte, nothing pure white. */
+@theme {
+  --color-base: #101110;
+  --color-ink: #d8d7d2;
+  --color-ink-dim: #8f928f;
+  --color-ink-faint: #5c5f5c;
+  --color-line: #3b3d3b;
+  --color-edge: #484a48;
+  --color-plate: #1d1f20;
+  --color-plate-hot: #2b2e2f;
+  --color-running: #6f8e58;
+  --color-warning: #b56d43;
+  --color-error: #944848;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-condensed), "Bahnschrift SemiCondensed", "Segoe UI", sans-serif;
+  --font-mono: var(--font-mono-stack), ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-base);
+  color: var(--color-ink);
+}
+
+/* The GUI's "dirty glass": a dark panel sitting on a dimmed photo. There is no
+   photo here, so it is the fill and the 1px edge that carry the look. */
+.glass {
+  background: rgba(12, 12, 12, 0.73);
+  border: 1px solid var(--color-edge);
+}
+
+::selection {
+  background: var(--color-running);
+  color: var(--color-base);
 }

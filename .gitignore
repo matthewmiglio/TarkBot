@@ -71,4 +71,6 @@ desktop.ini
 
 # ---- Not published ----
 demo_obfuscator/
-docs/
+# docs/ itself stays out; readme_assets is the exception, the README links its images.
+docs/*
+!docs/readme_assets/

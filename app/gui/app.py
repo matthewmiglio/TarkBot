@@ -4,6 +4,7 @@ The whole interface is drawn onto one canvas over a pre-composited backdrop (see
 because tk widgets cannot be translucent and would punch opaque rectangles through the glass.
 Canvas text and rectangles can sit over it, so the only real widgets are the two dropdowns.
 """
+import ctypes
 import sys
 import threading
 import time
@@ -21,6 +22,38 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 ROW_TOP = 152  # first stat row's baseline, inside the status panel
 ROW_STEP = 42
 PAD = 24  # panel inset used for every label and value
+
+
+def claim_taskbar_identity(app_id='tarkbot'):
+    """Make the taskbar show our icon instead of the host exe's.
+
+    Windows groups taskbar buttons by AppUserModelID, and from source that id is python.exe,
+    so the button shows the Python logo no matter what the window icon says. Frozen it is
+    already tarkbot.exe, but setting it explicitly costs nothing and keeps the two the same.
+    """
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+    except (AttributeError, OSError):
+        pass  # not Windows, or an old shell32. A wrong icon is not worth failing to open over.
+
+
+def strip_titlebar(root):
+    """Drop the system title bar but keep the taskbar button and alt-tab entry.
+
+    overrideredirect takes the frame and the taskbar button with it, which would strand the
+    window behind fullscreen Tarkov with no way back. Clearing WS_EX_TOOLWINDOW and setting
+    WS_EX_APPWINDOW puts the button back, and the window has to be hidden and reshown for
+    Windows to notice the new style at all.
+    """
+    GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW = -20, 0x00000080, 0x00040000
+    root.overrideredirect(True)
+    root.update_idletasks()
+    user32 = ctypes.windll.user32
+    hwnd = user32.GetParent(root.winfo_id()) or root.winfo_id()
+    style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+    user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style & ~WS_EX_TOOLWINDOW | WS_EX_APPWINDOW)
+    root.withdraw()
+    root.after(10, root.deiconify)
 
 
 def spaced(text):
@@ -72,8 +105,12 @@ class App:
         self.started_at = None
         self.pending = None  # the after() id of a running countdown, so Stop can cancel it
         self.prefs = settings.load()
+        self.drag_from = None  # where in the header a window drag started, None when not dragging
 
+        claim_taskbar_identity()
         root.title('Tarkbot')
+        if theme.ICON.is_file():
+            root.iconbitmap(default=theme.ICON)  # default= so dialogs inherit it, not just this window
         root.configure(bg='#101110')
         root.resizable(False, False)
         root.protocol('WM_DELETE_WINDOW', self.close)  # the X button must kill the bot too
@@ -95,6 +132,26 @@ class App:
 
         self._set_status('Stopped', theme.STOPPED)
         self.tick()
+
+        # Last, so the window only appears once it has something to show.
+        strip_titlebar(root)
+        self.canvas.bind('<Button-1>', self._drag_start, add='+')
+        self.canvas.bind('<B1-Motion>', self._drag, add='+')
+
+    # ------------------------------------------------------------------ window chrome
+
+    def _drag_start(self, event):
+        """Only the header drags. Anywhere else is a button or a panel."""
+        self.drag_from = (event.x, event.y) if event.y < theme.HEADER[3] else None
+
+    def _drag(self, event):
+        if self.drag_from is None:
+            return
+        # Canvas coords, so the offset is measured against the window that just moved and the
+        # pointer lands back on the same pixel. Screen coords would compound the delta.
+        x = self.root.winfo_x() + event.x - self.drag_from[0]
+        y = self.root.winfo_y() + event.y - self.drag_from[1]
+        self.root.geometry(f'+{x}+{y}')
 
     # ------------------------------------------------------------------ drawing
 
@@ -118,7 +175,17 @@ class App:
                                              self.prefs['background'], self._pick_background, 128)
         labels = [label for label, _, _ in MODES.values()]
         current = MODES.get(self.prefs['mode'], MODES['inventory'])[0]
-        self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 160)
+        self.mode_var = self._dropdown('SOURCE', 884, labels, current, self._pick_mode, 160)
+        self._draw_close(916, 30)
+
+    def _draw_close(self, x, y):
+        """The only way out, now that there is no system title bar. Sits on the panel margin."""
+        item = self.canvas.create_text(x, y, text='✕', fill=theme.CLOSE,
+                                       font=self.fonts['status'], tags='close')
+        self.canvas.tag_bind('close', '<Button-1>', lambda _: self.close())
+        for event, colour in (('<Enter>', theme.CLOSE_HOT), ('<Leave>', theme.CLOSE)):
+            self.canvas.tag_bind('close', event,
+                                 lambda _, c=colour: self.canvas.itemconfig(item, fill=c))
 
     def _dropdown(self, caption, right, values, current, command, width):
         """A caption and a tk OptionMenu, right-aligned to x. The one real widget style here."""

@@ -1,0 +1,65 @@
+import "server-only";
+
+// The dashboard's whole data layer. Reads the two Tarkbot_ tables straight off
+// PostgREST with the service key, server-side only, so no key ever reaches the
+// browser and both tables can keep RLS on with no policies.
+// ponytail: no @supabase/supabase-js and no /api/db proxy — the page is a
+// server component, so it can just fetch. Add a proxy when a client component
+// needs to query on its own.
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+export type ViewEvent = {
+  ts: string;
+  path: string;
+  referrer: string | null;
+  visitor_id: string | null;
+  session_id: string | null;
+  country: string | null;
+  city: string | null;
+};
+
+export type DownloadEvent = {
+  ts: string;
+  visitor_id: string | null;
+  referrer: string | null;
+  country: string | null;
+};
+
+// ponytail: one flat read of each table, capped. Tarkbot's traffic is nowhere
+// near this. Move to a Postgres aggregate (like fishbot's get_* RPCs) when the
+// cap starts truncating rather than when it looks big.
+const ROW_CAP = 50_000;
+
+async function table<T>(name: string, columns: string): Promise<T[]> {
+  if (!SUPABASE_URL || !SERVICE_KEY) return [];
+  const url =
+    `${SUPABASE_URL}/rest/v1/${encodeURIComponent(name)}` +
+    `?select=${columns}&order=ts.desc&limit=${ROW_CAP}`;
+  try {
+    const res = await fetch(url, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error(`read ${name} failed`, res.status, await res.text());
+      return [];
+    }
+    return (await res.json()) as T[];
+  } catch (e) {
+    console.error(`read ${name} threw`, e);
+    return [];
+  }
+}
+
+export async function getAnalytics() {
+  const [views, downloads] = await Promise.all([
+    table<ViewEvent>(
+      "Tarkbot_analytics_events",
+      "ts,path,referrer,visitor_id,session_id,country,city",
+    ),
+    table<DownloadEvent>("Tarkbot_downloads", "ts,visitor_id,referrer,country"),
+  ]);
+  return { views, downloads, configured: Boolean(SUPABASE_URL && SERVICE_KEY) };
+}

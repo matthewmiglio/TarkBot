@@ -1,20 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Barlow_Semi_Condensed, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AnalyticsTracker } from "./analytics-tracker";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Bahnschrift SemiCondensed is what the app uses and Windows ships it, but it is
+// not a web font. Barlow Semi Condensed is the same DIN-condensed register.
+const condensed = Barlow_Semi_Condensed({
+  variable: "--font-condensed",
+  weight: ["300", "400", "500", "600"],
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const mono = JetBrains_Mono({
+  variable: "--font-mono-stack",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Tarkbot",
-  description: "",
+  title: "Tarkbot — free flea market seller for Escape From Tarkov",
+  description:
+    "Tarkbot reads your screen, prices your loot off Tarkov's own suggested price, undercuts it and lists it on the flea market. Free, open, no account.",
+  openGraph: {
+    title: "Tarkbot",
+    description:
+      "Free screen-reading flea market seller for Escape From Tarkov. Reads the suggested price, undercuts it, lists the item, repeats.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -25,9 +36,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${condensed.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        <AnalyticsTracker />
+        {children}
+      </body>
     </html>
   );
 }

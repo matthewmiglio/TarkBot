@@ -13,6 +13,9 @@ from PIL import Image, ImageDraw, ImageFilter
 
 BACKGROUNDS = Path(__file__).parent / 'backgrounds'
 CHARACTER = Path(__file__).parent / 'poster_character.png'
+# Window and taskbar icon, also the exe's. Rendered from tarkbot.svg beside it, which is the
+# source: redraw the svg and re-run scripts/make_icon.py rather than editing the ico.
+ICON = Path(__file__).parent / 'tarkbot.ico'
 
 WINDOW = (940, 600)
 
@@ -27,6 +30,8 @@ RUNNING = '#6f8e58'
 WARNING = '#b56d43'
 ERROR = '#944848'
 STOPPED = '#6d706d'
+CLOSE = '#8a4a4a'      # the close X, dim until hovered
+CLOSE_HOT = '#d05a5a'
 
 BLUR = 4  # how far out of focus the background photo goes
 DIM = 0.5  # what fraction of the photo's brightness survives the wash
