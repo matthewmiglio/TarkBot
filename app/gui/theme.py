@@ -33,6 +33,11 @@ STOPPED = '#6d706d'
 CLOSE = '#8a4a4a'      # the close X, dim until hovered
 CLOSE_HOT = '#d05a5a'
 
+# Our own title bar, since the system one is gone. Darker than anything below it, so it reads
+# as chrome rather than as part of the app.
+TITLEBAR = 30
+TITLEBAR_BG = '#0d0e0d'
+
 BLUR = 4  # how far out of focus the background photo goes
 DIM = 0.5  # what fraction of the photo's brightness survives the wash
 

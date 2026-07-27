@@ -18,11 +18,25 @@ tarkov_window.py     Locates the Tarkov window via ctypes/user32. Load bearing: 
                      every test import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h).
                      Raises WindowError if the window is missing or ambiguous.
                      Run directly to print the window's hwnd/pos/size.
+main.py              Entry point for the frozen build only, and where stdout gets pointed at
+                     %APPDATA%/tarkbot/tarkbot.log, since a windowed exe has no console and
+                     bot.py's first print() would otherwise kill the run. From source, still
+                     run python -m gui.app.
+version.py           The version string. Read from the __version__ file the build writes from
+                     the git tag; 'dev' when there is no build. python -m version prints it.
+scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at the repo root.
+                     python scripts/setup_msi.py bdist_msi --target-version v0.0.0-local
+scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
+                     after editing the svg; the ico is committed. Wants cairosvg.
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, the
                      stats, a background picker and an item-source picker. Run: python -m gui.app
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
-                     the glass; the two dropdowns are the only real widgets. The bot runs on a
+                     the glass; the two dropdowns are the only real widgets. The system title
+                     bar is off (overrideredirect) and replaced by one of our own, which is
+                     what drags the window and carries the close X; WS_EX_APPWINDOW is put
+                     back by hand or the window would vanish from the taskbar and alt-tab and
+                     be unreachable behind fullscreen Tarkov. The bot runs on a
                      daemon thread so the window stays responsive, the X button stops it and
                      joins before destroying, and a pass that dies on a wrong screen turns the
                      lamp red instead of vanishing.
@@ -33,6 +47,8 @@ gui/settings.py      Preferences in %APPDATA%/tarkbot/settings.json. Never raise
                      file is ignored so the GUI always opens. Self-check: python -m gui.settings
 gui/backgrounds/     The photos the picker offers. Drop a png in and it appears in the list.
 gui/poster_character.png   The figure on the left panel.
+gui/tarkbot.svg, gui/tarkbot.ico   Window, taskbar and exe icon. The svg is the source; the
+                     ico is generated from it and committed.
 interact/find.py     Locating things on screen. find(), find_all(), find_center() take a target
                      name and an optional region, return pyscreeze Boxes / (x,y) / None.
                      images() resolves a name to reference pngs; dedupe()/iou() collapse

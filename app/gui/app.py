@@ -120,6 +120,7 @@ class App:
                       'label': (family, 10), 'value': (family, 15),
                       'status': (family, 12), 'plate': (family, 11), 'small': (family, 9)}
 
+        self._build_titlebar(root)  # packed first, so it sits above the main canvas
         self.canvas = tk.Canvas(root, width=theme.WINDOW[0], height=theme.WINDOW[1],
                                 highlightthickness=0, bd=0)
         self.canvas.pack()
@@ -135,14 +136,46 @@ class App:
 
         # Last, so the window only appears once it has something to show.
         strip_titlebar(root)
-        self.canvas.bind('<Button-1>', self._drag_start, add='+')
-        self.canvas.bind('<B1-Motion>', self._drag, add='+')
 
     # ------------------------------------------------------------------ window chrome
 
+    def _build_titlebar(self, root):
+        """Our own title bar. It has to *look* draggable, not just be draggable.
+
+        A bare header the user has to discover by accident is the same as no title bar at all,
+        so this carries the three things people already read as one: the app mark on the left,
+        the close on the right, and a move cursor the moment you hover it.
+        """
+        width = theme.WINDOW[0]
+        bar = tk.Canvas(root, width=width, height=theme.TITLEBAR, bg=theme.TITLEBAR_BG,
+                        highlightthickness=0, bd=0, cursor='fleur')
+        bar.pack()
+        bar.create_line(0, theme.TITLEBAR - 1, width, theme.TITLEBAR - 1, fill=theme.LINE)
+
+        left = PAD
+        if theme.ICON.is_file():
+            from PIL import Image, ImageTk
+
+            # Held on self or tk collects it and the bar comes up blank.
+            self.bar_icon = ImageTk.PhotoImage(
+                Image.open(theme.ICON).resize((16, 16), Image.LANCZOS))
+            bar.create_image(left, theme.TITLEBAR // 2, image=self.bar_icon, anchor='w')
+            left += 24
+        bar.create_text(left, theme.TITLEBAR // 2 + 1, anchor='w', text=spaced('TARKBOT'),
+                        fill=theme.INK_FAINT, font=self.fonts['small'])
+
+        close = bar.create_text(width - PAD, theme.TITLEBAR // 2, text='✕',
+                                fill=theme.CLOSE, font=self.fonts['status'], tags='close')
+        bar.tag_bind('close', '<Button-1>', lambda _: self.close())
+        for event, colour in (('<Enter>', theme.CLOSE_HOT), ('<Leave>', theme.CLOSE)):
+            bar.tag_bind('close', event, lambda _, c=colour: bar.itemconfig(close, fill=c))
+
+        bar.bind('<Button-1>', self._drag_start, add='+')
+        bar.bind('<B1-Motion>', self._drag, add='+')
+        self.titlebar = bar
+
     def _drag_start(self, event):
-        """Only the header drags. Anywhere else is a button or a panel."""
-        self.drag_from = (event.x, event.y) if event.y < theme.HEADER[3] else None
+        self.drag_from = (event.x, event.y)
 
     def _drag(self, event):
         if self.drag_from is None:
@@ -175,17 +208,7 @@ class App:
                                              self.prefs['background'], self._pick_background, 128)
         labels = [label for label, _, _ in MODES.values()]
         current = MODES.get(self.prefs['mode'], MODES['inventory'])[0]
-        self.mode_var = self._dropdown('SOURCE', 884, labels, current, self._pick_mode, 160)
-        self._draw_close(916, 30)
-
-    def _draw_close(self, x, y):
-        """The only way out, now that there is no system title bar. Sits on the panel margin."""
-        item = self.canvas.create_text(x, y, text='✕', fill=theme.CLOSE,
-                                       font=self.fonts['status'], tags='close')
-        self.canvas.tag_bind('close', '<Button-1>', lambda _: self.close())
-        for event, colour in (('<Enter>', theme.CLOSE_HOT), ('<Leave>', theme.CLOSE)):
-            self.canvas.tag_bind('close', event,
-                                 lambda _, c=colour: self.canvas.itemconfig(item, fill=c))
+        self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 160)
 
     def _dropdown(self, caption, right, values, current, command, width):
         """A caption and a tk OptionMenu, right-aligned to x. The one real widget style here."""
