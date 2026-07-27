@@ -1,14 +1,5 @@
 import { DownloadButton, DISCORD_URL, RELEASES_URL } from "./download-button";
 
-const LOOP = [
-  ["01", "Find the window", "Locates the Tarkov window through user32 and works in its coordinates. The game runs fullscreen, so screen coords are game coords."],
-  ["02", "Pick an item", "Infers the inventory grid from the All / auto-sort buttons framing it, masks out empty slots, and picks something to sell. Scav case boxes are excluded, or used exclusively, your choice."],
-  ["03", "Open the offer", "Clicks Add Offer, waits for a free offer slot, unticks 'select similar items' if the game ticked it."],
-  ["04", "Read the price", "Crops the suggested price region and reads the digits. All of it or none of it, because a half-read price is a wrong price."],
-  ["05", "Undercut", "Takes the better of 15% off and 2000 roubles off, so the flat cut wins on expensive loot and the percentage wins on cheap loot, and neither goes negative."],
-  ["06", "List it", "Types the new price, clicks Place Offer, and goes back to step 2."],
-];
-
 const DOES = [
   "Sells from your stash or straight out of scav cases, whichever you pick.",
   "Reads Tarkov's own suggested price and undercuts it. No external price API.",
@@ -47,6 +38,7 @@ export default function Page() {
           Tarkbot
         </span>
         <nav className="flex items-center gap-6 text-sm text-ink-dim">
+          <a href="#demo" className="hover:text-ink transition-colors">Demo</a>
           <a href="#how" className="hover:text-ink transition-colors">How it works</a>
           <a href="#features" className="hover:text-ink transition-colors">Features</a>
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink transition-colors">Discord</a>
@@ -93,27 +85,38 @@ export default function Page() {
 
       <Rule />
 
-      <section id="how" className="py-20">
-        <h2 className="text-xs uppercase tracking-[0.25em] text-ink-faint">One pass</h2>
+      {/* ponytail: a plain iframe, no player library and no thumbnail-then-swap
+          dance. youtube-nocookie + lazy so it costs nothing until scrolled to. */}
+      <section id="demo" className="py-20">
+        <h2 className="text-xs uppercase tracking-[0.25em] text-ink-faint">Watch it work</h2>
         <p className="mt-4 max-w-2xl text-ink-dim">
-          A pass is six steps. The bot repeats it until you press Stop, and a
-          pass that dies on the wrong screen is abandoned and restarted rather
-          than taking the app down with it.
+          A full run, unedited. Item picked, price read, undercut, listed, and
+          straight on to the next one, at the speed it actually happens.
         </p>
-        <ol className="mt-10 grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
-          {LOOP.map(([n, title, body]) => (
-            <li key={n} className="glass border-0 p-6">
-              <span className="font-mono text-xs text-running">{n}</span>
-              <h3 className="mt-3 text-lg">{title}</h3>
-              <p className="mt-2 text-sm text-ink-dim leading-relaxed">{body}</p>
-            </li>
-          ))}
-        </ol>
+        <div className="glass mt-10 aspect-video w-full overflow-hidden">
+          <iframe
+            className="size-full"
+            src="https://www.youtube-nocookie.com/embed/vDr1qelr4RI"
+            title="Tarkbot demo"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        </div>
+        <a
+          href="https://www.youtube.com/watch?v=vDr1qelr4RI"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-block text-sm text-ink-faint underline underline-offset-4 hover:text-ink-dim"
+        >
+          Watch on YouTube
+        </a>
       </section>
 
       <Rule />
 
-      <section className="py-20">
+      <section id="how" className="py-20">
         <h2 className="text-xs uppercase tracking-[0.25em] text-ink-faint">Under the hood</h2>
         <div className="mt-10 grid gap-10 sm:grid-cols-2">
           {TECH.map(([title, body]) => (
