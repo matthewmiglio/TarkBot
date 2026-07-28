@@ -12,7 +12,8 @@ import tkinter as tk
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from bot import DEFAULT_STALE, MODES, STALE_THRESHOLDS, STAT_LABELS, Tarkbot  # noqa: E402
+from bot import (DEFAULT_STALE, MODES, MONEY_STAT, STALE_THRESHOLDS,  # noqa: E402
+                 STAT_LABELS, Tarkbot)
 import tarkov_window  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
@@ -20,7 +21,7 @@ JOIN_TIMEOUT = 10  # seconds to give the bot to unwind before the window goes an
 COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 
 ROW_TOP = 152  # first stat row's baseline, inside the status panel
-ROW_STEP = 37  # tuned to the row count: nine rows have to fit between ROW_TOP and the panel foot
+ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
 
@@ -142,6 +143,9 @@ class App:
         self.error = None
         self.started_at = None
         self.pending = None  # the after() id of a running countdown, so Stop can cancel it
+        # Owned here rather than by the bot, and handed to every Tarkbot we build, so the
+        # counters run for the whole session instead of restarting with each Start.
+        self.stats = {key: 0 for key, _ in STAT_LABELS}
         self.prefs = settings.load()
         self.drag_from = None  # where in the header a window drag started, None when not dragging
 
@@ -351,7 +355,8 @@ class App:
         _, scav, chance = MODES.get(self.prefs['mode'], MODES['inventory'])
         stale = STALE_THRESHOLDS.get(self.prefs['stale'], STALE_THRESHOLDS[DEFAULT_STALE])
         try:
-            self.bot = Tarkbot(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale)
+            self.bot = Tarkbot(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
+                               stats=self.stats)
         except tarkov_window.WindowError as e:
             self.bot = None
             self.start_plate.config(True)
@@ -398,10 +403,13 @@ class App:
         self.root.destroy()
 
     def tick(self):
-        if self.bot:
-            for key, item in self.values.items():
-                if key in self.bot.stats:
-                    self.canvas.itemconfig(item, text=f'{self.bot.stats[key]:,}')
+        for key, item in self.values.items():  # no bot needed, the dict is ours and always there
+            if key in self.stats:
+                self.canvas.itemconfig(item, text=f'{self.stats[key]:,}')
+        # Green only once there is money on the board; zero stays the same ink as the rest,
+        # so the colour means "it has sold something into the flea" rather than "this row".
+        self.canvas.itemconfig(self.values[MONEY_STAT],
+                               fill=theme.RUNNING if self.stats[MONEY_STAT] else theme.INK)
         self.canvas.itemconfig(self.values['runtime'],
                                text=clock(time.monotonic() - self.started_at)
                                if self.started_at else '-')

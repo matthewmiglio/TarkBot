@@ -34,7 +34,9 @@ STAT_LABELS = (('selected', 'Items found'),
                ('posted', 'Items posted'),
                ('posted_scav', '  from scav cases'),
                ('posted_inventory', '  from inventory'),
+               ('money', 'Total money'),
                ('stale_removed', 'Stale offers removed'))
+MONEY_STAT = 'money'  # the one row the GUI tints, so both ends read off one name
 
 # What select_item picked, where it came from, and how many escapes back out of that screen.
 Selection = namedtuple('Selection', 'point escapes source')
@@ -54,7 +56,7 @@ class Retry(Exception):
 
 class Tarkbot:
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
-                 stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE]):
+                 stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE], stats=None):
         print('Initalizing Tarkbot')
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
@@ -64,7 +66,9 @@ class Tarkbot:
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
         print(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
-        self.stats = {key: 0 for key, _ in STAT_LABELS}  # ponytail: GUI polls this dict
+        # The GUI hands in its own dict, which outlives any one Tarkbot, so the counters carry
+        # across stop/start and only reset when the app does. Nothing passed, count from zero.
+        self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
         self._stop = threading.Event()  # set from whichever thread owns the stop button
 
     def _pause(self, seconds=0):
@@ -178,6 +182,8 @@ class Tarkbot:
             raise RuntimeError('no place offer button on screen')
         self.stats['posted'] += 1
         self.stats[f'posted_{picked.source}'] += 1
+        # What we asked for, not what we got: nothing on screen says whether an offer ever sold.
+        self.stats[MONEY_STAT] += listing
         print(f'offer placed, {self.stats["posted"]} so far')
 
         self._pause(REFRESH_DELAY)  # let the offer land before asking the flea to redraw

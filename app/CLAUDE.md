@@ -12,8 +12,10 @@ bot.py               Tarkbot: the bot itself.
                      stop() sets a threading.Event; _pause() is the checkpoint every wait and
                      step boundary goes through, so a stop lands mid pass rather than at the
                      end of one. Raises Stopped internally to unwind, Retry to abandon a pass
-                     and start a fresh one. Keeps the stats dict the GUI polls, keyed by
-                     STAT_LABELS, which the GUI also builds its labels from.
+                     and start a fresh one. Counts into a stats dict keyed by STAT_LABELS,
+                     which the GUI also builds its labels from. The GUI passes its own dict
+                     in, so the counters span the session rather than one Start; a Tarkbot
+                     built without one keeps its own.
 tarkov_window.py     Locates the Tarkov window via ctypes/user32. Load bearing: bot, gui and
                      every test import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h).
                      Raises WindowError if the window is missing or ambiguous.
@@ -76,9 +78,11 @@ interact/reference_images/<target>/*.png
 - **State reads** `is_flea_open` and `more_offers_available` work off pixel brightness rather
   than a second template, because those elements only change colour: the flea taskbar icon
   inverts (mean channel 57 closed, 117 open, threshold 90) and the add offer button greys out
-  (brightest channel 255 lit, 123 greyed, threshold 190). Also `is_item_selected` and
-  `is_autoselect_similar_ticked`, which widens the button's box 30% first because the tick
-  sits just outside it.
+  (brightest channel 255 lit, 123 greyed, threshold 190). `is_item_selected` is three template
+  reads that all have to agree, not one: `item_is_selected` and `place_offer_button` present,
+  `no_items_selected` absent, because any single match that fails for its own reasons reads as
+  a selection and the pass then prices an item it never picked. `is_autoselect_similar_ticked`
+  widens the button's box 30% first because the tick sits just outside it.
 - **Finding items** `find_sell_pixels` masks out empty slots using a 256³ boolean cube built
   from every colour in `reference_images/dead_pixels/`, ±5 per channel. Scav case boxes are
   expanded 15% and excluded.

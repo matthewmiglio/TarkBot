@@ -34,6 +34,7 @@ OFFER_TARGET = 'offer_creation'  # reference images for the offer creation windo
 SCAV_WINDOW_TARGET = 'scav_case_window_title'  # reference images for the opened scav case window
 CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we want the leftmost
 NO_SELECTION_TARGET = 'no_items_selected'  # the placeholder shown while nothing is picked
+SELECTION_TARGET = 'item_is_selected'  # the panel shown once something is, the other half of the read
 FLEA_ICON_TARGET = 'flea_icon'  # the taskbar entry, one folder holding both its states
 FLEA_OPEN_BRIGHTNESS = 90  # mean channel value: measured 57 closed, 117 open
 # The suggested price readout, as (left, top, right, bottom) fractions of the window.
@@ -330,8 +331,20 @@ def click_place_offer(region=None):
 
 
 def is_item_selected(region=None):
-    """True when something is selected, ie the 'no items selected' placeholder is absent."""
-    return find.find(NO_SELECTION_TARGET, region) is None
+    """True only when all three reads agree that something is really selected.
+
+    Absence of the placeholder used to be the whole answer, which made every failed match read
+    as a hit: a hover highlight or a mid-animation frame is indistinguishable from a real
+    selection, and a pass that believed one went on to price an item that was never picked.
+    Three independent targets now have to fail the same way at the same moment to fool this:
+    the currency rows and the place offer button both present, the placeholder absent.
+
+    Ordered cheapest-to-be-wrong first, and short-circuiting, so a miss usually costs one
+    template scan instead of three. Most attempts are misses; they land between items.
+    """
+    return (find.find(SELECTION_TARGET, region) is not None
+            and find.find(PLACE_OFFER_TARGET, region) is not None
+            and find.find(NO_SELECTION_TARGET, region) is None)
 
 
 def _crop_to(ltrb, size):
