@@ -1,4 +1,5 @@
 import { DownloadButton, DISCORD_URL, RELEASES_URL } from "./download-button";
+import { ContactForm } from "./contact-form";
 
 const DOES = [
   "Sells from your stash or straight out of scav cases, whichever you pick.",
@@ -44,6 +45,7 @@ export default function Page() {
           <a href="#demo" className="hover:text-ink transition-colors">Demo</a>
           <a href="#how" className="hover:text-ink transition-colors">How it works</a>
           <a href="#features" className="hover:text-ink transition-colors">Features</a>
+          <a href="#contact" className="hover:text-ink transition-colors">Contact</a>
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink transition-colors">Discord</a>
         </nav>
         {/* Discord is the one link worth keeping reachable from the top on a phone. */}
@@ -193,6 +195,17 @@ export default function Page() {
             Get help on Discord
           </a>
         </div>
+      </section>
+
+      <Rule />
+
+      <section id="contact" className="py-20 scroll-mt-8">
+        <h2 className="text-xs uppercase tracking-[0.25em] text-ink-faint">Contact</h2>
+        <p className="mt-4 max-w-2xl text-ink-dim">
+          Found a bug, want a feature, or the bot is misreading your screen? Send
+          it here. It lands in my inbox.
+        </p>
+        <ContactForm />
       </section>
 
       <Rule />
