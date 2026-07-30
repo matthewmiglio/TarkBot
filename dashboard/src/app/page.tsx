@@ -1,8 +1,9 @@
-import { getAnalytics } from "@/lib/data";
+import { getAnalytics, getFeedback } from "@/lib/data";
 import {
   ActivityFeed, DownloadSources, DownloadsOverTime, PagePopularity,
   SummaryTiles, TrafficSources, ViewsByCountry, ViewsOverTime,
 } from "@/components/figures";
+import { FeedbackList } from "@/components/feedback";
 
 // Every figure reads from one server-side fetch, so the page is always fresh
 // and the browser makes no data requests of its own.
@@ -13,10 +14,14 @@ const SECTIONS = [
   { id: "traffic", label: "Traffic" },
   { id: "downloads", label: "Downloads" },
   { id: "activity", label: "Activity" },
+  { id: "feedback", label: "Feedback" },
 ];
 
 export default async function Page() {
-  const { views, downloads, configured } = await getAnalytics();
+  const [{ views, downloads, configured }, feedback] = await Promise.all([
+    getAnalytics(),
+    getFeedback(),
+  ]);
 
   return (
     <div className="min-h-screen bg-[#f9f9f7] flex flex-col text-gray-900">
@@ -86,10 +91,17 @@ export default async function Page() {
           </h2>
           <ActivityFeed views={views} downloads={downloads} />
         </section>
+
+        <section id="feedback" className="mb-12 scroll-mt-14">
+          <h2 className="text-sm font-bold uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">
+            Feedback
+          </h2>
+          <FeedbackList items={feedback} />
+        </section>
       </div>
 
       <footer className="px-6 py-6 border-t border-gray-200 text-xs text-gray-400">
-        Reading Tarkbot_analytics_events and Tarkbot_downloads.
+        Reading Tarkbot_analytics_events, Tarkbot_downloads and Tarkbot_feedback.
       </footer>
     </div>
   );

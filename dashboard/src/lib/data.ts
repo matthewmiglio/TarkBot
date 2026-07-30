@@ -53,6 +53,42 @@ async function table<T>(name: string, columns: string): Promise<T[]> {
   }
 }
 
+export type FeedbackItem = {
+  id: number;
+  created_at: string;
+  name: string | null;
+  email: string | null; // already masked by the RPC — ma*******04@gmail.com
+  message: string;
+  page: string | null;
+  country: string | null;
+};
+
+// The raw email never leaves Postgres: tarkbot_feedback_masked() does the
+// masking and the ordering, so the dashboard only ever sees the masked form.
+export async function getFeedback(): Promise<FeedbackItem[]> {
+  if (!SUPABASE_URL || !SERVICE_KEY) return [];
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/tarkbot_feedback_masked`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error("read feedback failed", res.status, await res.text());
+      return [];
+    }
+    return (await res.json()) as FeedbackItem[];
+  } catch (e) {
+    console.error("read feedback threw", e);
+    return [];
+  }
+}
+
 export async function getAnalytics() {
   const [views, downloads] = await Promise.all([
     table<ViewEvent>(
