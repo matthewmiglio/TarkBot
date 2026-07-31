@@ -7,6 +7,7 @@ import pyautogui
 
 import tarkov_window
 from interact import sell
+from narrate import log
 
 SCAV_CHANCE = 0.5  # how often to sell out of a scav case instead of the stash, when enabled
 # Where the bot takes items from. key -> (label, target_scav_cases, scav_chance). The GUI
@@ -57,7 +58,7 @@ class Retry(Exception):
 class Tarkbot:
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE], stats=None):
-        print('Initalizing Tarkbot')
+        log('Initalizing Tarkbot')
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
         self.size = tarkov_window.size(self.hwnd)
@@ -65,7 +66,9 @@ class Tarkbot:
         self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
-        print(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
+        log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
+        log(f'scav cases {"on" if target_scav_cases else "off"} '
+            f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m', 1)
         # The GUI hands in its own dict, which outlives any one Tarkbot, so the counters carry
         # across stop/start and only reset when the app does. Nothing passed, count from zero.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
@@ -93,25 +96,31 @@ class Tarkbot:
         """
         timeout = self.stale_minutes * 60
         while True:
+            log('waiting for a free offer slot')
             waited = sell.wait_for_offer_slot(self.region, stop=self._stop, timeout=timeout)
             self._pause()  # a stop during the wait unwinds here, before any clicking
-            if waited:
-                print(f'waited {waited:.0f}s for an offer slot')
+            log(f'waited {waited:.1f}s for an offer slot', 1)
             if sell.more_offers_available(self.region):  # returning is not proof one opened
+                log('a slot is free', 1)
                 return
-            print(f'no slot after {self.stale_minutes}m, clearing out the offers that never sold')
-            self.stats['stale_removed'] += sell.remove_stale_offers(self.region, stop=self._stop)
+            log(f'no slot after {self.stale_minutes}m, clearing out the offers that never sold')
+            removed = sell.remove_stale_offers(self.region, stop=self._stop)
+            self.stats['stale_removed'] += removed
+            log(f'{removed} cancelled, {self.stats["stale_removed"]} this session', 1)
             self._pause()
 
     def open_offer_creation(self):
         """Get from wherever we are to an offer creation window sat in the top left corner."""
+        log('opening the flea market')
         if not sell.open_flea(self.region):
             raise RuntimeError('could not open the flea market')
         self._pause()
         self._await_offer_slot()  # can block for hours, minus the odd stale-offer sweep
+        log('applying the flea filters')
         if not sell.apply_flea_filters(self.region):
             raise RuntimeError('could not apply the flea filters')
         self._pause()
+        log('opening the offer creation window')
         if not sell.click_add_offer(self.region):
             raise RuntimeError('no add offer button on screen')
         self._pause(sell.WINDOW_DELAY)  # the window has to exist before there is a title bar to grab
@@ -120,7 +129,7 @@ class Tarkbot:
         self._pause()
         if not sell.orientate_offer_creation(self.region):
             raise RuntimeError('offer creation window never appeared')
-        print('offer creation ready')
+        log('offer creation ready')
 
     def select_item(self):
         """Pick something to sell, from a scav case now and then if that is switched on.
@@ -136,25 +145,30 @@ class Tarkbot:
         """
         escapes = INVENTORY_ESCAPES
         if self.target_scav_cases and random.random() < self.scav_chance:
+            log('picking an item, trying a scav case first')
             if not sell.open_scav_case(self.region):
-                print('no scav case to open, falling back to the stash')
+                log('no scav case to open, falling back to the stash', 1)
             else:
                 escapes = SCAV_ESCAPES  # open now, and open whatever happens next
                 try:
                     point = sell.select_item_from_random_scav_case(self.region)
                     return Selection(point, escapes, 'scav')
-                except LookupError:  # opened, but the window never became readable
-                    print('scav case window not readable, falling back to the stash')
+                except LookupError as e:  # opened, but the window never became readable
+                    log(f'scav case window not readable ({e}), falling back to the stash', 1)
+        else:
+            log('picking an item out of the stash')
         return Selection(sell.select_item_from_inventory(self.region), escapes, 'inventory')
 
     def _escape(self, presses):
         """Back out of whatever is on screen, so the next pass starts somewhere known."""
+        log(f'escaping {presses}x back to a clean screen', 1)
         for _ in range(presses):
             pyautogui.press('esc')
             time.sleep(sell.MENU_DELAY)
 
     def sell_one(self):
         """One full pass: open the offer window, pick something, price it, list it, refresh."""
+        started = time.monotonic()
         self.open_offer_creation()
         picked = self.select_item()
         if not picked.point:
@@ -162,9 +176,10 @@ class Tarkbot:
             self._escape(picked.escapes)
             raise Retry('nothing selectable after every attempt')
         self.stats['selected'] += 1
-        print(f'selected item at {picked.point} ({picked.source})')
+        log(f'selected item at {picked.point} ({picked.source})')
         self._pause()
 
+        log(f'waiting {PRICE_DELAY:.0f}s for the suggested price to populate')
         self._pause(PRICE_DELAY)  # the suggested price arrives from the server, not instantly
         price = sell.get_price(self.region)
         if price is None:  # never guess at it, a half read price is worse than no sale
@@ -173,9 +188,10 @@ class Tarkbot:
             raise Retry('could not read the suggested price')
         self.stats['price_found'] += 1
         listing = sell.undercut_price(price)
-        print(f'suggested {price}, listing at {listing}')
+        log(f'suggested {price}, undercutting to {listing} ({price - listing} off)')
         self._pause()
 
+        log('placing the offer')
         if not sell.enter_price(listing, self.region):
             raise RuntimeError('no roubles price field on screen')
         if not sell.click_place_offer(self.region):
@@ -184,28 +200,33 @@ class Tarkbot:
         self.stats[f'posted_{picked.source}'] += 1
         # What we asked for, not what we got: nothing on screen says whether an offer ever sold.
         self.stats[MONEY_STAT] += listing
-        print(f'offer placed, {self.stats["posted"]} so far')
+        log(f'offer placed, {self.stats["posted"]} so far, {self.stats[MONEY_STAT]} asked for '
+            f'in total. Pass took {time.monotonic() - started:.1f}s')
 
+        log(f'refreshing the flea (f5), {REFRESH_DELAY:.0f}s either side', 1)
         self._pause(REFRESH_DELAY)  # let the offer land before asking the flea to redraw
         pyautogui.press('f5')
         self._pause(REFRESH_DELAY)  # and let the redraw finish before the next pass reads the screen
 
     def start(self):
         """Sell one item after another until stop() is called. Blocks, so give it a thread."""
-        print('Starting Tarkbot')
+        log('Starting Tarkbot')
         self._stop.clear()
+        passes = 0
         try:
             while not self._stop.is_set():
+                passes += 1
+                log(f'===== pass {passes} =====')
                 try:
                     self.sell_one()
                 except Retry as e:  # recoverable, the screen has already been backed out of
-                    print(f'{e}, starting a fresh pass')
+                    log(f'{e}, starting a fresh pass')
         except Stopped:
-            print('stopped part way through a pass')
-        print('Tarkbot finished. ' + ', '.join(f'{label.strip()} {self.stats[key]}'
-                                               for key, label in STAT_LABELS))
+            log('stopped part way through a pass')
+        log(f'Tarkbot finished after {passes} passes. '
+            + ', '.join(f'{label.strip()} {self.stats[key]}' for key, label in STAT_LABELS))
 
     def stop(self):
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""
-        print('Stopping Tarkbot')
+        log('Stopping Tarkbot')
         self._stop.set()

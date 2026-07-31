@@ -24,6 +24,11 @@ main.py              Entry point for the frozen build only, and where stdout get
                      %APPDATA%/tarkbot/tarkbot.log, since a windowed exe has no console and
                      bot.py's first print() would otherwise kill the run. From source, still
                      run python -m gui.app.
+narrate.py           log(message, indent): one timestamped print. Everything in the selling
+                     path narrates through it rather than print(), so a run reads back as a
+                     flow with a clock on each line. indent 0 is a step in the pass, 1 is what
+                     a screen read or click did, 2 is one attempt inside a retry loop.
+                     Not named trace.py: that shadows the stdlib module.
 version.py           The version string. Read from the __version__ file the build writes from
                      the git tag; 'dev' when there is no build. python -m version prints it.
 scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at the repo root.
@@ -91,6 +96,9 @@ interact/reference_images/<target>/*.png
   `remove_stale_offers` (my-offers tab, walk `stale_offer_rows` bottom upwards clicking every
   remove button found, lowest first, so a cancelled offer cannot shift a point still to be
   clicked; settle, back to browse; returns how many it cancelled),
+  `wait_for` (poll for a target until it shows, rather than sleeping a guess at the worst
+  case; `open_scav_case` uses it for the case window, which loads for seconds and used to be
+  missed by a flat `WINDOW_DELAY`),
   `disable_autoselect_similar`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).

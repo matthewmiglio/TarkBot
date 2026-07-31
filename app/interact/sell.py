@@ -11,6 +11,7 @@ import pyautogui
 from PIL import Image
 
 from interact import find, ocr
+from narrate import log
 
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
 EDGES = ('inventory_all_button', 'autoselect_similar', 'auto_sort')
@@ -21,6 +22,11 @@ DEAD_REFERENCE = 'dead_pixels'  # a folder under reference_images/, any number o
 DEAD_TOL = 5  # per-channel slack; this close to a known slot colour still counts as empty
 MENU_DELAY = 0.3  # seconds for the right-click menu to draw before we go looking for it
 WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab its title bar
+# The scav case window is the one thing on screen that does not draw within WINDOW_DELAY: it
+# loads its contents from the server, which took 2-4s every time it was measured. Waited for
+# rather than slept through, so a fast open costs a poll and a slow one still works.
+SCAV_WINDOW_TIMEOUT = 10.0  # seconds the scav case window gets to appear before we give up
+SCAV_WINDOW_POLL = 0.25  # seconds between rechecks while waiting for it
 SELECT_ATTEMPTS = 50  # clicks to try before admitting we cannot land on an item
 # After a left click, before asking the offer panel what it did. Was MENU_DELAY / 2, which
 # was under the panel's own redraw: the read landed on the *previous* attempt's panel, so a
@@ -114,7 +120,9 @@ def infer_inventory_region(region=None):
     missing = [n for n, box in found.items() if box is None]
     if missing:
         raise LookupError(f'cannot infer inventory region, not on screen: {", ".join(missing)}')
-    return _region_from(*(found[n] for n in EDGES))
+    inferred = _region_from(*(found[n] for n in EDGES))
+    log(f'inventory grid inferred at {inferred} from {", ".join(EDGES)}', 1)
+    return inferred
 
 
 def find_flea_icon(region=None):
@@ -150,7 +158,11 @@ def grab_price_region(region=None, fractions=PRICE_FRACTIONS):
 
 def get_price(region=None):
     """The suggested price as an int, or None if nothing readable is in the box."""
-    return ocr.read_region(grab_price_region(region))
+    crop = grab_price_region(region)
+    price = ocr.read_region(crop)
+    log(f'read the suggested price box at {crop}: '
+        + (f'{price}' if price is not None else 'no glyph matched, unreadable'), 1)
+    return price
 
 
 def undercut_price(price, fraction=UNDERCUT_FRACTION, flat=UNDERCUT_FLAT):
@@ -175,14 +187,20 @@ def open_flea(region=None):
 
     Returns True once it is open, False if the icon is missing or the click did not take.
     """
-    if is_flea_open(region):
+    brightness = flea_icon_brightness(region)
+    if brightness is None:
+        log('flea icon not on screen', 1)
+        return False
+    if brightness >= FLEA_OPEN_BRIGHTNESS:
+        log(f'flea icon brightness {brightness:.0f} >= {FLEA_OPEN_BRIGHTNESS}, already open', 1)
         return True
     point = find.find_center(FLEA_ICON_TARGET, region)
-    if not point:
-        return False
+    log(f'flea icon brightness {brightness:.0f} < {FLEA_OPEN_BRIGHTNESS}, clicking it at {point}', 1)
     pyautogui.click(*point)
     time.sleep(WINDOW_DELAY)
-    return is_flea_open(region)
+    opened = is_flea_open(region)
+    log(f'flea {"open" if opened else "still shut after the click"}', 1)
+    return opened
 
 
 def add_offer_brightness(region=None):
@@ -206,7 +224,10 @@ def more_offers_available(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
     screen is no slot to sell into either way.
     """
     brightness = add_offer_brightness(region)
-    return brightness is not None and brightness >= threshold
+    if brightness is None:
+        log('add offer button not on screen, treating that as no free slot', 1)
+        return False
+    return brightness >= threshold
 
 
 def _sleep(seconds, stop=None):
@@ -215,6 +236,26 @@ def _sleep(seconds, stop=None):
         time.sleep(seconds)
         return False
     return stop.wait(seconds)
+
+
+def wait_for(target, region=None, timeout=SCAV_WINDOW_TIMEOUT, poll=SCAV_WINDOW_POLL):
+    """Poll until `target` is on screen. Its Box, or None once timeout runs out.
+
+    A fixed sleep is a guess at the slowest case that is still too short on a slower one.
+    This returns the moment the thing is actually there, and only spends the whole timeout
+    when it never arrives.
+    """
+    started = time.monotonic()
+    while True:
+        box = find.find(target, region)
+        if box:
+            log(f'{target} up after {time.monotonic() - started:.1f}s at '
+                f'({int(box.left)}, {int(box.top)}) {int(box.width)}x{int(box.height)}', 1)
+            return box
+        if time.monotonic() - started >= timeout:
+            log(f'{target} never appeared, gave up after {timeout:.0f}s', 1)
+            return None
+        time.sleep(poll)
 
 
 def wait_for_offer_slot(region=None, poll=OFFER_SLOT_POLL, stop=None, timeout=None):
@@ -231,9 +272,12 @@ def wait_for_offer_slot(region=None, poll=OFFER_SLOT_POLL, stop=None, timeout=No
     announced = False
     while not more_offers_available(region):
         if timeout is not None and time.monotonic() - started >= timeout:
+            log(f'still no free slot after {timeout / 60:.0f}m of waiting', 1)
             break
         if not announced:  # once, not every poll, or the log is nothing but this
-            print(f'all offer slots full, rechecking every {poll:.0f}s')
+            log(f'add offer button greyed out, every slot is full. Rechecking every '
+                f'{poll:.0f}s for up to {timeout / 60:.0f}m'
+                if timeout else f'add offer button greyed out, rechecking every {poll:.0f}s', 1)
             announced = True
         if _sleep(poll, stop):  # woken by stop rather than by the timeout
             break  # the caller checks the same flag and unwinds from there
@@ -270,16 +314,21 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
     """
     point = find.find_center(MY_OFFERS_TAB_TARGET, region)
     if not point:
-        print('no my offers tab on screen, leaving the offers alone')
+        log('no my offers tab on screen, leaving the offers alone', 1)
         return 0
+    log(f'opening the my offers tab at {point}', 1)
     pyautogui.click(*point)
     time.sleep(WINDOW_DELAY)
 
     removed = 0
-    for row in reversed(stale_offer_rows(region)):  # lowest row first, see above
+    rows = stale_offer_rows(region)
+    log(f'walking {len(rows)} offer rows from the bottom up', 1)
+    for row in reversed(rows):  # lowest row first, see above
         pyautogui.click(*row)
         time.sleep(STALE_ROW_DELAY)
         found = find.find_all(REMOVE_BUTTON_TARGET, region)
+        if found:
+            log(f'row {row}: {len(found)} remove buttons', 2)
         for box in sorted(found, key=lambda b: b.top, reverse=True):  # and lowest button first
             pyautogui.click(*pyautogui.center(box))
             time.sleep(STALE_CONFIRM_DELAY)
@@ -287,9 +336,10 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
             time.sleep(STALE_CONFIRM_DELAY)
             removed += 1
         if stop is not None and stop.is_set():
+            log('stop asked for mid sweep, backing out', 2)
             break  # mid sweep, the caller unwinds; the tab click below still runs
 
-    print(f'removed {removed} stale offers, settling for {settle:.0f}s')
+    log(f'removed {removed} stale offers, settling for {settle:.0f}s', 1)
     _sleep(settle, stop)
     point = find.find_center(BROWSE_FLEA_TAB_TARGET, region)
     if point:
@@ -301,6 +351,7 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
 def click_add_offer(region=None):
     """Click the add offer button. Returns the clicked (x, y), or None if not found."""
     point = find.find_center(ADD_OFFER_TARGET, region)
+    log(f'clicking add offer at {point}' if point else 'no add offer button on screen', 1)
     if point:
         pyautogui.click(*point)
     return point
@@ -314,7 +365,9 @@ def enter_price(value, region=None):
     """
     point = find.find_center(PRICE_INPUT_TARGET, region)
     if not point:
+        log('no roubles price field on screen', 1)
         return None
+    log(f'typing {value} into the roubles field at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
     pyautogui.hotkey('ctrl', 'a')
@@ -325,6 +378,7 @@ def enter_price(value, region=None):
 def click_place_offer(region=None):
     """Click the place offer button. Returns the clicked (x, y), or None if not found."""
     point = find.find_center(PLACE_OFFER_TARGET, region)
+    log(f'clicking place offer at {point}' if point else 'no place offer button on screen', 1)
     if point:
         pyautogui.click(*point)
     return point
@@ -383,13 +437,18 @@ def disable_autoselect_similar(region=None):
     then would switch it on.
     """
     if not is_autoselect_similar_ticked(region):
+        log('autoselect similar already off', 1)
         return True
     point = find.find_center('autoselect_similar', region)
     if not point:
+        log('autoselect similar is ticked but its button vanished', 1)
         return False
+    log(f'autoselect similar is ticked, unticking it at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
-    return not is_autoselect_similar_ticked(region)  # confirm the click took, do not assume
+    off = not is_autoselect_similar_ticked(region)  # confirm the click took, do not assume
+    log(f'autoselect similar now {"off" if off else "STILL ON, the click did not take"}', 1)
+    return off
 
 
 def _scav_region_from(title, close_btn, screen_height):
@@ -416,7 +475,10 @@ def infer_scav_case_region(region=None):
     if missing:
         raise LookupError(f'cannot infer scav case region, not on screen: {", ".join(missing)}')
     screen_height = region[3] if region else pyautogui.size()[1]
-    return _scav_region_from(title, min(closes, key=lambda b: b.left), screen_height)
+    inferred = _scav_region_from(title, min(closes, key=lambda b: b.left), screen_height)
+    log(f'scav case grid inferred at {inferred} from the title bar and '
+        f'the leftmost of {len(closes)} close buttons', 1)
+    return inferred
 
 
 def _expand(box, margin=SCAV_MARGIN):
@@ -540,25 +602,32 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
 
     ponytail: re-screenshots per attempt as asked, so each retry costs a fraction of a second.
     """
-    for _ in range(attempts):
+    for attempt in range(1, attempts + 1):
         points = find_sell_pixels(region)
         if not points:
+            log('no sellable pixels in the inventory, the stash looks empty', 1)
             return None  # nothing to sell, retrying will not conjure an item
         chosen = random.choice(points)
+        log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)
         pyautogui.click(*chosen)
         time.sleep(SELECT_POLL_DELAY)
         if not is_item_selected(region):
+            log('nothing selected, that was a gap between items', 2)
             continue  # landed on a gap, the placeholder is still showing
+        log('item selected, right clicking for the menu', 2)
         pyautogui.rightClick(*chosen)
         time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
+            log('no filter by item in the menu, escaping out', 2)
             pyautogui.press('esc')  # shut whatever did open, or the next find hits a stale menu
             continue
         point = pyautogui.center(box)
+        log(f'clicking filter by item at {point}', 2)
         pyautogui.click(*point)
         time.sleep(SELECT_WINDOW_DELAY)  # the flea panel has to catch up before we read it
         return point
+    log(f'all {attempts} attempts missed', 1)
     return None
 
 
@@ -604,7 +673,10 @@ def orientate_offer_creation(region=None, duration=DRAG_SECONDS):
 
     Grabs it by the centre of its bbox. Returns the point it grabbed, or None if not found.
     """
-    return _drag_to_corner(OFFER_TARGET, 'bottom left', region, duration)
+    point = _drag_to_corner(OFFER_TARGET, 'bottom left', region, duration)
+    log(f'dragged the offer window to the bottom left by {point}' if point
+        else 'offer creation window not on screen to drag', 1)
+    return point
 
 
 def _dropdown_arrow(box):
@@ -621,13 +693,16 @@ def _set_dropdown(any_target, option_target, region=None, delay=DROPDOWN_DELAY):
     """
     box = find.find(any_target, region)
     if not box:
+        log(f'{any_target} no longer reads any, leaving it alone', 1)
         return True  # already set to something other than any
+    log(f'opening the {any_target} dropdown', 1)
     pyautogui.click(*_dropdown_arrow(box))
     time.sleep(delay)
     point = find.find_center(option_target, region)
     if not point:
-        print(f'{option_target} not in the opened {any_target} dropdown')
+        log(f'{option_target} not in the opened {any_target} dropdown', 1)
         return False
+    log(f'picking {option_target} at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
     return True
@@ -643,8 +718,9 @@ def apply_flea_filters(region=None):
     """
     point = find.find_center(FILTER_BUTTON_TARGET, region)
     if not point:
-        print('no filter button on screen')
+        log('no filter button on screen', 1)
         return False
+    log(f'opening the filter window at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
 
@@ -652,16 +728,20 @@ def apply_flea_filters(region=None):
     if not find.find(REMEMBER_ON_TARGET, region):
         toggle = find.find_center(REMEMBER_OFF_TARGET, region)
         if not toggle:
-            print('remember selected filters checkbox not on screen, did the window open?')
+            log('remember selected filters checkbox not on screen, did the window open?', 1)
             return False
+        log(f'ticking remember selected filters at {toggle}', 1)
         pyautogui.click(*toggle)
         time.sleep(MENU_DELAY)
+    else:
+        log('remember selected filters already ticked', 1)
 
     if not _set_dropdown(CURRENCY_ANY_TARGET, CURRENCY_RUBLES_OPTION, region, DROPDOWN_DELAY):
         return False
     if find.find(CURRENCY_ANY_TARGET, region) or not find.find(CURRENCY_RUB_TARGET, region):
-        print('currency dropdown did not settle on roubles')  # confirm it took, do not assume
+        log('currency dropdown did not settle on roubles', 1)  # confirm it took, do not assume
         return False
+    log('currency reads roubles', 1)
 
     if not _set_dropdown(OFFERS_FROM_ANY_TARGET, OFFERS_FROM_PLAYERS_OPTION,
                          region, OFFERS_FROM_DELAY):
@@ -669,8 +749,9 @@ def apply_flea_filters(region=None):
 
     point = find.find_center(FILTERS_OK_TARGET, region)  # applies them and shuts the window
     if not point:
-        print('no OK button on the flea filter window')
+        log('no OK button on the flea filter window', 1)
         return False
+    log(f'OK out of the filter window at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
     return True
@@ -697,19 +778,35 @@ def open_scav_case(region=None):
 
     Returns the clicked (x, y) of the open entry, or None if there was no case on screen
     or the menu never showed up.
+
+    The window is waited for rather than slept through. A flat WINDOW_DELAY used to land
+    before the case had finished loading, so orientate_scav_box found no title bar to grab,
+    infer_scav_case_region then had nothing to measure from, and the pass fell back to the
+    stash reporting a case that was on screen the whole time, just late.
     """
     cases = find.find_all('scav_case', region)
+    log(f'scav cases on screen: {len(cases)}', 1)
     if not cases:
         return None
-    pyautogui.rightClick(*pyautogui.center(random.choice(cases)))
+    case = pyautogui.center(random.choice(cases))
+    log(f'right click a scav case at {case}', 1)
+    pyautogui.rightClick(*case)
     time.sleep(MENU_DELAY)
     box = find.find('open_scav_case', region)
     if not box:
+        log('no open entry in the right click menu', 1)
         return None
     point = pyautogui.center(box)
+    log(f'click open at {point}, waiting up to {SCAV_WINDOW_TIMEOUT:.0f}s for the window', 1)
     pyautogui.click(*point)
-    time.sleep(WINDOW_DELAY)  # the window has to exist before there is a title bar to grab
-    orientate_scav_box(region)
+    if wait_for(SCAV_WINDOW_TARGET, region) is None:
+        # Still the clicked point, not None: the caller uses a truthy return to decide how
+        # many escapes it takes to back out, and a window that appears a moment after we
+        # stopped looking still has to be escaped past.
+        return point
+    grabbed = orientate_scav_box(region)
+    log(f'dragged the scav window to the top left by {grabbed}' if grabbed
+        else 'scav window up but its title bar would not grab', 1)
     return point
 
 
@@ -721,25 +818,32 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
     ask the offer panel whether anything got selected, and only then go for the right-click
     menu. Returns the clicked (x, y), or None if every attempt missed.
     """
-    for _ in range(attempts):
+    for attempt in range(1, attempts + 1):
         points = find_scav_case_pixels(region)
         if not points:
+            log('no live pixels in the scav case, it is empty', 1)
             return None  # an empty case will not fill itself on a retry
         chosen = random.choice(points)
+        log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)
         pyautogui.click(*chosen)
         time.sleep(SELECT_POLL_DELAY)
         if not is_item_selected(region):
+            log('nothing selected, that was a gap between items', 2)
             continue  # landed on a gap, the placeholder is still showing
+        log('item selected, right clicking for the menu', 2)
         pyautogui.rightClick(*chosen)
         time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
+            log('no filter by item in the menu, escaping out', 2)
             pyautogui.press('esc')  # same as the inventory path: a left open menu eats the next click
             continue
         point = pyautogui.center(box)
+        log(f'clicking filter by item at {point}', 2)
         pyautogui.click(*point)
         time.sleep(SELECT_WINDOW_DELAY)  # the flea panel has to catch up before we read it
         return point
+    log(f'all {attempts} attempts missed', 1)
     return None
 
 
