@@ -59,18 +59,24 @@ PRICE_INPUT_TARGET = 'price_rubles_input'
 PLACE_OFFER_TARGET = 'place_offer_button'
 MORE_OFFERS_BRIGHTNESS = 190  # max channel in the add offer button: measured 255 lit, 123 greyed
 OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
-FILTER_BUTTON_TARGET = 'filter_button'  # opens the flea's filter window
+# Everything belonging to the flea's filter window shares a flea_filters_ prefix, so the
+# reference_images listing groups them instead of scattering them through the alphabet.
+# filter_by_item is deliberately not one of these: that is the inventory right-click menu.
+FILTER_BUTTON_TARGET = 'flea_filters_button'  # opens the flea's filter window
 FILTERS_WINDOW_TARGET = 'flea_filters_window_title'  # that window's title bar, for dragging it
-CURRENCY_ANY_TARGET = 'currency_dropdown_any'  # the currency dropdown while it still says any
-CURRENCY_RUBLES_OPTION = 'currency_dropdown_select_rubles'  # roubles, in the opened dropdown
-CURRENCY_RUB_TARGET = 'currency_dropdown_rub'  # the dropdown once it reads roubles
-OFFERS_FROM_ANY_TARGET = 'offers_from_any'  # the offers-from dropdown while it still says any
-OFFERS_FROM_PLAYERS_OPTION = 'offers_from_select_players'  # players, in the opened dropdown
-REMEMBER_ON_TARGET = 'remember_selected_filters_on'  # the remember-filters box, already ticked
-REMEMBER_OFF_TARGET = 'remember_selected_filters_off'  # and the same box unticked
+CURRENCY_ANY_TARGET = 'flea_filters_currency_dropdown_any'  # currency, while it still says any
+CURRENCY_RUBLES_OPTION = 'flea_filters_currency_dropdown_select_rubles'  # roubles, in the opened dropdown
+CURRENCY_RUB_TARGET = 'flea_filters_currency_dropdown_rub'  # the dropdown once it reads roubles
+OFFERS_FROM_ANY_TARGET = 'flea_filters_offers_from_any'  # offers-from, while it still says any
+OFFERS_FROM_PLAYERS_OPTION = 'flea_filters_offers_from_select_players'  # players, in the opened dropdown
+REMEMBER_ON_TARGET = 'flea_filters_remember_on'  # the remember-filters box, already ticked
+REMEMBER_OFF_TARGET = 'flea_filters_remember_off'  # and the same box unticked
 FILTERS_OK_TARGET = 'flea_filters_OK_button'  # applies the filters and closes the window
 DROPDOWN_DELAY = 0.3  # seconds for the currency dropdown to unroll
 OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
+# Goes at one dropdown before giving up on it. More than one because the usual failure is a
+# click landing while the list is still unrolling, which the next attempt just repeats past.
+DROPDOWN_ATTEMPTS = 3
 CHECKMARK_TARGET = 'checkmark'  # the tick beside the autoselect similar button
 CHECKMARK_MARGIN = 0.30  # that button's box grows this much per side before we look inside it
 MY_OFFERS_TAB_TARGET = 'my_offers_tab_button'  # the flea tab listing what we have up for sale
@@ -684,28 +690,50 @@ def _dropdown_arrow(box):
     return int(box.left + box.width) - 1, int(box.top + box.height // 2)
 
 
-def _set_dropdown(any_target, option_target, region=None, delay=DROPDOWN_DELAY):
-    """Open a dropdown that still reads 'any' and pick option_target out of it.
+def _set_dropdown(any_target, option_target, settled_target, region=None, delay=DROPDOWN_DELAY):
+    """Get a dropdown off 'any' and onto its setting, and only return once that is seen.
 
-    A missing 'any' is success, not a failure: the dropdown is already set to something, and
-    the only thing clicking it again could do is change it back. Returns False only when the
-    dropdown was open and the option was not in it.
+    Nothing here trusts a click. The old version returned True the moment it had clicked the
+    option, and treated a missing any_target as 'already set to something', so a dropdown
+    still reading Any because its reference image simply did not match came back as
+    configured. That is silent: the run browses the wrong offers for the rest of the session
+    and the log says the filter was applied.
+
+    Every attempt now ends by re-reading the closed dropdown. Only settled_target present with
+    any_target gone counts as done; anything else is retried, because the usual cause is a
+    click that landed while the list was still unrolling.
+
+    Returns True once the dropdown is read as settled, False if it never is.
     """
-    box = find.find(any_target, region)
-    if not box:
-        log(f'{any_target} no longer reads any, leaving it alone', 1)
-        return True  # already set to something other than any
-    log(f'opening the {any_target} dropdown', 1)
-    pyautogui.click(*_dropdown_arrow(box))
-    time.sleep(delay)
-    point = find.find_center(option_target, region)
-    if not point:
-        log(f'{option_target} not in the opened {any_target} dropdown', 1)
-        return False
-    log(f'picking {option_target} at {point}', 1)
-    pyautogui.click(*point)
-    time.sleep(MENU_DELAY)
-    return True
+    for attempt in range(1, DROPDOWN_ATTEMPTS + 1):
+        settled = find.find(settled_target, region)
+        any_box = find.find(any_target, region)
+        if settled and not any_box:
+            log(f'{settled_target} confirmed on screen, the dropdown is set', 1)
+            return True
+        if settled and any_box:  # both at once means one of the two reference sets is too loose
+            log(f'ambiguous read: {any_target} and {settled_target} both matched', 1)
+            return False
+        if not any_box:
+            # Neither state matched, so there is no arrow to click and nothing to confirm.
+            # Calling this success is the exact bug this rewrite exists for.
+            log(f'dropdown matched neither {any_target} nor {settled_target}, so its state is '
+                f'unknown; not assuming it is set. Add reference crops for whichever it reads', 1)
+            return False
+        log(f'attempt {attempt}/{DROPDOWN_ATTEMPTS}: {any_target} still reads any, opening it', 2)
+        pyautogui.click(*_dropdown_arrow(any_box))
+        time.sleep(delay)
+        point = find.find_center(option_target, region)
+        if not point:
+            log(f'{option_target} not in the opened {any_target} dropdown', 2)
+            pyautogui.press('esc')  # shut the list, or the next attempt clicks inside it
+            time.sleep(MENU_DELAY)
+            continue
+        log(f'picking {option_target} at {point}', 2)
+        pyautogui.click(*point)
+        time.sleep(MENU_DELAY)  # let it close before the top of the loop reads it back
+    log(f'{any_target} never settled on {settled_target} in {DROPDOWN_ATTEMPTS} attempts', 1)
+    return False
 
 
 def apply_flea_filters(region=None):
@@ -736,15 +764,18 @@ def apply_flea_filters(region=None):
     else:
         log('remember selected filters already ticked', 1)
 
-    if not _set_dropdown(CURRENCY_ANY_TARGET, CURRENCY_RUBLES_OPTION, region, DROPDOWN_DELAY):
+    # The confirm-it-took read used to live here, for the currency dropdown only. It is inside
+    # _set_dropdown now, so offers-from gets the same treatment instead of being taken on trust.
+    if not _set_dropdown(CURRENCY_ANY_TARGET, CURRENCY_RUBLES_OPTION, CURRENCY_RUB_TARGET,
+                         region, DROPDOWN_DELAY):
         return False
-    if find.find(CURRENCY_ANY_TARGET, region) or not find.find(CURRENCY_RUB_TARGET, region):
-        log('currency dropdown did not settle on roubles', 1)  # confirm it took, do not assume
-        return False
-    log('currency reads roubles', 1)
 
+    # Settled state and menu option read out of the same folder, unlike currency, which has a
+    # separate flea_filters_currency_dropdown_rub. find() tries every png in a folder, so crops of the open
+    # list row and of the closed field can sit side by side there and either one matching means
+    # the dropdown says players.
     if not _set_dropdown(OFFERS_FROM_ANY_TARGET, OFFERS_FROM_PLAYERS_OPTION,
-                         region, OFFERS_FROM_DELAY):
+                         OFFERS_FROM_PLAYERS_OPTION, region, OFFERS_FROM_DELAY):
         return False
 
     point = find.find_center(FILTERS_OK_TARGET, region)  # applies them and shuts the window
