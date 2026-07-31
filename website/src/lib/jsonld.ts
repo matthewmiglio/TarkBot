@@ -1,7 +1,10 @@
+import { HOME_MODIFIED, HOME_PUBLISHED } from "./last-changed";
 import {
   absolute,
   DEMO_VIDEO,
   DESCRIPTION,
+  DISCORD_URL,
+  OG_IMAGE,
   REPO_URL,
   SAME_AS,
   SITE_NAME,
@@ -18,6 +21,7 @@ const WEBSITE = absolute("/#website");
 const WEBPAGE = absolute("/#webpage");
 const APP = absolute("/#software");
 const VIDEO = absolute("/#demo-video");
+const IMAGE = `${WEBPAGE}-image`;
 
 export function homeGraph() {
   return {
@@ -30,6 +34,26 @@ export function homeGraph() {
         url: SITE_URL,
         description: DESCRIPTION,
         sameAs: SAME_AS,
+        image: { "@id": IMAGE },
+        // No logo: there is no square brand mark on disk, and Google would
+        // rather have the field absent than the OG card cropped into one.
+        contactPoint: {
+          "@type": "ContactPoint",
+          contactType: "customer support",
+          url: DISCORD_URL,
+          availableLanguage: "English",
+        },
+      },
+      {
+        // The node the WebPage's primaryImageOfPage points at. Without this the
+        // reference dangles and the whole graph fails validation.
+        "@type": "ImageObject",
+        "@id": IMAGE,
+        url: absolute(OG_IMAGE.path),
+        contentUrl: absolute(OG_IMAGE.path),
+        width: OG_IMAGE.width,
+        height: OG_IMAGE.height,
+        caption: `${SITE_NAME} — ${TAGLINE}`,
       },
       {
         "@type": "WebSite",
@@ -51,7 +75,10 @@ export function homeGraph() {
         isPartOf: { "@id": WEBSITE },
         about: { "@id": APP },
         mainEntity: { "@id": APP },
-        primaryImageOfPage: { "@id": `${WEBPAGE}-image` },
+        primaryImageOfPage: { "@id": IMAGE },
+        // Real git dates for page.tsx, not build time. See lib/last-changed.
+        datePublished: HOME_PUBLISHED.toISOString(),
+        dateModified: HOME_MODIFIED.toISOString(),
         inLanguage: "en",
       },
       {

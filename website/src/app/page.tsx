@@ -211,7 +211,9 @@ export default function Page() {
       <Rule />
 
       <footer className="py-8 flex flex-wrap items-center justify-between gap-4 text-xs text-ink-faint">
-        <span>Tarkbot — free software, use at your own risk.</span>
+        {/* data-nosnippet: legal boilerplate, not something worth an engine
+            quoting back as the page's answer. Invisible attribute, no styling. */}
+        <span data-nosnippet>Tarkbot — free software, use at your own risk.</span>
         <span className="flex gap-5">
           <a href={RELEASES_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink-dim">Releases</a>
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink-dim">Discord</a>

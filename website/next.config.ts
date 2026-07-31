@@ -28,7 +28,16 @@ const nextConfig: NextConfig = {
   // No Cache-Control rule for /_next/static: Next already serves it immutable in
   // production, and overriding it here breaks asset reloading in dev.
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    return [
+      { source: "/:path*", headers: SECURITY_HEADERS },
+      // robots.txt already disallows /api/, but a JSON response that gets linked
+      // to directly is indexable regardless of robots. The header is the part
+      // that actually keeps it out of the index.
+      {
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+    ];
   },
 };
 

@@ -10,6 +10,11 @@ export const TAGLINE = "free flea market seller for Escape From Tarkov";
 export const DESCRIPTION =
   "Tarkbot reads your screen, prices your loot off Tarkov's own suggested price, undercuts it and lists it on the flea market. Free, open, no account.";
 
+// The generated card from app/opengraph-image.tsx. Next serves it with a
+// cache-busting query on the meta tag, but the bare route is a stable 200, so
+// this is what JSON-LD points at.
+export const OG_IMAGE = { path: "/opengraph-image", width: 1200, height: 630 };
+
 export const REPO_URL = "https://github.com/matthewmiglio/TarkBot";
 export const RELEASES_URL = `${REPO_URL}/releases`;
 export const DISCORD_URL = "https://discord.gg/Vx4tdR3N8A";
