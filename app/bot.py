@@ -20,15 +20,13 @@ MODES = {'inventory': ('INVENTORY ONLY', False, 0.0),
 STALE_THRESHOLDS = {'5m': 5, '10m': 10, '30m': 30}
 DEFAULT_STALE = '10m'
 # How far under the suggested price to list. GUI label -> (fraction, flat) for
-# sell.undercut_price, which takes the higher of the two cuts. The percentage is proportional
-# to the flat, so all three cross at the same price: flat / (1 - fraction) == 13333 roubles.
+# sell.undercut_price, which takes the higher of the two cuts. The percentage is the same 85%
+# throughout; only the flat cut changes, so picking a bigger one only moves the price above
+# which the flat cut takes over: 13333, 20000, 33333 roubles.
 UNDERCUTS = {'2k rubles | 85%': (0.85, 2000),
-             '3k rubles | 77.5%': (0.775, 3000),
-             '5k rubles | 62.5%': (0.625, 5000)}
+             '3k rubles | 85%': (0.85, 3000),
+             '5k rubles | 85%': (0.85, 5000)}
 DEFAULT_UNDERCUT = '2k rubles | 85%'
-# The proportionality, checked on import rather than left as a claim in the comment above.
-assert len({round(flat / (1 - fraction)) for fraction, flat in UNDERCUTS.values()}) == 1, \
-    'the undercut percentages are no longer proportional to the flat cuts'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
 # How many escapes it takes to get back to a clean screen from wherever a pass gave up.

@@ -123,8 +123,8 @@ interact/reference_images/<target>/*.png
   returns the higher of `price * fraction` and `price - flat`, so the flat cut wins on expensive
   items and the percentage wins on cheap ones without ever going negative. They cross at
   `flat / (1 - fraction)`. Which pair to use is the GUI's UNDERCUT dropdown, `bot.UNDERCUTS`:
-  2k/85%, 3k/77.5% or 5k/62.5%, whose percentages are proportional to their flats so all three
-  cross at the same 13,333 roubles. `sell.py`'s own constants are only the defaults.
+  2k, 3k or 5k, all at 85%, so the choice only moves the price where the flat cut takes over.
+  `sell.py`'s own constants are only the defaults.
 
 ## Tests
 

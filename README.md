@@ -45,7 +45,7 @@ version:
   666 at full confidence.
 - **Undercutting** takes the higher of a percentage off and a flat amount off, so the flat cut
   wins on expensive items and the percentage wins on cheap ones. The GUI's UNDERCUT dropdown
-  picks how hard: 2k/15%, 3k/22.5% or 5k/37.5%.
+  picks the flat cut: 2000, 3000 or 5000 roubles, always against the same 15%.
 
 ## Running from source
 
