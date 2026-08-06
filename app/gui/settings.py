@@ -8,7 +8,10 @@ from pathlib import Path
 
 APP_DIR = Path(os.environ.get('APPDATA') or Path.home()) / 'tarkbot'
 SETTINGS_PATH = APP_DIR / 'settings.json'
-DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m'}
+DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
+            'tab': 'flea',  # which mode tab the GUI opens on
+            'routine': 'normal',  # hideout gym reps per set, see gym.ROUTINES
+            'undercut': '2k rubles | 85%'}  # how far under the suggested price, see bot.UNDERCUTS
 
 
 def load(path=SETTINGS_PATH):
@@ -49,9 +52,11 @@ if __name__ == '__main__':
         probe = Path(tmp) / 'nested' / 'settings.json'
         assert load(probe) == DEFAULTS, 'a missing file is all defaults'
 
-        assert save({'background': 'factory.png', 'mode': 'scav', 'stale': '5m', 'junk': 1}, probe)
-        assert load(probe) == {'background': 'factory.png', 'mode': 'scav', 'stale': '5m'}, \
-            'junk key survived'
+        # Written against DEFAULTS rather than a literal dict, so adding a preference does not
+        # break the check that has nothing to do with it.
+        saved = {'background': 'factory.png', 'mode': 'scav', 'stale': '5m'}
+        assert save({**saved, 'junk': 1}, probe)
+        assert load(probe) == {**DEFAULTS, **saved}, 'junk key survived'
 
         probe.write_text('{not json', encoding='utf-8')
         assert load(probe) == DEFAULTS, 'a corrupt file must not stop the GUI opening'

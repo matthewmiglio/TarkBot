@@ -16,6 +16,11 @@ bot.py               Tarkbot: the bot itself.
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a Tarkbot
                      built without one keeps its own.
+gym.py               HideoutGym: the other mode, training at the hideout gym. Same shape as
+                     bot.py (stats dict, _pause checkpoint, Stopped/Retry, start/stop) and
+                     nothing to do with the flea. SKELETON: train_once() calls into
+                     interact/gym.py, which raises NotImplementedError until its reference
+                     images exist, so starting this mode fails loudly rather than no-opping.
 tarkov_window.py     Locates the Tarkov window via ctypes/user32. Load bearing: bot, gui and
                      every test import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h).
                      Raises WindowError if the window is missing or ambiguous.
@@ -35,12 +40,21 @@ scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at t
                      python scripts/setup_msi.py bdist_msi --target-version v0.0.0-local
 scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
                      after editing the svg; the ico is committed. Wants cairosvg.
-gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, the
-                     stats, and three pickers: background, item source and stale offer
-                     threshold. Run: python -m gui.app
+gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, one
+                     tab per mode (FLEA SELL / HIDEOUT GYM) and the pickers each mode needs.
+                     Run: python -m gui.app
+                     Modes are rows in TABS, and each mode's module supplies exactly three
+                     things: STAT_LABELS (rows to draw), TINT_STAT (the row that goes green,
+                     or None) and build(prefs, stats) -> a runner with start/stop/stats. A
+                     third mode is a row in TABS plus a module, not a new branch through the
+                     drawing code. Per-tab canvas items carry a 'tab:<key>' tag and switching
+                     is itemconfigure(state=hidden/normal), so nothing is redrawn and the item
+                     ids stay stable for tick(). Tabs refuse to switch while a runner is
+                     alive, or Stop would point at a mode the window is no longer showing.
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
-                     the glass; the two dropdowns are the only real widgets. The system title
+                     the glass; the dropdowns are the only real widgets, and they sit in the
+                     two header rows DROP_ROW names. The system title
                      bar is off (overrideredirect) and replaced by one of our own, which is
                      what drags the window and carries the close X; WS_EX_APPWINDOW is put
                      back by hand or the window would vanish from the taskbar and alt-tab and
@@ -61,8 +75,11 @@ interact/find.py     Locating things on screen. find(), find_all(), find_center(
                      name and an optional region, return pyscreeze Boxes / (x,y) / None.
                      images() resolves a name to reference pngs; dedupe()/iou() collapse
                      overlapping matches.
-interact/sell.py     Everything the bot does to a screen. See the section below.
+interact/sell.py     Everything the flea bot does to a screen. See the section below.
                      Geometry self-check, no game needed: python -m interact.sell
+interact/gym.py      The same for the hideout gym. Separate module on purpose: the two share
+                     find.py and narrate.py and nothing else. All stubs for now; the gym_*
+                     reference folders it names do not exist yet.
 interact/ocr.py      Reads the numbers Tarkov prints. Not an OCR engine: the prices are a fixed
                      bitmap font, so it cuts the crop into glyphs and pixel-matches each against
                      a reference. read_number() is all or nothing, None if any glyph is
@@ -102,9 +119,12 @@ interact/reference_images/<target>/*.png
   `disable_autoselect_similar`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
-- **Pricing** `get_price` reads the suggested price, `undercut_price` returns the higher of
-  `price * 0.85` and `price - 2000`, so the flat cut wins on expensive items and the percentage
-  wins on cheap ones without ever going negative. They cross at `flat / (1 - fraction)`.
+- **Pricing** `get_price` reads the suggested price, `undercut_price(price, fraction, flat)`
+  returns the higher of `price * fraction` and `price - flat`, so the flat cut wins on expensive
+  items and the percentage wins on cheap ones without ever going negative. They cross at
+  `flat / (1 - fraction)`. Which pair to use is the GUI's UNDERCUT dropdown, `bot.UNDERCUTS`:
+  2k/85%, 3k/77.5% or 5k/62.5%, whose percentages are proportional to their flats so all three
+  cross at the same 13,333 roubles. `sell.py`'s own constants are only the defaults.
 
 ## Tests
 

@@ -19,6 +19,16 @@ MODES = {'inventory': ('INVENTORY ONLY', False, 0.0),
 # -> minutes, so the dropdown, the saved setting and the wait all read off one definition.
 STALE_THRESHOLDS = {'5m': 5, '10m': 10, '30m': 30}
 DEFAULT_STALE = '10m'
+# How far under the suggested price to list. GUI label -> (fraction, flat) for
+# sell.undercut_price, which takes the higher of the two cuts. The percentage is proportional
+# to the flat, so all three cross at the same price: flat / (1 - fraction) == 13333 roubles.
+UNDERCUTS = {'2k rubles | 85%': (0.85, 2000),
+             '3k rubles | 77.5%': (0.775, 3000),
+             '5k rubles | 62.5%': (0.625, 5000)}
+DEFAULT_UNDERCUT = '2k rubles | 85%'
+# The proportionality, checked on import rather than left as a claim in the comment above.
+assert len({round(flat / (1 - fraction)) for fraction, flat in UNDERCUTS.values()}) == 1, \
+    'the undercut percentages are no longer proportional to the flat cuts'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
 # How many escapes it takes to get back to a clean screen from wherever a pass gave up.
@@ -38,6 +48,7 @@ STAT_LABELS = (('selected', 'Items found'),
                ('money', 'Total money'),
                ('stale_removed', 'Stale offers removed'))
 MONEY_STAT = 'money'  # the one row the GUI tints, so both ends read off one name
+TINT_STAT = MONEY_STAT  # what the GUI tints for this mode; gym.py names its own
 
 # What select_item picked, where it came from, and how many escapes back out of that screen.
 Selection = namedtuple('Selection', 'point escapes source')
@@ -57,7 +68,8 @@ class Retry(Exception):
 
 class Tarkbot:
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
-                 stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE], stats=None):
+                 stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
+                 undercut=UNDERCUTS[DEFAULT_UNDERCUT], stats=None):
         log('Initalizing Tarkbot')
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
@@ -66,9 +78,11 @@ class Tarkbot:
         self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
+        self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
         log(f'scav cases {"on" if target_scav_cases else "off"} '
-            f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m', 1)
+            f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
+            f'undercut {undercut[0]:.1%} or {undercut[1]} roubles', 1)
         # The GUI hands in its own dict, which outlives any one Tarkbot, so the counters carry
         # across stop/start and only reset when the app does. Nothing passed, count from zero.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
@@ -187,7 +201,7 @@ class Tarkbot:
             self._escape(PRICE_ESCAPES)
             raise Retry('could not read the suggested price')
         self.stats['price_found'] += 1
-        listing = sell.undercut_price(price)
+        listing = sell.undercut_price(price, *self.undercut)
         log(f'suggested {price}, undercutting to {listing} ({price - listing} off)')
         self._pause()
 
@@ -230,3 +244,17 @@ class Tarkbot:
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""
         log('Stopping Tarkbot')
         self._stop.set()
+
+
+def build(prefs, stats):
+    """A Tarkbot configured from the GUI's saved preferences.
+
+    Here rather than in the GUI so the mapping from a settings key to a constructor argument
+    sits beside the constants those keys index into. gym.build() is the same function for the
+    other mode, and the GUI calls whichever the active tab names.
+    """
+    _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])
+    stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
+    undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])
+    return Tarkbot(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
+                   undercut=undercut, stats=stats)

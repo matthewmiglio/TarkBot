@@ -43,8 +43,9 @@ version:
   the number into glyphs and pixel-matches each one. It returns nothing rather than a guess,
   because a half-read price is a wrong price. A real OCR engine was tried first and read 999 as
   666 at full confidence.
-- **Undercutting** takes the higher of 15% off and 2000 roubles off, so the flat cut wins on
-  expensive items and the percentage wins on cheap ones.
+- **Undercutting** takes the higher of a percentage off and a flat amount off, so the flat cut
+  wins on expensive items and the percentage wins on cheap ones. The GUI's UNDERCUT dropdown
+  picks how hard: 2k/15%, 3k/22.5% or 5k/37.5%.
 
 ## Running from source
 

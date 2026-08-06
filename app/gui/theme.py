@@ -17,7 +17,7 @@ CHARACTER = Path(__file__).parent / 'poster_character.png'
 # source: redraw the svg and re-run scripts/make_icon.py rather than editing the ico.
 ICON = Path(__file__).parent / 'tarkbot.ico'
 
-WINDOW = (940, 600)
+WINDOW = (940, 634)  # 34 taller than it was, for the header's second dropdown row
 
 # Muted, matte, nothing pure white. Values darker than the text they carry.
 INK = '#d8d7d2'        # primary text
@@ -41,11 +41,12 @@ TITLEBAR_BG = '#0d0e0d'
 BLUR = 4  # how far out of focus the background photo goes
 DIM = 0.5  # what fraction of the photo's brightness survives the wash
 
-# Panel rectangles as (left, top, right, bottom), in window coordinates
-HEADER = (0, 0, WINDOW[0], 58)
-CHARACTER_PANEL = (24, 76, 436, 500)
-STATUS_PANEL = (452, 76, 916, 500)
-FOOTER_RULE = 516
+# Panel rectangles as (left, top, right, bottom), in window coordinates. The header carries two
+# rows of dropdowns, so everything below it sits 34px lower than it did with one.
+HEADER = (0, 0, WINDOW[0], 92)
+CHARACTER_PANEL = (24, 110, 436, 534)
+STATUS_PANEL = (452, 110, 916, 534)
+FOOTER_RULE = 550
 
 GLASS = (12, 12, 12, 186)  # panel fill, over the dimmed photo
 GLASS_EDGE = (72, 74, 72, 255)
