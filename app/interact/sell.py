@@ -323,9 +323,21 @@ def is_on_browse_page(region=None):
     selected = find.find(BROWSE_SELECTED_TARGET, region)
     unselected = find.find(BROWSE_UNSELECTED_TARGET, region)
     if bool(selected) == bool(unselected):  # neither state matched, or both did
-        log('browse tab matched neither selected nor unselected, cannot tell which page we are on', 1)
+        log(f'browse tab read: selected={bool(selected)} unselected={bool(unselected)}, so it '
+            f'matched neither state or both; cannot tell which page we are on', 1)
         return None
-    return selected is not None
+    if selected:
+        log(f'browse tab reads selected at ({int(selected.left)}, {int(selected.top)}), '
+            f'so we are on the browse page', 1)
+        return True
+    log(f'browse tab reads unselected at ({int(unselected.left)}, {int(unselected.top)}), '
+        f'so we are on some other flea page', 1)
+    return False
+
+
+def _page_name(on_browse):
+    """is_on_browse_page's tri-state as words, for the log lines that report where we are."""
+    return {True: 'browse', False: 'not browse', None: 'unreadable'}[on_browse]
 
 
 def return_to_browse(region=None, attempts=TAB_ATTEMPTS):
@@ -364,11 +376,13 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
     invalidates the rest of the sweep. Each removal takes a y to confirm, and until that lands
     the dialog is modal, so the next click would go nowhere.
     """
+    log(f'stale offer sweep starting, region {region}, settle {settle:.0f}s')
+    log(f'flea page before the tab click: {_page_name(is_on_browse_page(region))}', 1)
     point = find.find_center(MY_OFFERS_TAB_TARGET, region)
     if not point:
         log('no my offers tab on screen, leaving the offers alone', 1)
         return 0
-    log(f'opening the my offers tab at {point}', 1)
+    log(f'opening the my offers tab at {point}, then {WINDOW_DELAY:.1f}s for it to draw', 1)
     pyautogui.click(*point)
     time.sleep(WINDOW_DELAY)
     if is_on_browse_page(region):  # the click missed and browse is still the active tab
@@ -377,27 +391,34 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
 
     removed = 0
     rows = stale_offer_rows(region)
-    log(f'walking {len(rows)} offer rows from the bottom up', 1)
-    for row in reversed(rows):  # lowest row first, see above
+    log(f'on the my offers tab, walking {len(rows)} offer rows from the bottom up, '
+        f'{rows[-1]} up to {rows[0]}', 1)
+    for index, row in enumerate(reversed(rows), start=1):  # lowest row first, see above
+        log(f'row {index}/{len(rows)} at {row}: clicking to expand it', 1)
         pyautogui.click(*row)
         time.sleep(STALE_ROW_DELAY)
         found = find.find_all(REMOVE_BUTTON_TARGET, region)
-        if found:
-            log(f'row {row}: {len(found)} remove buttons', 2)
+        log(f'{len(found)} remove buttons on screen after expanding it', 2)
         for box in sorted(found, key=lambda b: b.top, reverse=True):  # and lowest button first
-            pyautogui.click(*pyautogui.center(box))
+            point = pyautogui.center(box)
+            log(f'clicking remove at ({int(point[0])}, {int(point[1])}), then y to confirm', 2)
+            pyautogui.click(*point)
             time.sleep(STALE_CONFIRM_DELAY)
             pyautogui.press('y')  # the are-you-sure dialog; nothing is cancelled without it
             time.sleep(STALE_CONFIRM_DELAY)
             removed += 1
+            log(f'cancelled, {removed} so far', 2)
         if stop is not None and stop.is_set():
             log('stop asked for mid sweep, backing out', 2)
             break  # mid sweep, the caller unwinds; the tab click below still runs
 
     log(f'removed {removed} stale offers, settling for {settle:.0f}s', 1)
     _sleep(settle, stop)
+    log('settled, heading back to the browse tab', 1)
     if not return_to_browse(region):
         log('could not get back to the browse tab; the next pass will be reading my-offers', 1)
+    log(f'sweep done, {removed} offers cancelled, flea page now '
+        f'{_page_name(is_on_browse_page(region))}')
     return removed
 
 
