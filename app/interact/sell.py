@@ -49,11 +49,11 @@ PRICE_FRACTIONS = (1339 / 1920, 147 / 1080, 1498 / 1920, 186 / 1080)
 SCAV_TOP_PAD = 5  # px below the scav window title before its grid starts
 SCAV_HEIGHT_FRACTION = 0.81  # of the monitor height
 DRAG_SECONDS = 0.4  # fast, but not a teleport; an instant drag gets dropped by the UI
-DRAG_REPEATS = 3  # the scav window trails the cursor, so one drag stops short of the corner
+DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of the corner
 LEFT_PAD = 10  # px right of the All button's right edge
 RIGHT_PAD = 10  # px right of the autoselect similar button's right edge
 TOP_PAD = 10  # px below the autoselect similar button
-UNDERCUT_FRACTION = 0.85  # of the suggested price
+UNDERCUT_FRACTION = 0.90  # of the suggested price
 UNDERCUT_FLAT = 2000  # roubles off the suggested price
 PRICE_INPUT_TARGET = 'price_rubles_input'
 PLACE_OFFER_TARGET = 'place_offer_button'
@@ -80,7 +80,13 @@ DROPDOWN_ATTEMPTS = 3
 CHECKMARK_TARGET = 'checkmark'  # the tick beside the autoselect similar button
 CHECKMARK_MARGIN = 0.30  # that button's box grows this much per side before we look inside it
 MY_OFFERS_TAB_TARGET = 'my_offers_tab_button'  # the flea tab listing what we have up for sale
-BROWSE_FLEA_TAB_TARGET = 'browse_flea_tab_button'  # and the tab to go back to afterwards
+# The browse tab, split into one folder per state. The tab draws differently depending on
+# whether it is the active one, which is the only thing on screen that says which flea page we
+# are on, so the two crops are a state read and not just something to click. Clicking it is
+# clicking the unselected one: if the selected crop is what matched, we are already there.
+BROWSE_SELECTED_TARGET = 'browse_button_selected'  # the browse tab while it is the active tab
+BROWSE_UNSELECTED_TARGET = 'browse_button_unselected'  # and the same tab while it is not
+TAB_ATTEMPTS = 3  # clicks at a tab before giving up, same reason the dropdowns get more than one
 REMOVE_BUTTON_TARGET = 'remove_button'  # cancels one offer; several can be on screen at once
 # The column of our own offers, walked top to bottom to expand each row. Fractions of the
 # window rather than pixels, measured at 1920x1080: x 250, y 153 down to 380, every 20px.
@@ -305,6 +311,46 @@ def stale_offer_rows(region=None):
     return [(x, y) for y in range(first, last + 1, step)]
 
 
+def is_on_browse_page(region=None):
+    """True when browse is the active flea tab, False when it is not, None when unreadable.
+
+    Two reads that have to disagree with each other, the way is_item_selected wants three to
+    agree: the selected crop present and the unselected one absent, or the other way round.
+    Neither matching (or both) is not an answer, it is 'this is not a screen we recognise', so
+    that comes back None rather than False. False means we are demonstrably on another tab;
+    None means do not act on this read at all.
+    """
+    selected = find.find(BROWSE_SELECTED_TARGET, region)
+    unselected = find.find(BROWSE_UNSELECTED_TARGET, region)
+    if bool(selected) == bool(unselected):  # neither state matched, or both did
+        log('browse tab matched neither selected nor unselected, cannot tell which page we are on', 1)
+        return None
+    return selected is not None
+
+
+def return_to_browse(region=None, attempts=TAB_ATTEMPTS):
+    """Click the browse tab until the flea reads as being on it. True once it does.
+
+    Clicked in a loop rather than once, because the failure this exists to catch is a click
+    that lands while the tab is mid redraw and does nothing. Already on browse is a no-op, not
+    a click. An unreadable tab is not treated as a success: leaving the flea on my-offers is
+    what makes the next selling pass read a screen full of somebody else's numbers.
+    """
+    for attempt in range(1, attempts + 1):
+        if is_on_browse_page(region):
+            log('browse tab confirmed active', 1)
+            return True
+        point = find.find_center(BROWSE_UNSELECTED_TARGET, region)
+        if not point:
+            log('browse tab not on screen to click', 1)
+            return False
+        log(f'attempt {attempt}/{attempts}: clicking the browse tab at {point}', 2)
+        pyautogui.click(*point)
+        time.sleep(WINDOW_DELAY)
+    log(f'browse tab never went active in {attempts} attempts', 1)
+    return False
+
+
 def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
     """Cancel every offer that is still sitting on the my-offers tab, then go back to browse.
 
@@ -325,6 +371,9 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
     log(f'opening the my offers tab at {point}', 1)
     pyautogui.click(*point)
     time.sleep(WINDOW_DELAY)
+    if is_on_browse_page(region):  # the click missed and browse is still the active tab
+        log('still on the browse tab, so that click missed; not walking the rows here', 1)
+        return 0  # the rows below are fixed points, and on browse they are somebody else's offers
 
     removed = 0
     rows = stale_offer_rows(region)
@@ -347,10 +396,8 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
 
     log(f'removed {removed} stale offers, settling for {settle:.0f}s', 1)
     _sleep(settle, stop)
-    point = find.find_center(BROWSE_FLEA_TAB_TARGET, region)
-    if point:
-        pyautogui.click(*point)
-        time.sleep(WINDOW_DELAY)
+    if not return_to_browse(region):
+        log('could not get back to the browse tab; the next pass will be reading my-offers', 1)
     return removed
 
 
@@ -618,6 +665,13 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
         pyautogui.click(*chosen)
         time.sleep(SELECT_POLL_DELAY)
         if not is_item_selected(region):
+            # Get the pointer off the grid before the next attempt re-reads the screen. A click
+            # leaves it where it landed, and one resting in the top rows puts a hover state or a
+            # tooltip over the buttons the region is inferred from, which sit just above the
+            # grid. No reference image has a cursor under it, so the match fails at 0.9 and the
+            # infer raises. A hit never hit this: it right clicks and moves to the menu, which
+            # takes the pointer away on its own.
+            _park_cursor()
             log('nothing selected, that was a gap between items', 2)
             continue  # landed on a gap, the placeholder is still showing
         log('item selected, right clicking for the menu', 2)
@@ -637,6 +691,18 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
     return None
 
 
+def _park_cursor():
+    """Move the pointer to the middle of the screen and return where it went.
+
+    Somewhere it cannot hover a button we are about to look for. Mid screen rather than a
+    corner because every corner is one of pyautogui's panic points.
+    """
+    width, height = pyautogui.size()
+    point = (width // 2, height // 2)
+    pyautogui.moveTo(*point)
+    return point
+
+
 def _corner_point(corner, size):
     """Where a named corner sits on a screen of (width, height).
 
@@ -650,36 +716,45 @@ def _corner_point(corner, size):
         raise ValueError(f"unknown corner {corner!r}, want 'top left' or 'bottom left'") from None
 
 
-def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECONDS):
-    """Grab the centre of target's bbox and drag it into a corner. The grabbed point, or None.
+def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECONDS,
+                    repeats=DRAG_REPEATS):
+    """Grab the centre of target's bbox and drag it into a corner. Last point grabbed, or None.
+
+    Dragged repeats times over: the window trails the cursor, so one pass stops short and each
+    following pass re-finds it wherever it settled. Stops early if it goes missing, which is
+    also how a single failed find still returns None.
 
     Parks the cursor mid screen afterwards. Every screen corner is one of pyautogui's panic
     points, so the fail-safe comes off for the drag and only goes back on once the cursor is
     clear of it. Leaving it parked in a corner trips the next call instead, which is a crash
     a long way from its cause.
     """
-    point = find.find_center(target, region)
-    if not point:
-        return None
     width, height = pyautogui.size()
     destination = _corner_point(corner, (width, height))
+    grabbed = None
     failsafe = pyautogui.FAILSAFE
     pyautogui.FAILSAFE = False
     try:
-        pyautogui.moveTo(*point)
-        pyautogui.dragTo(*destination, duration=duration, button='left')
+        for _ in range(repeats):
+            point = find.find_center(target, region)
+            if not point:
+                break
+            grabbed = point
+            pyautogui.moveTo(*point)
+            pyautogui.dragTo(*destination, duration=duration, button='left')
         pyautogui.moveTo(width // 2, height // 2)  # must happen before the fail-safe is back on
     finally:
         pyautogui.FAILSAFE = failsafe
-    return point
+    return grabbed
 
 
-def orientate_offer_creation(region=None, duration=DRAG_SECONDS):
+def orientate_offer_creation(region=None, duration=DRAG_SECONDS, repeats=DRAG_REPEATS):
     """Drag the offer creation window to the bottom left of the monitor, into a known place.
 
-    Grabs it by the centre of its bbox. Returns the point it grabbed, or None if not found.
+    Grabs it by the centre of its bbox, repeats times over like the scav box. Returns the last
+    point it grabbed, or None if not found.
     """
-    point = _drag_to_corner(OFFER_TARGET, 'bottom left', region, duration)
+    point = _drag_to_corner(OFFER_TARGET, 'bottom left', region, duration, repeats)
     log(f'dragged the offer window to the bottom left by {point}' if point
         else 'offer creation window not on screen to drag', 1)
     return point
@@ -761,6 +836,10 @@ def apply_flea_filters(region=None):
         log(f'ticking remember selected filters at {toggle}', 1)
         pyautogui.click(*toggle)
         time.sleep(MENU_DELAY)
+        if not find.find(REMEMBER_ON_TARGET, region):  # confirm the click took, same as the dropdowns
+            log('remember selected filters STILL OFF, the click did not take', 1)
+            return False
+        log('remember selected filters now ticked', 1)
     else:
         log('remember selected filters already ticked', 1)
 
@@ -791,17 +870,9 @@ def apply_flea_filters(region=None):
 def orientate_scav_box(region=None, duration=DRAG_SECONDS, repeats=DRAG_REPEATS):
     """Drag the opened scav case window to the top left of the monitor, by its title bar.
 
-    Dragged repeats times over: the window trails the cursor, so one pass stops short and
-    each following pass re-grabs it wherever it settled. Returns the last point it grabbed,
-    or None if the title bar was never found.
+    Returns the last point it grabbed, or None if the title bar was never found.
     """
-    grabbed = None
-    for _ in range(repeats):
-        point = _drag_to_corner(SCAV_WINDOW_TARGET, 'top left', region, duration)
-        if point is None:
-            break
-        grabbed = point
-    return grabbed
+    return _drag_to_corner(SCAV_WINDOW_TARGET, 'top left', region, duration, repeats)
 
 
 def open_scav_case(region=None):
@@ -859,6 +930,13 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
         pyautogui.click(*chosen)
         time.sleep(SELECT_POLL_DELAY)
         if not is_item_selected(region):
+            # Get the pointer off the grid before the next attempt re-reads the screen. A click
+            # leaves it where it landed, and one resting in the top rows puts a hover state or a
+            # tooltip over the buttons the region is inferred from, which sit just above the
+            # grid. No reference image has a cursor under it, so the match fails at 0.9 and the
+            # infer raises. A hit never hit this: it right clicks and moves to the menu, which
+            # takes the pointer away on its own.
+            _park_cursor()
             log('nothing selected, that was a gap between items', 2)
             continue  # landed on a gap, the placeholder is still showing
         log('item selected, right clicking for the menu', 2)

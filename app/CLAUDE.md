@@ -7,7 +7,7 @@ the screen, undercuts it, and lists the item on the flea market. Loops until tol
 ## Lay of the land
 
 ```
-bot.py               Tarkbot: the bot itself.
+sell_bot.py          Tarkbot: the flea selling mode.
                      sell_one() is one full pass, start() repeats it until stop().
                      stop() sets a threading.Event; _pause() is the checkpoint every wait and
                      step boundary goes through, so a stop lands mid pass rather than at the
@@ -16,8 +16,9 @@ bot.py               Tarkbot: the bot itself.
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a Tarkbot
                      built without one keeps its own.
-gym.py               HideoutGym: the other mode, training at the hideout gym. Same shape as
-                     bot.py (stats dict, _pause checkpoint, Stopped/Retry, start/stop) and
+gym_bot.py           HideoutGym: the other mode, training at the hideout gym. Same shape as
+                     sell_bot.py (stats dict, _pause checkpoint, Stopped/Retry, start/stop) and
+                     named to pair with it, and so it cannot be mistaken for interact/gym.py.
                      nothing to do with the flea. SKELETON: train_once() calls into
                      interact/gym.py, which raises NotImplementedError until its reference
                      images exist, so starting this mode fails loudly rather than no-opping.
@@ -25,10 +26,15 @@ tarkov_window.py     Locates the Tarkov window via ctypes/user32. Load bearing: 
                      every test import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h).
                      Raises WindowError if the window is missing or ambiguous.
                      Run directly to print the window's hwnd/pos/size.
-main.py              Entry point for the frozen build only, and where stdout gets pointed at
-                     %APPDATA%/tarkbot/tarkbot.log, since a windowed exe has no console and
-                     bot.py's first print() would otherwise kill the run. From source, still
-                     run python -m gui.app.
+main.py              Entry point for the frozen build only. Calls session_log.start() before
+                     anything else, since a windowed exe has no console and sell_bot.py's first
+                     print() would otherwise kill the run. From source, still run
+                     python -m gui.app, which starts a session log the same way.
+session_log.py       One log file per session in %APPDATA%/tarkbot/logs/, where a session is
+                     one app boot to one app close, not one Start to one Stop. Tees stdout and
+                     stderr, so running from source still narrates to the console. Keeps the
+                     10 newest and deletes the rest as each session opens.
+                     Self-check: python -m session_log
 narrate.py           log(message, indent): one timestamped print. Everything in the selling
                      path narrates through it rather than print(), so a run reads back as a
                      flow with a clock on each line. indent 0 is a step in the pass, 1 is what
@@ -87,9 +93,13 @@ interact/ocr.py      Reads the numbers Tarkov prints. Not an OCR engine: the pri
 interact/reference_images/<target>/*.png
                      Cropped screenshots of the thing to find, one folder per target. Any png
                      in the folder counts as a match candidate, so multiple angles/states can
-                     live side by side. Filenames mean nothing.
+                     live side by side. Filenames mean nothing and are uuids, so a new crop is
+                     never a name to think about and never collides.
                      price_digits/ is the exception: it is generated, and <digit>__<n>.png
-                     names are the answer key.
+                     names are the answer key, so leave that folder's names alone.
+                     Where two states of one element have to be told apart, they get a folder
+                     each rather than sharing one (browse_button_selected /
+                     browse_button_unselected), because find() cannot say which png matched.
 ```
 
 ## What sell.py does
@@ -112,7 +122,11 @@ interact/reference_images/<target>/*.png
   asked for one; pass a threading.Event as `stop` to make it interruptible),
   `remove_stale_offers` (my-offers tab, walk `stale_offer_rows` bottom upwards clicking every
   remove button found, lowest first, so a cancelled offer cannot shift a point still to be
-  clicked; settle, back to browse; returns how many it cancelled),
+  clicked; settle, back to browse; returns how many it cancelled). Both ends of that go
+  through `is_on_browse_page`, which reads the browse tab's own two states
+  (`browse_button_selected` / `browse_button_unselected`) and is the only thing on screen that
+  says which flea page we are on: it bails before walking the rows if the my-offers click
+  missed, and `return_to_browse` clicks up to `TAB_ATTEMPTS` times until browse reads active,
   `wait_for` (poll for a target until it shows, rather than sleeping a guess at the worst
   case; `open_scav_case` uses it for the case window, which loads for seconds and used to be
   missed by a flat `WINDOW_DELAY`),
@@ -122,8 +136,8 @@ interact/reference_images/<target>/*.png
 - **Pricing** `get_price` reads the suggested price, `undercut_price(price, fraction, flat)`
   returns the higher of `price * fraction` and `price - flat`, so the flat cut wins on expensive
   items and the percentage wins on cheap ones without ever going negative. They cross at
-  `flat / (1 - fraction)`. Which pair to use is the GUI's UNDERCUT dropdown, `bot.UNDERCUTS`:
-  2k, 3k or 5k, all at 85%, so the choice only moves the price where the flat cut takes over.
+  `flat / (1 - fraction)`. Which pair to use is the GUI's UNDERCUT dropdown, `sell_bot.UNDERCUTS`:
+  2k, 3k or 5k, all at 90%, so the choice only moves the price where the flat cut takes over.
   `sell.py`'s own constants are only the defaults.
 
 ## Tests
