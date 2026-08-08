@@ -39,6 +39,8 @@ narrate.py           log(message, indent): one timestamped print. Everything in 
                      path narrates through it rather than print(), so a run reads back as a
                      flow with a clock on each line. indent 0 is a step in the pass, 1 is what
                      a screen read or click did, 2 is one attempt inside a retry loop.
+                     narrate.LAST is that line kept as a string, which is what the GUI's footer
+                     shows. Written on the bot thread, read on the GUI thread, no lock needed.
                      Not named trace.py: that shadows the stdlib module.
 version.py           The version string. Read from the __version__ file the build writes from
                      the git tag; 'dev' when there is no build. python -m version prints it.
@@ -49,6 +51,11 @@ scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. On
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, one
                      tab per mode (FLEA SELL / HIDEOUT GYM) and the pickers each mode needs.
                      Run: python -m gui.app
+                     Under the buttons, one line of narrate.LAST, repainted by tick() once a
+                     second: the lamp says which state the run is in, this says what it is
+                     doing right now, which is how a working pass is told from a stuck one.
+                     one_line() trims it to the window measured in the real font, and to its
+                     first line, since a canvas draws every newline a traceback has in it.
                      Modes are rows in TABS, and each mode's module supplies exactly three
                      things: STAT_LABELS (rows to draw), TINT_STAT (the row that goes green,
                      or None) and build(prefs, stats) -> a runner with start/stop/stats. A
@@ -80,7 +87,15 @@ gui/tarkbot.svg, gui/tarkbot.ico   Window, taskbar and exe icon. The svg is the 
 interact/find.py     Locating things on screen. find(), find_all(), find_center() take a target
                      name and an optional region, return pyscreeze Boxes / (x,y) / None.
                      images() resolves a name to reference pngs; dedupe()/iou() collapse
-                     overlapping matches.
+                     overlapping matches. scale() is the screen height over 1080 and needle()
+                     resizes a reference by it before matching, because the matcher does not
+                     scale and a 1440p button never matches the 1080p crop of it. At 1080p
+                     needle() hands over the file itself, so that path is unchanged.
+                     find.VERBOSE = True narrates every reference image tried, matched or not,
+                     with timings. Off by default: the selling loop would drown in it. The
+                     test scripts turn it on, since which crop stopped matching is the answer
+                     they exist to give.
+                     Self-check, no game needed: python -m interact.find
 interact/sell.py     Everything the flea bot does to a screen. See the section below.
                      Geometry self-check, no game needed: python -m interact.sell
 interact/gym.py      The same for the hideout gym. Separate module on purpose: the two share
@@ -89,7 +104,10 @@ interact/gym.py      The same for the hideout gym. Separate module on purpose: t
 interact/ocr.py      Reads the numbers Tarkov prints. Not an OCR engine: the prices are a fixed
                      bitmap font, so it cuts the crop into glyphs and pixel-matches each against
                      a reference. read_number() is all or nothing, None if any glyph is
-                     unreadable, because a partly read price is a wrong price.
+                     unreadable, because a partly read price is a wrong price. read_region()
+                     shrinks the crop by find.scale() first: the digit references are 1080p
+                     bitmaps compared inside a fixed 16x24 box, so a bigger glyph has to come
+                     down to them rather than them growing to it.
 interact/reference_images/<target>/*.png
                      Cropped screenshots of the thing to find, one folder per target. Any png
                      in the folder counts as a match candidate, so multiple angles/states can
@@ -143,8 +161,9 @@ interact/reference_images/<target>/*.png
 ## Tests
 
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
-picture to `tests/output/`, and exits non-zero on failure. Two run with no game open:
-`test_price_corpus.py` and `python -m interact.sell`.
+picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
+`test_price_corpus.py`, `test_activity_line.py`, `python -m interact.sell` and
+`python -m interact.find`.
 
 ```
 test_bot_loop.py             The whole thing. --loop runs pass after pass until ctrl+c, and
@@ -153,6 +172,9 @@ test_bot_loop.py             The whole thing. --loop runs pass after pass until 
                              source. --dry reports what it would find and clicks nothing.
 test_price_corpus.py         Reads every fixture in tests/fixtures/prices/ and checks it against
                              its own filename. No game needed. The regression net for ocr.py.
+test_activity_line.py        The footer's activity line: is it showing the newest log line, and
+                             does it stay inside the window when that line is long. Opens the
+                             GUI for a moment, no game needed.
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each
@@ -183,6 +205,10 @@ find_tarkov_window.py        Dead: a standalone spike that predates tarkov_windo
   matching stays inside the game window. The game runs fullscreen, so image coords == screen
   coords.
 - Matching uses `confidence=0.9` (`find.CONFIDENCE`), which requires opencv-python.
+- Every reference image was cropped at 1920x1080 fullscreen. That is the one resolution the
+  files themselves are matched at; every other screen gets them resized at match time by
+  `find.scale()`, and the price crop scaled the other way to meet them. Crop new references at
+  1080p so there is still a single size everything is derived from.
 - Thresholds, pads and delays are module constants at the top of `sell.py`, each carrying the
   measurement that produced it in its comment. Tune there, not inline.
 - `interact/` has no `__init__.py`. It works as a namespace package, so imports need the repo

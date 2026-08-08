@@ -12,13 +12,14 @@ import time
 import tkinter as tk
 import traceback
 from pathlib import Path
+from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import gym_bot  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
 import tarkov_window  # noqa: E402
-from narrate import log  # noqa: E402
+import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
 from sell_bot import DEFAULT_STALE, DEFAULT_UNDERCUT, MODES, STALE_THRESHOLDS, UNDERCUTS  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
@@ -40,6 +41,7 @@ TAB_GAP = 8
 ROW_TOP = 222  # first stat row's baseline, below the tab strip
 ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
+LOG_DROP = 32  # px below the status row for the activity line, in the band under the buttons
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
 
 
@@ -84,6 +86,23 @@ def clock(seconds):
     """Seconds as hh:mm:ss."""
     seconds = int(seconds)
     return f'{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}'
+
+
+def one_line(text, font, width):
+    """`text` as a single line, tail-trimmed with an ellipsis until it fits `width` pixels.
+
+    First line only: a canvas text item draws every newline it is given, and the one message
+    that is many lines long is the crash traceback, which would run straight off the bottom of
+    the window. Measured in the real font rather than cut at a character count, because the
+    family is whatever the machine has and a count that fits here overflows there.
+    """
+    text = text.splitlines()[0] if text else ''
+    measure = tkfont.Font(font=font).measure
+    if measure(text) <= width:
+        return text
+    while text and measure(text + '…') > width:
+        text = text[:-1]
+    return text + '…' if text else ''
 
 
 class Tip:
@@ -411,6 +430,12 @@ class App:
                                            fill=theme.STOPPED, outline='')
         self.status = self.canvas.create_text(PAD + 22, y, anchor='w', text='',
                                               fill=theme.INK_DIM, font=self.fonts['status'])
+        # The bot's most recent narrated line, under the buttons and across the full width. The
+        # lamp says what state the run is in; this says what it is doing right now, which is the
+        # difference between a pass that is working and one that is stuck on the same step. The
+        # session log keeps the history, so this is only ever the newest line.
+        self.activity = self.canvas.create_text(PAD, y + LOG_DROP, anchor='w', text='',
+                                                fill=theme.INK_DIM, font=self.fonts['small'])
 
     def _draw_controls(self):
         y = theme.FOOTER_RULE + 34
@@ -466,8 +491,8 @@ class App:
             # The lamp only has room for 60 characters, so the log is the only place the whole
             # message and the line that raised it survive. Without this a crash just stops the
             # log dead mid pass, with no reason on the last line.
-            log(f'run ended on {type(e).__name__}: {e}')
-            log(traceback.format_exc().rstrip(), 1)
+            narrate.log(f'run ended on {type(e).__name__}: {e}')
+            narrate.log(traceback.format_exc().rstrip(), 1)
             self.error = e
 
     def start(self):
@@ -541,6 +566,8 @@ class App:
             self.canvas.itemconfig(items['runtime'],
                                    text=clock(time.monotonic() - self.started_at)
                                    if self.started_at and tab == self.tab else '-')
+        self.canvas.itemconfig(self.activity, text=one_line(narrate.LAST, self.fonts['small'],
+                                                            theme.WINDOW[0] - 2 * PAD))
         if self.thread and not self.thread.is_alive():  # stopped, or died on a wrong screen
             self.thread = None
             self.started_at = None

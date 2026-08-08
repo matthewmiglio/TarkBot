@@ -14,21 +14,32 @@ name at the repo root shadows it for the whole process.
 """
 import time
 
+# The line log() printed most recently, for the GUI to show under its buttons. Written on the
+# bot thread and read on the GUI thread, which needs no lock: rebinding a name is atomic, so a
+# reader gets either the old line or the new one and never half of either.
+# ponytail: one string, not a ring buffer or a queue. The session log already keeps the whole
+# history, and the footer has room for exactly one line.
+LAST = ''
+
 
 def log(message, indent=0):
-    """Print `message` behind an HH:MM:SS.mmm stamp.
+    """Print `message` behind an HH:MM:SS.mmm stamp, and keep it as LAST.
 
     indent nests a detail under the step above it: 0 for a step in the pass, 1 for what a
     screen read or a click did, 2 for one attempt inside a retry loop.
     """
+    global LAST
     now = time.time()
     stamp = time.strftime('%H:%M:%S', time.localtime(now)) + f'.{int(now % 1 * 1000):03d}'
+    LAST = f'[{stamp}] {"  " * indent}{message}'
     # flush: the frozen build writes to a line-buffered file, but a redirected stdout in a
     # test harness is block buffered, and a log that arrives after the crash is no log.
-    print(f'[{stamp}] {"  " * indent}{message}', flush=True)
+    print(LAST, flush=True)
 
 
 if __name__ == '__main__':
     log('step')
     log('detail under it', 1)
     log('attempt under that', 2)
+    assert LAST.endswith('    attempt under that'), LAST  # indent 2, and the stamp in front
+    assert LAST.startswith('['), LAST
