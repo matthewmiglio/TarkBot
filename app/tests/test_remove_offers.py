@@ -2,11 +2,16 @@
 
 Run:  python tests/test_remove_offers.py
       python tests/test_remove_offers.py --settle 5    (skip most of the 2 minute wait)
+      python tests/test_remove_offers.py --quiet       (drop the per-reference-image lines)
 
 Assumes the flea market is already open, on any tab. This one really does cancel offers, so
 there is a countdown before it starts and Ctrl+C during it costs nothing. Writes
 tests/output/remove_offers_before.png, _rows.png and _after.png. Exits non-zero if it never
 found the my-offers tab, or if it did not end up back on the browse tab.
+
+Narrates loudly on purpose: find.VERBOSE puts a timestamped line under every reference image
+tried, matched or not, so a failed sweep says which crop stopped matching rather than only
+that something did.
 """
 import sys
 import time
@@ -18,24 +23,41 @@ from PIL import ImageDraw  # noqa: E402
 
 import tarkov_window  # noqa: E402
 from interact import find, sell  # noqa: E402
+from narrate import log  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
 COUNTDOWN = 5  # seconds to alt-tab into Tarkov, or to change your mind
+# Every target this sweep reads, so the run opens with proof each one has reference images on
+# disk. A missing folder raises here, before anything is clicked, rather than as a silent None
+# halfway through a sweep that has already cancelled offers.
+TARGETS = (sell.MY_OFFERS_TAB_TARGET, sell.BROWSE_SELECTED_TARGET, sell.BROWSE_UNSELECTED_TARGET,
+           sell.REMOVE_BUTTON_TARGET, sell.ADD_OFFER_TARGET, sell.FLEA_ICON_TARGET)
 
 if __name__ == '__main__':
     settle = sell.STALE_SETTLE
     if '--settle' in sys.argv:
         settle = float(sys.argv[sys.argv.index('--settle') + 1])
+    find.VERBOSE = '--quiet' not in sys.argv
 
     hwnd = tarkov_window.handle()
     region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
     OUT.mkdir(exist_ok=True)
+    log(f'tarkov window hwnd {hwnd}, region {region}, screen {tuple(pyautogui.size())}, '
+        f'reference scale {find.scale():.3f}x')
+
+    log('reference images this sweep depends on:')
+    for target in TARGETS:
+        names = [p.name for p in find.images(target)]  # raises if the folder is missing or empty
+        log(f'{target}: {len(names)} png(s) in {find.REFS / target}', 1)
 
     if not sell.is_flea_open(region):
         sys.exit('FAILED: the flea market is not open. Open it and run this again.')
+    log('flea market is open')
+    log(f'flea page right now: {sell._page_name(sell.is_on_browse_page(region))}', 1)
 
     rows = sell.stale_offer_rows(region)
-    print(f'window {region}, {len(rows)} rows from {rows[0]} to {rows[-1]}, settle {settle:.0f}s')
+    log(f'{len(rows)} offer rows to walk, {rows[0]} down to {rows[-1]}, '
+        f'{rows[1][1] - rows[0][1]}px apart, settle {settle:.0f}s')
 
     # The click points drawn over the screen, numbered in the order they get clicked, so both
     # a wrong offset and a flipped sweep direction are obvious in the picture rather than only
@@ -49,11 +71,12 @@ if __name__ == '__main__':
         draw.text((local[0] + 10, local[1] - 6), str(order), fill='red')
     shot.save(OUT / 'remove_offers_rows.png')
     pyautogui.screenshot(region=region).save(OUT / 'remove_offers_before.png')
-    print(f'wrote {OUT / "remove_offers_rows.png"} (click column) and _before.png')
+    log(f'wrote {OUT / "remove_offers_rows.png"} (click column, numbered in click order)', 1)
+    log(f'wrote {OUT / "remove_offers_before.png"} (the screen as found)', 1)
 
-    print(f'THIS CANCELS REAL OFFERS. Starting in {COUNTDOWN}s, Ctrl+C to bail.')
+    log(f'THIS CANCELS REAL OFFERS. Starting in {COUNTDOWN}s, Ctrl+C to bail.')
     for left in range(COUNTDOWN, 0, -1):
-        print(f'  {left}...')
+        log(f'{left}...', 1)
         time.sleep(1)
 
     started = time.monotonic()
@@ -61,16 +84,21 @@ if __name__ == '__main__':
     elapsed = time.monotonic() - started
 
     pyautogui.screenshot(region=region).save(OUT / 'remove_offers_after.png')
-    print(f'removed {removed} offers in {elapsed:.0f}s, wrote {OUT / "remove_offers_after.png"}')
+    log(f'removed {removed} offers in {elapsed:.0f}s, wrote {OUT / "remove_offers_after.png"}')
 
     # Ending back on browse is the half the bot depends on: the next pass looks for the add
     # offer button and finds nothing if we were left sat on my-offers. The reference images
     # only capture each tab in one state, so which of them still matches is not a reliable
     # read of where we are; the add offer button is, and it only exists on the browse tab.
+    log('checking where the sweep left the flea')
     if not find.find(sell.MY_OFFERS_TAB_TARGET, region):
         sys.exit('FAILED: no my-offers tab on screen, so the flea is not where we left it. '
                  'Check remove_offers_after.png')
-    if sell.add_offer_brightness(region) is None:
+    log('my-offers tab still on screen, so this is still the flea', 1)
+    brightness = sell.add_offer_brightness(region)
+    if brightness is None:
         sys.exit('FAILED: no add offer button, so we never got back to the browse tab. '
                  'Check remove_offers_after.png')
-    print(f'back on the browse flea tab, {removed} offers removed')
+    log(f'add offer button found, brightest channel {brightness} '
+        f'({"a slot is free" if brightness >= sell.MORE_OFFERS_BRIGHTNESS else "greyed out"})', 1)
+    log(f'PASSED: back on the browse flea tab, {removed} offers removed in {elapsed:.0f}s')
