@@ -14,6 +14,8 @@ import numpy as np
 import pyautogui
 from PIL import Image
 
+from interact import find  # for find.scale(), the one place the screen-vs-1080p ratio lives
+
 DIGITS = Path(__file__).parent / 'reference_images' / 'price_digits'
 CANVAS = (16, 24)  # every glyph is padded into this box before comparing, width x height
 MIN_AREA = 8  # lit pixels below this is a speck, not a glyph
@@ -99,8 +101,20 @@ def read_number(image):
 
 
 def read_region(rect):
-    """Screenshot a (left, top, width, height) rect off the screen and read a number out of it."""
-    return read_number(pyautogui.screenshot(region=rect))
+    """Screenshot a (left, top, width, height) rect off the screen and read a number out of it.
+
+    Brought back down to 1080p first on a bigger screen. The digit references are 1080p bitmaps
+    and _canvas compares them pixel to pixel inside a fixed 16x24 box, so a 1440p glyph is too
+    big for that box and gets squashed out of shape rather than matched. Shrinking the crop by
+    the same factor find.py grows its needles by puts the digits back at the size they were cut
+    at. A 1080p screen is left alone.
+    """
+    image = pyautogui.screenshot(region=rect)
+    factor = find.scale()
+    if factor != 1.0:
+        image = image.resize((max(1, round(image.width / factor)),
+                              max(1, round(image.height / factor))), Image.LANCZOS)
+    return read_number(image)
 
 
 if __name__ == '__main__':
