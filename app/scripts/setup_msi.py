@@ -74,7 +74,7 @@ setup(
     description=DESCRIPTION,
     executables=[Executable(
         script=ROOT / 'main.py',
-        # No console window. bot.py's narration goes to tarkbot.log instead, see main.py.
+        # No console window. sell_bot.py's narration goes to a session log instead, see session_log.py.
         base='Win32GUI',
         uac_admin=False,  # driving mouse/keyboard needs no elevation until proven otherwise
         target_name='tarkbot.exe',
