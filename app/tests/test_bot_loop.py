@@ -23,9 +23,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pyautogui  # noqa: E402
 
-import bot as bot_module  # noqa: E402
+import sell_bot as bot_module  # noqa: E402
 import tarkov_window  # noqa: E402
-from bot import Tarkbot  # noqa: E402
+from sell_bot import Tarkbot  # noqa: E402
 from interact import find, sell  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'

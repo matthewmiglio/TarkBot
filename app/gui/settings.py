@@ -10,8 +10,8 @@ APP_DIR = Path(os.environ.get('APPDATA') or Path.home()) / 'tarkbot'
 SETTINGS_PATH = APP_DIR / 'settings.json'
 DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'tab': 'flea',  # which mode tab the GUI opens on
-            'routine': 'normal',  # hideout gym reps per set, see gym.ROUTINES
-            'undercut': '2k rubles | 85%'}  # how far under the suggested price, see bot.UNDERCUTS
+            'routine': 'normal',  # hideout gym reps per set, see gym_bot.ROUTINES
+            'undercut': '2k rubles | 90%'}  # how far under the suggested price, see sell_bot.UNDERCUTS
 
 
 def load(path=SETTINGS_PATH):

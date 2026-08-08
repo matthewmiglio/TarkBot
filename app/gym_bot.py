@@ -2,7 +2,7 @@
 
 Nothing to do with the flea. It shares the window handle, the template matcher and the stop
 protocol with Tarkbot and that is the whole overlap, so it lives in its own module rather than
-as a branch inside bot.py.
+as a branch inside sell_bot.py.
 
 SKELETON. train_once() calls into interact/gym.py, every function of which raises
 NotImplementedError until its reference images exist. Starting this mode today fails loudly on
@@ -13,7 +13,7 @@ import threading
 import time
 
 import tarkov_window
-from bot import Retry, Stopped  # shared runner plumbing, see the note on _pause below
+from sell_bot import Retry, Stopped  # shared runner plumbing, see the note on _pause below
 from interact import gym
 from narrate import log
 
@@ -25,13 +25,13 @@ DEFAULT_ROUTINE = 'normal'
 REST_SECONDS = 60.0  # between sets, so the character is not spammed. Untimed against the game.
 SET_ESCAPES = 1  # escapes it takes to get out of the workout window from a half finished set
 
-# The counters gym mode keeps, in the order the GUI lists them. Same shape as bot.STAT_LABELS
+# The counters gym mode keeps, in the order the GUI lists them. Same shape as sell_bot.STAT_LABELS
 # so the GUI can draw either from one code path.
 STAT_LABELS = (('sets', 'Sets completed'),
                ('reps', 'Reps hit'),
                ('reps_missed', 'Reps missed'),
                ('fatigued', 'Stopped for fatigue'))
-# The row the GUI tints green once it is non-zero, or None for no tint. bot.py names 'money';
+# The row the GUI tints green once it is non-zero, or None for no tint. sell_bot.py names 'money';
 # here the equivalent "it is actually working" signal is reps landed.
 TINT_STAT = 'reps'
 
@@ -143,7 +143,7 @@ def build(prefs, stats):
     """A HideoutGym configured from the GUI's saved preferences.
 
     Here rather than in the GUI so the mapping from a settings key to a constructor argument
-    sits beside the constants those keys index into. bot.build() is the same function for the
+    sits beside the constants those keys index into. sell_bot.build() is the same function for the
     flea, and the GUI calls whichever the active tab names.
     """
     _, reps = ROUTINES.get(prefs.get('routine'), ROUTINES[DEFAULT_ROUTINE])

@@ -20,13 +20,13 @@ MODES = {'inventory': ('INVENTORY ONLY', False, 0.0),
 STALE_THRESHOLDS = {'5m': 5, '10m': 10, '30m': 30}
 DEFAULT_STALE = '10m'
 # How far under the suggested price to list. GUI label -> (fraction, flat) for
-# sell.undercut_price, which takes the higher of the two cuts. The percentage is the same 85%
+# sell.undercut_price, which takes the higher of the two cuts. The percentage is the same 90%
 # throughout; only the flat cut changes, so picking a bigger one only moves the price above
-# which the flat cut takes over: 13333, 20000, 33333 roubles.
-UNDERCUTS = {'2k rubles | 85%': (0.85, 2000),
-             '3k rubles | 85%': (0.85, 3000),
-             '5k rubles | 85%': (0.85, 5000)}
-DEFAULT_UNDERCUT = '2k rubles | 85%'
+# which the flat cut takes over: 20000, 30000, 50000 roubles.
+UNDERCUTS = {'2k rubles | 90%': (0.90, 2000),
+             '3k rubles | 90%': (0.90, 3000),
+             '5k rubles | 90%': (0.90, 5000)}
+DEFAULT_UNDERCUT = '2k rubles | 90%'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
 # How many escapes it takes to get back to a clean screen from wherever a pass gave up.
@@ -46,7 +46,7 @@ STAT_LABELS = (('selected', 'Items found'),
                ('money', 'Total money'),
                ('stale_removed', 'Stale offers removed'))
 MONEY_STAT = 'money'  # the one row the GUI tints, so both ends read off one name
-TINT_STAT = MONEY_STAT  # what the GUI tints for this mode; gym.py names its own
+TINT_STAT = MONEY_STAT  # what the GUI tints for this mode; gym_bot.py names its own
 
 # What select_item picked, where it came from, and how many escapes back out of that screen.
 Selection = namedtuple('Selection', 'point escapes source')
@@ -135,7 +135,13 @@ class Tarkbot:
         log('opening the offer creation window')
         if not sell.click_add_offer(self.region):
             raise RuntimeError('no add offer button on screen')
-        self._pause(sell.WINDOW_DELAY)  # the window has to exist before there is a title bar to grab
+        self._pause()
+        # Waited for, not slept through. Everything below assumes this window is up: the
+        # autoselect tick and the drag both live on it, and a flat WINDOW_DELAY that lands
+        # early turns into 'could not switch off autoselect similar', which points at the
+        # wrong thing entirely.
+        if not sell.wait_for(sell.OFFER_TARGET, self.region):
+            raise RuntimeError('offer creation window never opened')
         if not sell.disable_autoselect_similar(self.region):
             raise RuntimeError('could not switch off autoselect similar')
         self._pause()
@@ -248,7 +254,7 @@ def build(prefs, stats):
     """A Tarkbot configured from the GUI's saved preferences.
 
     Here rather than in the GUI so the mapping from a settings key to a constructor argument
-    sits beside the constants those keys index into. gym.build() is the same function for the
+    sits beside the constants those keys index into. gym_bot.build() is the same function for the
     other mode, and the GUI calls whichever the active tab names.
     """
     _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])

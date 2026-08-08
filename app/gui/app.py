@@ -10,13 +10,16 @@ import sys
 import threading
 import time
 import tkinter as tk
+import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import bot  # noqa: E402
-import gym  # noqa: E402
+import gym_bot  # noqa: E402
+import sell_bot  # noqa: E402
+import session_log  # noqa: E402
 import tarkov_window  # noqa: E402
-from bot import DEFAULT_STALE, DEFAULT_UNDERCUT, MODES, STALE_THRESHOLDS, UNDERCUTS  # noqa: E402
+from narrate import log  # noqa: E402
+from sell_bot import DEFAULT_STALE, DEFAULT_UNDERCUT, MODES, STALE_THRESHOLDS, UNDERCUTS  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
 JOIN_TIMEOUT = 10  # seconds to give the bot to unwind before the window goes anyway
@@ -27,7 +30,7 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 #   STAT_LABELS  the rows to draw, (key, label)
 #   TINT_STAT    the row that goes green once it is non-zero, or None
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
-TABS = (('flea', 'FLEA SELL', bot), ('gym', 'HIDEOUT GYM', gym))
+TABS = (('flea', 'FLEA SELL', sell_bot), ('gym', 'HIDEOUT GYM', gym_bot))
 DEFAULT_TAB = 'flea'
 
 DROP_ROW = (29, 63)  # centre lines of the header's two dropdown rows
@@ -302,11 +305,11 @@ class App:
         current = MODES.get(self.prefs['mode'], MODES['inventory'])[0]
         self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 150,
                                        tag='tab:flea')
-        if self.prefs['routine'] not in gym.ROUTINES:
-            self.prefs['routine'] = gym.DEFAULT_ROUTINE
+        if self.prefs['routine'] not in gym_bot.ROUTINES:
+            self.prefs['routine'] = gym_bot.DEFAULT_ROUTINE
         self.routine_var = self._dropdown(
-            'ROUTINE', 916, [label for label, _ in gym.ROUTINES.values()],
-            gym.ROUTINES[self.prefs['routine']][0], self._pick_routine, 150, tag='tab:gym',
+            'ROUTINE', 916, [label for label, _ in gym_bot.ROUTINES.values()],
+            gym_bot.ROUTINES[self.prefs['routine']][0], self._pick_routine, 150, tag='tab:gym',
             tip='How many reps to work through before resting')
 
         # Second row. Only the flea has anything to put here so far; the gym tab leaves it empty.
@@ -447,7 +450,7 @@ class App:
         settings.save(self.prefs)
 
     def _pick_routine(self, label):
-        for key, (text, _) in gym.ROUTINES.items():
+        for key, (text, _) in gym_bot.ROUTINES.items():
             if text == label:
                 self.prefs['routine'] = key
                 break
@@ -460,6 +463,11 @@ class App:
         try:
             self.bot.start()
         except Exception as e:  # a wrong screen raises RuntimeError or LookupError mid pass
+            # The lamp only has room for 60 characters, so the log is the only place the whole
+            # message and the line that raised it survive. Without this a crash just stops the
+            # log dead mid pass, with no reason on the last line.
+            log(f'run ended on {type(e).__name__}: {e}')
+            log(traceback.format_exc().rstrip(), 1)
             self.error = e
 
     def start(self):
@@ -546,6 +554,7 @@ class App:
 
 
 if __name__ == '__main__':
+    session_log.start()  # one file per boot, same as the frozen build. See session_log.py.
     root = tk.Tk()
     App(root)
     root.mainloop()
