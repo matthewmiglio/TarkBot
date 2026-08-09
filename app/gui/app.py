@@ -250,8 +250,7 @@ class App:
             self._draw_stats(key, module)
         self._draw_footer()
         self._draw_controls()
-        self._paint_backdrop()
-        self._show_tab(self.tab)  # hides the other tab's rows and dropdowns
+        self._show_tab(self.tab)  # paints the backdrop, hides the other tab's rows and dropdowns
 
         # Once the dropdown has resolved 'auto' to a real screen, so anything grabbing pixels
         # before Start is ever pressed (frame capture, the tests) already has the right one.
@@ -330,7 +329,7 @@ class App:
         """Recomposite and swap in the backdrop. Held on self, or tk garbage collects it."""
         from PIL import ImageTk
 
-        self.backdrop = ImageTk.PhotoImage(theme.backdrop(self.prefs['background']))
+        self.backdrop = ImageTk.PhotoImage(theme.backdrop(self.prefs['background'], self.tab))
         self.canvas.itemconfig(self.backdrop_id, image=self.backdrop)
 
     def _draw_chrome(self):
@@ -480,6 +479,7 @@ class App:
         self.tab = tab
         self.prefs['tab'] = tab
         settings.save(self.prefs)
+        self._paint_backdrop()  # each mode has its own figure in the character panel
         for key in self.modules:
             self.canvas.itemconfigure(f'tab:{key}', state='normal' if key == tab else 'hidden')
             if key not in DISABLED_TABS:  # select() would light a tab that cannot be used

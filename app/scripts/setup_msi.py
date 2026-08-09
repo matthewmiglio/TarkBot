@@ -50,7 +50,7 @@ build_exe_options = {
     'include_files': [
         (ROOT / 'interact' / 'reference_images', 'lib/interact/reference_images'),
         (ROOT / 'gui' / 'backgrounds', 'lib/gui/backgrounds'),
-        (ROOT / 'gui' / 'poster_character.png', 'lib/gui/poster_character.png'),
+        (ROOT / 'gui' / 'characters', 'lib/gui/characters'),
         (ICON, 'lib/gui/tarkbot.ico'),  # the exe embeds it, iconbitmap() still reads the file
         (version_file, '__version__'),  # version.py reads this next to the exe when frozen
     ],

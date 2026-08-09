@@ -12,7 +12,9 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
 BACKGROUNDS = Path(__file__).parent / 'backgrounds'
-CHARACTER = Path(__file__).parent / 'poster_character.png'
+# One figure per mode, named for its tab key: characters/flea.png, characters/gym.png. A new
+# mode drops its png in beside them and needs no change here.
+CHARACTERS = Path(__file__).parent / 'characters'
 # Window and taskbar icon, also the exe's. Rendered from tarkbot.svg beside it, which is the
 # source: redraw the svg and re-run scripts/make_icon.py rather than editing the ico.
 ICON = Path(__file__).parent / 'tarkbot.ico'
@@ -112,8 +114,11 @@ def _feathered(image, size, fade=90):
     return image
 
 
-def backdrop(background_name, size=WINDOW):
-    """The whole static chrome as one RGB image: photo, wash, panels, rules and character."""
+def backdrop(background_name, tab='flea', size=WINDOW):
+    """The whole static chrome as one RGB image: photo, wash, panels, rules and character.
+
+    tab picks which figure goes in the character panel, so switching modes repaints it.
+    """
     base = Image.new('RGB', size, '#101110')
     path = BACKGROUNDS / background_name
     if path.is_file():
@@ -130,9 +135,10 @@ def backdrop(background_name, size=WINDOW):
     draw.line((24, FOOTER_RULE, size[0] - 24, FOOTER_RULE), fill=(72, 74, 72, 140), width=1)
     base = Image.alpha_composite(base.convert('RGBA'), glass)
 
-    if CHARACTER.is_file():
+    character = CHARACTERS / f'{tab}.png'
+    if character.is_file():
         left, top, right, bottom = CHARACTER_PANEL
-        art = _feathered(Image.open(CHARACTER), (right - left + 40, bottom - top - 20))
+        art = _feathered(Image.open(character), (right - left + 40, bottom - top - 20))
         base.alpha_composite(art, (left + (right - left - art.width) // 2,
                                    top + (bottom - top - art.height) // 2))
     return base.convert('RGB')
@@ -145,8 +151,10 @@ if __name__ == '__main__':
     if not names:
         sys.exit(f'no backgrounds in {BACKGROUNDS}')
     chosen = sys.argv[1] if len(sys.argv) > 1 else names[0]
-    out = Path(__file__).resolve().parent.parent / 'tests' / 'output' / 'gui_backdrop.png'
+    tab = sys.argv[2] if len(sys.argv) > 2 else 'flea'
+    out = Path(__file__).resolve().parent.parent / 'tests' / 'output' / f'gui_backdrop_{tab}.png'
     out.parent.mkdir(parents=True, exist_ok=True)
-    backdrop(chosen).save(out)
+    backdrop(chosen, tab).save(out)
     print(f'backgrounds: {", ".join(names)}')
+    print(f'characters: {", ".join(sorted(p.stem for p in CHARACTERS.glob("*.png")))}')
     print(f'wrote {out} using {chosen}')

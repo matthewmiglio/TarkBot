@@ -5,7 +5,7 @@
 #   app/interact/reference_images/**   the templates the bot matches against, it cannot run without them
 #   app/tests/fixtures/prices/**       the OCR ground truth corpus, filename is the answer key
 #   app/gui/backgrounds/**             the GUI background photos
-#   app/gui/poster_character.png       the GUI character art
+#   app/gui/characters/**              the GUI character art, one figure per mode tab
 # Do not add a blanket *.png rule.
 
 # ---- Python ----
