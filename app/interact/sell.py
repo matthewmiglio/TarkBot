@@ -50,9 +50,12 @@ SCAV_TOP_PAD = 5  # px below the scav window title before its grid starts
 SCAV_HEIGHT_FRACTION = 0.81  # of the monitor height
 DRAG_SECONDS = 0.4  # fast, but not a teleport; an instant drag gets dropped by the UI
 DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of the corner
-LEFT_PAD = 10  # px right of the All button's right edge
-RIGHT_PAD = 10  # px right of the autoselect similar button's right edge
-TOP_PAD = 10  # px below the autoselect similar button
+LEFT_PAD = 20  # px right of the All button's right edge, and so the grid's left edge. Was 10
+# px right of the autoselect similar button's right edge, which is also the grid's right edge.
+# Was 10, then 0, now -20: negative pulls that edge back inside the grid, short of the button.
+# Only this edge moves. The left edge and the two pads above are not affected.
+RIGHT_PAD = -20
+TOP_PAD = 20  # px below the autoselect similar button, and so the grid's top edge. Was 10
 UNDERCUT_FRACTION = 0.90  # of the suggested price
 UNDERCUT_FLAT = 2000  # roubles off the suggested price
 PRICE_INPUT_TARGET = 'price_rubles_input'
@@ -69,6 +72,7 @@ CURRENCY_RUBLES_OPTION = 'flea_filters_currency_dropdown_select_rubles'  # roubl
 CURRENCY_RUB_TARGET = 'flea_filters_currency_dropdown_rub'  # the dropdown once it reads roubles
 OFFERS_FROM_ANY_TARGET = 'flea_filters_offers_from_any'  # offers-from, while it still says any
 OFFERS_FROM_PLAYERS_OPTION = 'flea_filters_offers_from_select_players'  # players, in the opened dropdown
+OFFERS_FROM_PLAYERS_TARGET = 'flea_filters_offers_from_players'  # the dropdown once it reads players
 REMEMBER_ON_TARGET = 'flea_filters_remember_on'  # the remember-filters box, already ticked
 REMEMBER_OFF_TARGET = 'flea_filters_remember_off'  # and the same box unticked
 FILTERS_OK_TARGET = 'flea_filters_OK_button'  # applies the filters and closes the window
@@ -105,6 +109,7 @@ STALE_SETTLE = 120  # seconds to let the flea catch up after cancelling, before 
 def click_all_button(region=None):
     """Click the inventory's 'All' filter button. Returns the clicked (x, y), or None if not found."""
     point = find.find_center('inventory_all_button', region)
+    log(f'clicking the All filter at {point}' if point else 'no All filter button on screen', 1)
     if point:
         pyautogui.click(*point)
     return point
@@ -191,7 +196,13 @@ def undercut_price(price, fraction=UNDERCUT_FRACTION, flat=UNDERCUT_FLAT):
 def is_flea_open(region=None, threshold=FLEA_OPEN_BRIGHTNESS):
     """True when the flea market is open. False when closed, or when the icon is missing."""
     brightness = flea_icon_brightness(region)
-    return brightness is not None and brightness >= threshold
+    if brightness is None:
+        log('flea icon not on screen, so the flea reads as closed', 1)
+        return False
+    open_now = brightness >= threshold
+    log(f'flea icon mean brightness {brightness:.0f} vs threshold {threshold}, '
+        f'so the flea is {"open" if open_now else "closed"}', 1)
+    return open_now
 
 
 def open_flea(region=None):
@@ -239,7 +250,11 @@ def more_offers_available(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
     if brightness is None:
         log('add offer button not on screen, treating that as no free slot', 1)
         return False
-    return brightness >= threshold
+    free = brightness >= threshold
+    if free:  # only the lit reading is logged: this is polled every couple of seconds for as
+        log(f'add offer button brightest channel {brightness} vs threshold {threshold}, '
+            f'a slot is free', 1)  # long as the board stays full, and the caller announces that
+    return free
 
 
 def _sleep(seconds, stop=None):
@@ -470,9 +485,17 @@ def is_item_selected(region=None):
     Ordered cheapest-to-be-wrong first, and short-circuiting, so a miss usually costs one
     template scan instead of three. Most attempts are misses; they land between items.
     """
-    return (find.find(SELECTION_TARGET, region) is not None
-            and find.find(PLACE_OFFER_TARGET, region) is not None
-            and find.find(NO_SELECTION_TARGET, region) is None)
+    if find.find(SELECTION_TARGET, region) is None:
+        log('not selected: the offer panel is not showing a picked item', 2)
+        return False
+    if find.find(PLACE_OFFER_TARGET, region) is None:
+        log('not selected: no place offer button, so the panel is only half drawn', 2)
+        return False
+    if find.find(NO_SELECTION_TARGET, region) is not None:
+        log('not selected: the nothing-picked placeholder is still on screen', 2)
+        return False
+    log('selected: picked item and place offer both there, placeholder gone', 2)
+    return True
 
 
 def _crop_to(ltrb, size):
@@ -500,7 +523,10 @@ def is_autoselect_similar_ticked(region=None, margin=CHECKMARK_MARGIN):
     The tick sits just outside the button's own artwork, hence the widened crop: search the
     whole screen for a checkmark and you find every other one in the UI.
     """
-    return find.find(CHECKMARK_TARGET, autoselect_similar_region(region, margin)) is not None
+    crop = autoselect_similar_region(region, margin)
+    ticked = find.find(CHECKMARK_TARGET, crop) is not None
+    log(f'autoselect similar is {"ticked" if ticked else "unticked"}, read inside {crop}', 1)
+    return ticked
 
 
 def disable_autoselect_similar(region=None):
@@ -650,7 +676,11 @@ def find_sell_pixels(region=None):
     see docs/pixel_clustering_ideas.md.
     """
     inventory = infer_inventory_region(region)
-    return _pixels_in(inventory, scav_case_regions(inventory))
+    cases = scav_case_regions(inventory)
+    points = _pixels_in(inventory, cases)
+    log(f'{len(points)} live pixels in the inventory grid, {len(cases)} scav case(s) excluded'
+        + (f' at {cases}' if cases else ''), 2)
+    return points
 
 
 def find_scav_case_pixels(region=None):
@@ -658,7 +688,10 @@ def find_scav_case_pixels(region=None):
 
     No scav exclusion here: inside the case, those items are the point.
     """
-    return _pixels_in(infer_scav_case_region(region))
+    case = infer_scav_case_region(region)
+    points = _pixels_in(case)
+    log(f'{len(points)} live pixels inside the scav case at {case}', 2)
+    return points
 
 
 def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
@@ -720,6 +753,7 @@ def _park_cursor():
     """
     width, height = pyautogui.size()
     point = (width // 2, height // 2)
+    log(f'parking the cursor mid screen at {point}, clear of anything it could hover', 2)
     pyautogui.moveTo(*point)
     return point
 
@@ -752,20 +786,26 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     """
     width, height = pyautogui.size()
     destination = _corner_point(corner, (width, height))
+    log(f'dragging {target} to the {corner} at {destination}, up to {repeats} passes, '
+        f'fail-safe off for the corner', 1)
     grabbed = None
     failsafe = pyautogui.FAILSAFE
     pyautogui.FAILSAFE = False
     try:
-        for _ in range(repeats):
+        for attempt in range(1, repeats + 1):
             point = find.find_center(target, region)
             if not point:
+                log(f'pass {attempt}/{repeats}: {target} not on screen, stopping here', 2)
                 break
+            log(f'pass {attempt}/{repeats}: grabbing {target} at {point}, '
+                f'dragging to {destination} over {duration:.2f}s', 2)
             grabbed = point
             pyautogui.moveTo(*point)
             pyautogui.dragTo(*destination, duration=duration, button='left')
         pyautogui.moveTo(width // 2, height // 2)  # must happen before the fail-safe is back on
     finally:
         pyautogui.FAILSAFE = failsafe
+        log(f'fail-safe back to {failsafe}, cursor parked mid screen', 2)
     return grabbed
 
 
@@ -779,11 +819,6 @@ def orientate_offer_creation(region=None, duration=DRAG_SECONDS, repeats=DRAG_RE
     log(f'dragged the offer window to the bottom left by {point}' if point
         else 'offer creation window not on screen to drag', 1)
     return point
-
-
-def _dropdown_arrow(box):
-    """Middle of a box's right edge, where a dropdown's arrow sits. Inside it, not one past."""
-    return int(box.left + box.width) - 1, int(box.top + box.height // 2)
 
 
 def _set_dropdown(any_target, option_target, settled_target, region=None, delay=DROPDOWN_DELAY):
@@ -816,8 +851,15 @@ def _set_dropdown(any_target, option_target, settled_target, region=None, delay=
             log(f'dropdown matched neither {any_target} nor {settled_target}, so its state is '
                 f'unknown; not assuming it is set. Add reference crops for whichever it reads', 1)
             return False
-        log(f'attempt {attempt}/{DROPDOWN_ATTEMPTS}: {any_target} still reads any, opening it', 2)
-        pyautogui.click(*_dropdown_arrow(any_box))
+        # Centre of the crop, not its right edge. The old version aimed at where the arrow sits
+        # inside the box, which quietly made every crop's right border a click target: widen a
+        # crop by 20px to help it match and the click moves 20px with it, onto whatever is
+        # there. Centre still asks the crop to be centred on the control, but a crop that is
+        # wrong is then wrong somewhere obvious rather than off its edge.
+        field = pyautogui.center(any_box)
+        log(f'attempt {attempt}/{DROPDOWN_ATTEMPTS}: {any_target} still reads any, opening it '
+            f'at {field}', 2)
+        pyautogui.click(*field)
         time.sleep(delay)
         point = find.find_center(option_target, region)
         if not point:
@@ -870,12 +912,14 @@ def apply_flea_filters(region=None):
                          region, DROPDOWN_DELAY):
         return False
 
-    # Settled state and menu option read out of the same folder, unlike currency, which has a
-    # separate flea_filters_currency_dropdown_rub. find() tries every png in a folder, so crops of the open
-    # list row and of the closed field can sit side by side there and either one matching means
-    # the dropdown says players.
+    # Three folders, the same shape as currency above. These used to be two: the option and the
+    # settled state both read out of flea_filters_offers_from_select_players, on the idea that
+    # find() tries every png in a folder so both kinds of crop could share one. They cannot. A
+    # list row and a closed field are different things (the field carries the dropdown chevron,
+    # the row does not), and sharing a folder hid that every crop in it was of the field, so
+    # clicking the option looked for a chevron the open list has never had.
     if not _set_dropdown(OFFERS_FROM_ANY_TARGET, OFFERS_FROM_PLAYERS_OPTION,
-                         OFFERS_FROM_PLAYERS_OPTION, region, OFFERS_FROM_DELAY):
+                         OFFERS_FROM_PLAYERS_TARGET, region, OFFERS_FROM_DELAY):
         return False
 
     point = find.find_center(FILTERS_OK_TARGET, region)  # applies them and shuts the window
@@ -893,7 +937,10 @@ def orientate_scav_box(region=None, duration=DRAG_SECONDS, repeats=DRAG_REPEATS)
 
     Returns the last point it grabbed, or None if the title bar was never found.
     """
-    return _drag_to_corner(SCAV_WINDOW_TARGET, 'top left', region, duration, repeats)
+    point = _drag_to_corner(SCAV_WINDOW_TARGET, 'top left', region, duration, repeats)
+    log(f'dragged the scav case window to the top left by {point}' if point
+        else 'scav case window not on screen to drag', 1)
+    return point
 
 
 def open_scav_case(region=None):
@@ -979,7 +1026,11 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
 
 if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     from pyscreeze import Box
-    assert _region_from(Box(1232, 82, 26, 24), Box(1600, 60, 20, 20), Box(1200, 900, 30, 20)) == (1268, 90, 362, 830)
+    # All button ends at 1258, autoselect similar spans 1600-1620 and ends at y 80, auto-sort
+    # ends at y 920. Every number below is those edges plus the three pads, so retuning a pad
+    # moves this line too: left 1258+LEFT_PAD, top 80+TOP_PAD, right 1620+RIGHT_PAD.
+    assert _region_from(Box(1232, 82, 26, 24), Box(1600, 60, 20, 20),
+                        Box(1200, 900, 30, 20)) == (1278, 100, 322, 820)
     try:  # autoselect similar left of the grid's left edge would invert it
         _region_from(Box(1232, 82, 26, 24), Box(100, 60, 20, 20), Box(1200, 900, 30, 20))
         raise AssertionError('expected LookupError')
@@ -1002,7 +1053,8 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert _crop_to((98, 196, 122, 244), (1920, 1080)) == (98, 196, 24, 48)  # well inside the screen
     assert _crop_to((-6, -4, 30, 40), (1920, 1080)) == (0, 0, 30, 40)  # grown off the top left
     assert _crop_to((1900, 1060, 1950, 1100), (1920, 1080)) == (1900, 1060, 20, 20)  # off the bottom right
-    assert _dropdown_arrow(Box(100, 200, 20, 40)) == (119, 220), 'right edge, vertical middle'
+    # Dropdowns are opened at pyautogui.center of whatever matched, so a crop's centre is the
+    # click target and its edges are not. Nothing local to assert; the crops carry this now.
     assert _corner_point('top left', (1920, 1080)) == (0, 0)
     assert _corner_point('bottom left', (1920, 1080)) == (0, 1079), 'last row, not one past it'
     try:
