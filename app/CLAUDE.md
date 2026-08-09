@@ -40,7 +40,7 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      keypress leaves a full screen png before it and another after it, named
                      for the millisecond (1754702835123-pre.png) and logged by name, which is
                      what lines a frame up against the narration. Not a recording: only
-                     changes are captured. 500 frames across all sessions, oldest deleted as
+                     changes are captured. 250 frames across all sessions, oldest deleted as
                      new ones arrive. Whole screen, native resolution, lossless.
                      Self-check: python -m frames
 narrate.py           log(message, indent): one timestamped print. Everything in the selling

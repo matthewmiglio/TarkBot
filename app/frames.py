@@ -35,7 +35,7 @@ from gui.settings import APP_DIR
 from narrate import log
 
 FRAME_DIR = APP_DIR / 'frames'  # sister of logs/, same reason: it belongs to the app, not the repo
-KEEP = 500  # frames on disk, oldest deleted as new ones arrive
+KEEP = 250  # frames on disk, oldest deleted as new ones arrive
 SUFFIX = '.png'  # lossless. ponytail: '.bmp' for literally uncompressed, at ~6MB a frame
 COMPRESS = 1  # PNG level: 0-9, all lossless. 1 is the fastest that still packs anything
 # The pyautogui calls that change what is on screen. moveTo is deliberately absent: the cursor
@@ -51,8 +51,8 @@ _kept = deque()  # frame paths, oldest first, so pruning is a popleft rather tha
 def start(directory=FRAME_DIR, keep=KEEP):
     """Begin capturing into `directory`, and adopt whatever is already in it. Returns the path.
 
-    Existing frames are counted rather than cleared: the cap is 500 frames, not 500 per boot,
-    and the run worth looking at is often the one before the restart.
+    Existing frames are counted rather than cleared: the cap is KEEP frames in total, not KEEP
+    per boot, and the run worth looking at is often the one before the restart.
     """
     global _dir, _keep
     _dir = Path(directory)
@@ -172,7 +172,7 @@ if __name__ == '__main__':
                 calls.append(args)
 
         fake = _Fake()
-        start(directory, keep=500)  # room for the pair, rather than pruning it as it lands
+        start(directory, keep=KEEP)  # room for the pair, rather than pruning it as it lands
         watch(fake, ('click',))
         watch(fake, ('click',))  # a second watch must not double wrap
         before = len(list(directory.glob(f'*{SUFFIX}')))
