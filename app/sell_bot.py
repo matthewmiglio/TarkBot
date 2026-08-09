@@ -95,6 +95,10 @@ class Tarkbot:
         two, not a whole listing.
         """
         if self._stop.wait(seconds):  # wait(0) is just a check, no sleep
+            # Stopped unwinds past every frame between here and start(), where it is caught and
+            # the traceback thrown away, so without this the log just stops mid pass. The line
+            # above this one is the step it was interrupted at.
+            log(f'stop seen at the {seconds:.1f}s checkpoint, unwinding this pass', 1)
             raise Stopped()
 
     def _await_offer_slot(self):

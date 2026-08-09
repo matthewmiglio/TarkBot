@@ -15,6 +15,7 @@ import pyautogui
 from PIL import Image
 
 from interact import find  # for find.scale(), the one place the screen-vs-1080p ratio lives
+from narrate import log
 
 DIGITS = Path(__file__).parent / 'reference_images' / 'price_digits'
 CANVAS = (16, 24)  # every glyph is padded into this box before comparing, width x height
@@ -88,16 +89,20 @@ def read_digits(image):
     return [match(glyph) for glyph in glyphs(image)]
 
 
-def read_number(image):
-    """The number in image as an int, or None if it is empty or any glyph is unreadable.
+def _number(read):
+    """read_digits' output as an int, or None if it is empty or any glyph is unreadable.
 
     All or nothing on purpose: a partially read price is a wrong price, and a wrong price
     is worse than no price.
     """
-    read = read_digits(image)
     if not read or any(digit is None for digit, _ in read):
         return None
     return int(''.join(digit for digit, _ in read))
+
+
+def read_number(image):
+    """The number in image as an int, or None if any glyph in it is unreadable."""
+    return _number(read_digits(image))
 
 
 def read_region(rect):
@@ -114,7 +119,15 @@ def read_region(rect):
     if factor != 1.0:
         image = image.resize((max(1, round(image.width / factor)),
                               max(1, round(image.height / factor))), Image.LANCZOS)
-    return read_number(image)
+    read = read_digits(image)
+    # Every glyph and how well it matched, because 'unreadable' on its own says nothing about
+    # whether the crop was empty, cut in the wrong place, or holding a digit at 0.84 that only
+    # just missed MIN_SCORE. Written here rather than in the caller so the scores survive the
+    # all-or-nothing rule that is about to throw them away.
+    log(f'price crop {rect} read at {factor:.3f}x as {image.width}x{image.height}: '
+        + (', '.join(f'{digit if digit is not None else "?"} {score:.2f}' for digit, score in read)
+           if read else f'no glyphs at all, nothing above {MIN_AREA}px lit'), 2)
+    return _number(read)
 
 
 if __name__ == '__main__':
