@@ -12,6 +12,7 @@ is obviously unfinished rather than quietly doing nothing.
 import threading
 import time
 
+import screen
 import tarkov_window
 from sell_bot import Retry, Stopped  # shared runner plumbing, see the note on _pause below
 from interact import gym
@@ -42,10 +43,18 @@ class HideoutGym:
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
         self.size = tarkov_window.size(self.hwnd)
-        self.region = self.position + self.size  # (left, top, width, height) to search in
+        self.monitor = screen.current()
+        self.region = screen.overlap(self.position + self.size, self.monitor.rect)
+        if self.region is None:  # same rule as Tarkbot, see the note there
+            raise tarkov_window.WindowError(
+                f'Tarkov is at {self.position + self.size}, which is not on monitor '
+                f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
+                f'the game onto this one.')
         self.reps_per_set = reps_per_set
         self.rest = rest
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
+        log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
+            f'searching {self.region}', 1)
         log(f'{reps_per_set} reps per set, {rest:.0f}s rest between sets', 1)
         # The GUI hands in its own dict so the counters span the session, exactly as Tarkbot does.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
@@ -146,5 +155,6 @@ def build(prefs, stats):
     sits beside the constants those keys index into. sell_bot.build() is the same function for the
     flea, and the GUI calls whichever the active tab names.
     """
+    screen.use(prefs.get('monitor', screen.AUTO))  # before the runner, which clips to it
     _, reps = ROUTINES.get(prefs.get('routine'), ROUTINES[DEFAULT_ROUTINE])
     return HideoutGym(reps_per_set=reps, stats=stats)

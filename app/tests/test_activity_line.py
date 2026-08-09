@@ -20,9 +20,11 @@ BUTTON_BOTTOM = theme.FOOTER_RULE + 34 + 17  # the START/STOP plates end here
 
 
 if __name__ == '__main__':
-    narrate.log('reading the suggested price', 1)
     root = tk.Tk()
     app = App(root)
+    # After the window is built, not before: opening it narrates too (which monitor it settled
+    # on, for one), and the whole point here is that the footer shows the *newest* line.
+    narrate.log('reading the suggested price', 1)
     root.update()
     app.tick()
     root.update()

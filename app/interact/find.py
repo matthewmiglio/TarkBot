@@ -9,6 +9,7 @@ import pyautogui
 import pyscreeze
 from PIL import Image
 
+import screen
 from narrate import log
 
 # pyautogui and pyscreeze each define their own ImageNotFoundException and both can surface
@@ -47,8 +48,12 @@ def scale():
     Read off the screen, not off the region being searched: most calls pass some small part of
     the window (a button's box, the inventory grid) and its height says nothing about the
     game's. The game runs fullscreen, so the screen is the window.
+
+    The working monitor's height rather than pyautogui's, which only ever reports the primary
+    one: with the game on a second screen of a different height, that is the wrong number and
+    every reference image gets resized by it.
     """
-    return pyautogui.size()[1] / REFERENCE_HEIGHT
+    return screen.size()[1] / REFERENCE_HEIGHT
 
 
 @lru_cache(maxsize=None)
@@ -76,12 +81,28 @@ def needle(path):
     return _resized(str(path), factor)
 
 
-def _locate(path, region, confidence, haystack, every):
-    """One reference image against the screen, or against `haystack` if given."""
-    locate = (pyautogui.locateAll if every else pyautogui.locate) if haystack is not None else \
-             (pyautogui.locateAllOnScreen if every else pyautogui.locateOnScreen)
-    args = (needle(path), haystack) if haystack is not None else (needle(path),)
-    return locate(*args, region=region, confidence=confidence)
+def _haystack(region, haystack):
+    """What to search and where its top left corner sits on the screen: (image, (dx, dy)).
+
+    The screen is grabbed here rather than left to pyautogui's locateOnScreen, which throws the
+    region away and grabs the primary monitor whatever it was told, so a game on the second one
+    was never in the picture being searched. Grabbing the region ourselves also means only that
+    rectangle is matched against instead of a whole screen.
+
+    Grabbed once per find() rather than once per reference image, since every image in a folder
+    is looking at the same moment in time anyway.
+    """
+    if haystack is not None:
+        return haystack, (0, 0)  # a caller-supplied image is its own coordinate system
+    return screen.grab(region), tuple((region or screen.rect())[:2])
+
+
+def _shift(box, offset):
+    """A box found inside a grabbed region, moved back into screen coordinates."""
+    if box is None:
+        return None
+    return pyscreeze.Box(int(box.left) + offset[0], int(box.top) + offset[1],
+                         int(box.width), int(box.height))
 
 
 def find(name, region=None, confidence=CONFIDENCE, haystack=None):
@@ -92,9 +113,10 @@ def find(name, region=None, confidence=CONFIDENCE, haystack=None):
     """
     paths = images(name)
     started = time.monotonic()
+    image, offset = _haystack(region, haystack)
     for index, path in enumerate(paths, start=1):
         try:
-            box = _locate(path, region, confidence, haystack, every=False)
+            box = _shift(pyautogui.locate(needle(path), image, confidence=confidence), offset)
         except NOT_FOUND:
             box = None
         if box:  # pyautogui.locate returns None instead of raising when given a haystack
@@ -135,9 +157,11 @@ def find_all(name, region=None, confidence=CONFIDENCE, tolerance=IOU_TOLERANCE, 
     """
     boxes = []
     started = time.monotonic()
+    image, offset = _haystack(region, haystack)
     for path in images(name):
         try:  # locateAll raises rather than yielding nothing when there is no match
-            hits = list(_locate(path, region, confidence, haystack, every=True))
+            hits = [_shift(box, offset)
+                    for box in pyautogui.locateAll(needle(path), image, confidence=confidence)]
         except NOT_FOUND:
             hits = []
         if VERBOSE and hits:
@@ -169,13 +193,21 @@ if __name__ == '__main__':
     assert grown.size == (round(reference.width * factor), round(reference.height * factor)), \
         f'{grown.size} is not {reference.size} grown by {factor}'
 
-    screen = Image.new('RGB', (2560, 1440), (30, 30, 30))
+    fake = Image.new('RGB', (2560, 1440), (30, 30, 30))  # not `screen`: that is the module
     spot = (600, 400)
-    screen.paste(grown, spot)
-    box = find(name, haystack=screen)
+    fake.paste(grown, spot)
+    box = find(name, haystack=fake)
     assert box is not None, f'{name} grown to 1440p did not match a 1440p screen'
     assert abs(box.left - spot[0]) <= 2 and abs(box.top - spot[1]) <= 2, \
         f'matched {name} at {box.left, box.top}, pasted it at {spot}'
+
+    # A region shifts the search into screen coordinates: the same paste, found through a
+    # region whose origin is negative the way a monitor left of the primary one is, has to come
+    # back at the point it was pasted plus that origin, not at the point inside the crop.
+    offset_box = _shift(box, (-1920, -1))
+    assert (offset_box.left, offset_box.top) == (box.left - 1920, box.top - 1), \
+        f'a box found in a region at (-1920, -1) reads back at {offset_box}'
+    assert (offset_box.width, offset_box.height) == (box.width, box.height), 'the size is untouched'
 
     scale = lambda: 1.0  # noqa: E731
     assert needle(path) == str(path), '1080p hands the matcher the file itself, unresized'

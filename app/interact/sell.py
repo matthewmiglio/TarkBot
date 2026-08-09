@@ -10,6 +10,7 @@ import numpy as np
 import pyautogui
 from PIL import Image
 
+import screen
 from interact import find, ocr
 from narrate import log
 
@@ -157,7 +158,7 @@ def flea_icon_brightness(region=None):
     if not box:
         return None
     rect = (int(box.left), int(box.top), int(box.width), int(box.height))
-    return float(np.asarray(pyautogui.screenshot(region=rect).convert('RGB')).mean())
+    return float(np.asarray(screen.grab(rect).convert('RGB')).mean())
 
 
 def grab_price_region(region=None, fractions=PRICE_FRACTIONS):
@@ -167,7 +168,7 @@ def grab_price_region(region=None, fractions=PRICE_FRACTIONS):
     time, so there is nothing stable to match against. Scaling keeps it right at any
     resolution as long as the UI keeps its proportions.
     """
-    left, top, width, height = region if region else (0, 0) + tuple(pyautogui.size())
+    left, top, width, height = region if region else screen.rect()
     x0, y0, x1, y1 = fractions
     return (left + round(width * x0), top + round(height * y0),
             round(width * (x1 - x0)), round(height * (y1 - y0)))
@@ -237,7 +238,7 @@ def add_offer_brightness(region=None):
     if not box:
         return None
     rect = (int(box.left), int(box.top), int(box.width), int(box.height))
-    return int(np.asarray(pyautogui.screenshot(region=rect).convert('RGB')).max())
+    return int(np.asarray(screen.grab(rect).convert('RGB')).max())
 
 
 def more_offers_available(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
@@ -318,7 +319,7 @@ def stale_offer_rows(region=None):
     each one has to be clicked to reveal its remove button, so there is nothing to match
     against until after the click.
     """
-    left, top, width, height = region or (0, 0, *pyautogui.size())
+    left, top, width, height = region or screen.rect()
     x = left + round(width * STALE_X_FRACTION)
     first = top + round(height * STALE_TOP_FRACTION)
     last = top + round(height * STALE_BOTTOM_FRACTION)
@@ -498,11 +499,17 @@ def is_item_selected(region=None):
     return True
 
 
-def _crop_to(ltrb, size):
-    """An expanded (left, top, right, bottom) clipped to a screen, as (left, top, width, height)."""
+def _crop_to(ltrb, bounds):
+    """An expanded (left, top, right, bottom) clipped to a monitor, as (left, top, width, height).
+
+    bounds is that monitor as (left, top, width, height). Clipped to its own edges rather than
+    to (0, 0), because a monitor sitting left of the primary one starts at a negative x and
+    clamping to zero there would pull the crop onto the wrong screen entirely.
+    """
     left, top, right, bottom = ltrb
-    return (max(0, left), max(0, top),
-            min(size[0], right) - max(0, left), min(size[1], bottom) - max(0, top))
+    edge_left, edge_top, width, height = bounds
+    left, top = max(edge_left, left), max(edge_top, top)
+    return (left, top, min(edge_left + width, right) - left, min(edge_top + height, bottom) - top)
 
 
 def autoselect_similar_region(region=None, margin=CHECKMARK_MARGIN):
@@ -514,7 +521,7 @@ def autoselect_similar_region(region=None, margin=CHECKMARK_MARGIN):
     box = find.find('autoselect_similar', region)
     if not box:
         raise LookupError('autoselect similar button not on screen')
-    return _crop_to(_expand(box, margin), pyautogui.size())  # the grown box can run off an edge
+    return _crop_to(_expand(box, margin), screen.rect())  # the grown box can run off an edge
 
 
 def is_autoselect_similar_ticked(region=None, margin=CHECKMARK_MARGIN):
@@ -574,7 +581,7 @@ def infer_scav_case_region(region=None):
     missing = ([SCAV_WINDOW_TARGET] if not title else []) + ([CLOSE_BUTTON_TARGET] if not closes else [])
     if missing:
         raise LookupError(f'cannot infer scav case region, not on screen: {", ".join(missing)}')
-    screen_height = region[3] if region else pyautogui.size()[1]
+    screen_height = region[3] if region else screen.size()[1]
     inferred = _scav_region_from(title, min(closes, key=lambda b: b.left), screen_height)
     log(f'scav case grid inferred at {inferred} from the title bar and '
         f'the leftmost of {len(closes)} close buttons', 1)
@@ -661,7 +668,7 @@ def _live_points(pixels, origin, exclude=()):
 
 def _pixels_in(rect, exclude=()):
     """Screen (x, y) of every live pixel inside rect, itself a (left, top, width, height)."""
-    shot = np.asarray(pyautogui.screenshot(region=rect).convert('RGB'))
+    shot = np.asarray(screen.grab(rect).convert('RGB'))
     ys, xs = np.nonzero(_live_mask(shot, rect[:2], exclude))
     return list(zip((xs + rect[0]).tolist(), (ys + rect[1]).tolist()))
 
@@ -751,22 +758,23 @@ def _park_cursor():
     Somewhere it cannot hover a button we are about to look for. Mid screen rather than a
     corner because every corner is one of pyautogui's panic points.
     """
-    width, height = pyautogui.size()
-    point = (width // 2, height // 2)
+    left, top, width, height = screen.rect()
+    point = (left + width // 2, top + height // 2)
     log(f'parking the cursor mid screen at {point}, clear of anything it could hover', 2)
     pyautogui.moveTo(*point)
     return point
 
 
-def _corner_point(corner, size):
-    """Where a named corner sits on a screen of (width, height).
+def _corner_point(corner, bounds):
+    """Where a named corner sits on a monitor given as (left, top, width, height).
 
-    The bottom row is height - 1: height itself is one past the last pixel and the drag would
-    land off screen.
+    Measured from that monitor's own origin rather than from (0, 0), or a drag meant for the
+    second screen's corner lands on the primary's instead. The last row is top + height - 1:
+    one more than that is the first row of whatever is below, or off the desktop entirely.
     """
-    width, height = size
+    left, top, width, height = bounds
     try:
-        return {'top left': (0, 0), 'bottom left': (0, height - 1)}[corner]
+        return {'top left': (left, top), 'bottom left': (left, top + height - 1)}[corner]
     except KeyError:
         raise ValueError(f"unknown corner {corner!r}, want 'top left' or 'bottom left'") from None
 
@@ -784,8 +792,7 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     clear of it. Leaving it parked in a corner trips the next call instead, which is a crash
     a long way from its cause.
     """
-    width, height = pyautogui.size()
-    destination = _corner_point(corner, (width, height))
+    destination = _corner_point(corner, screen.rect())
     log(f'dragging {target} to the {corner} at {destination}, up to {repeats} passes, '
         f'fail-safe off for the corner', 1)
     grabbed = None
@@ -802,7 +809,7 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
             grabbed = point
             pyautogui.moveTo(*point)
             pyautogui.dragTo(*destination, duration=duration, button='left')
-        pyautogui.moveTo(width // 2, height // 2)  # must happen before the fail-safe is back on
+        _park_cursor()  # must happen before the fail-safe is back on
     finally:
         pyautogui.FAILSAFE = failsafe
         log(f'fail-safe back to {failsafe}, cursor parked mid screen', 2)
@@ -1050,15 +1057,23 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert _live_points(img, (100, 200), exclude=[(102, 201, 103, 202)]) == [(103, 202)]
     assert _live_points(img, (100, 200), exclude=[(0, 0, 50, 50)]) == [(102, 201), (103, 202)]  # off the crop
     assert _expand(Box(100, 200, 20, 40), 0.10) == (98, 196, 122, 244)
-    assert _crop_to((98, 196, 122, 244), (1920, 1080)) == (98, 196, 24, 48)  # well inside the screen
-    assert _crop_to((-6, -4, 30, 40), (1920, 1080)) == (0, 0, 30, 40)  # grown off the top left
-    assert _crop_to((1900, 1060, 1950, 1100), (1920, 1080)) == (1900, 1060, 20, 20)  # off the bottom right
+    PRIMARY = (0, 0, 1920, 1080)  # a monitor at the origin, and one to the left of it
+    LEFT_OF_IT = (-1920, 0, 1920, 1080)
+    assert _crop_to((98, 196, 122, 244), PRIMARY) == (98, 196, 24, 48)  # well inside the screen
+    assert _crop_to((-6, -4, 30, 40), PRIMARY) == (0, 0, 30, 40)  # grown off the top left
+    assert _crop_to((1900, 1060, 1950, 1100), PRIMARY) == (1900, 1060, 20, 20)  # off the bottom right
+    # The same crop on the monitor to the left clips to that monitor's edges, not to zero.
+    assert _crop_to((-1926, -4, -1890, 40), LEFT_OF_IT) == (-1920, 0, 30, 40)
+    assert _crop_to((-100, 10, 40, 50), LEFT_OF_IT) == (-100, 10, 100, 40), 'clipped at its right edge'
     # Dropdowns are opened at pyautogui.center of whatever matched, so a crop's centre is the
     # click target and its edges are not. Nothing local to assert; the crops carry this now.
-    assert _corner_point('top left', (1920, 1080)) == (0, 0)
-    assert _corner_point('bottom left', (1920, 1080)) == (0, 1079), 'last row, not one past it'
+    assert _corner_point('top left', PRIMARY) == (0, 0)
+    assert _corner_point('bottom left', PRIMARY) == (0, 1079), 'last row, not one past it'
+    # And on the monitor to the left, the corners are that monitor's, not the primary's.
+    assert _corner_point('top left', LEFT_OF_IT) == (-1920, 0)
+    assert _corner_point('bottom left', LEFT_OF_IT) == (-1920, 1079)
     try:
-        _corner_point('middle', (1920, 1080))
+        _corner_point('middle', PRIMARY)
         raise AssertionError('expected ValueError')
     except ValueError:
         pass

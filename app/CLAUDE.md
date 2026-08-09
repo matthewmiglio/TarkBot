@@ -16,7 +16,8 @@ sell_bot.py          Tarkbot: the flea selling mode.
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a Tarkbot
                      built without one keeps its own.
-gym_bot.py           HideoutGym: the other mode, training at the hideout gym. Same shape as
+gym_bot.py           HideoutGym: the other mode, training at the hideout gym. Its tab is in
+                     gui/app.py's DISABLED_TABS for now, so the GUI draws it greyed out. Same shape as
                      sell_bot.py (stats dict, _pause checkpoint, Stopped/Retry, start/stop) and
                      named to pair with it, and so it cannot be mistaken for interact/gym.py.
                      nothing to do with the flea. SKELETON: train_once() calls into
@@ -43,6 +44,19 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      changes are captured. 250 frames across all sessions, oldest deleted as
                      new ones arrive. Whole screen, native resolution, lossless.
                      Self-check: python -m frames
+screen.py            Which monitor the bot works on, and grabbing pixels off it. Exists because
+                     pyscreeze photographs the primary monitor and nothing else, and
+                     locateOnScreen throws the caller's region away before grabbing, so a
+                     Tarkov on the second screen was invisible however good the region was.
+                     grab(region) takes the whole virtual desktop and cuts the rectangle out
+                     itself, subtracting the virtual origin, which is negative on the very
+                     common layout of a second monitor placed left of the primary; Pillow and
+                     pyscreeze both crop the wrong place there. monitors() enumerates them,
+                     use(name) picks one and everything else measures against it, overlap()
+                     clips the Tarkov window to it. Importing the module patches
+                     pyautogui.screenshot, so the test scripts get the same fix without
+                     knowing about any of it. The GUI's MONITOR dropdown is what calls use().
+                     Self-check: python -m screen
 narrate.py           log(message, indent): one timestamped print. Everything in the selling
                      path narrates through it rather than print(), so a run reads back as a
                      flow with a clock on each line. indent 0 is a step in the pass, 1 is what
@@ -72,8 +86,12 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured s
                      third mode is a row in TABS plus a module, not a new branch through the
                      drawing code. Per-tab canvas items carry a 'tab:<key>' tag and switching
                      is itemconfigure(state=hidden/normal), so nothing is redrawn and the item
-                     ids stay stable for tick(). Tabs refuse to switch while a runner is
-                     alive, or Stop would point at a mode the window is no longer showing.
+                     ids stay stable for tick(). Switching tabs stops whatever the tab being
+                     left was running and waits for it, rather than refusing the switch: the
+                     window must never show one mode while another is still clicking. Tabs in
+                     DISABLED_TABS are drawn greyed and cannot be switched to at all, which is
+                     where HIDEOUT GYM sits while interact/gym.py is still a skeleton; empty
+                     that set to switch it back on.
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
                      the glass; the dropdowns are the only real widgets, and they sit in the
@@ -178,7 +196,7 @@ interact/reference_images/<target>/*.png
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
 `test_price_corpus.py`, `test_activity_line.py`, `python -m interact.sell`,
-`python -m interact.find` and `python -m frames`.
+`python -m interact.find`, `python -m frames`, `python -m screen` and `test_monitors.py`.
 
 ```
 test_bot_loop.py             The whole thing. --loop runs pass after pass until ctrl+c, and
@@ -187,6 +205,11 @@ test_bot_loop.py             The whole thing. --loop runs pass after pass until 
                              source. --dry reports what it would find and clicks nothing.
 test_price_corpus.py         Reads every fixture in tests/fixtures/prices/ and checks it against
                              its own filename. No game needed. The regression net for ocr.py.
+test_tab_switch.py           Switching tabs stops the mode being left, and a disabled tab
+                             refuses the switch. A stand-in runner, no game needed.
+test_monitors.py             Puts a known colour on each monitor in turn and reads it back
+                             through screen.grab(), so a grab off the wrong screen fails here
+                             rather than as the bot finding nothing. No game needed.
 test_activity_line.py        The footer's activity line: is it showing the newest log line, and
                              does it stay inside the window when that line is long. Opens the
                              GUI for a moment, no game needed.
@@ -216,9 +239,13 @@ find_tarkov_window.py        Dead: a standalone spike that predates tarkov_windo
 ## Conventions
 
 - Regions are `(left, top, width, height)` in screen coords. The Tarkov window rect comes from
-  `tarkov_window.position(hwnd) + tarkov_window.size(hwnd)` and gets passed into `find` so
-  matching stays inside the game window. The game runs fullscreen, so image coords == screen
-  coords.
+  `tarkov_window.position(hwnd) + tarkov_window.size(hwnd)`, gets clipped to the chosen monitor
+  by `screen.overlap()`, and is passed into `find` so matching stays inside the game window.
+  The game runs fullscreen, so image coords == screen coords.
+- Screen coords are the whole desktop's, not one monitor's, so `left` and `top` are negative on
+  a monitor sitting left of or above the primary. Nothing may assume a screen starts at (0, 0):
+  clip against `screen.rect()`, and grab through `screen.grab()` rather than
+  `pyautogui.screenshot` (which is patched to it anyway) or `ImageGrab` directly.
 - Matching uses `confidence=0.9` (`find.CONFIDENCE`), which requires opencv-python.
 - Every reference image was cropped at 1920x1080 fullscreen. That is the one resolution the
   files themselves are matched at; every other screen gets them resized at match time by

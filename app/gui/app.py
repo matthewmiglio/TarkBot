@@ -18,6 +18,7 @@ from tkinter import font as tkfont
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import frames  # noqa: E402
 import gym_bot  # noqa: E402
+import screen  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
 import tarkov_window  # noqa: E402
@@ -35,6 +36,11 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
 TABS = (('flea', 'FLEA SELL', sell_bot), ('gym', 'HIDEOUT GYM', gym_bot))
 DEFAULT_TAB = 'flea'
+# Tabs drawn but not selectable. Gym mode is a skeleton: interact/gym.py raises
+# NotImplementedError until its reference images exist, so Start there only ever turns the lamp
+# red. Shown greyed rather than deleted, because the mode is coming back; empty this set to
+# switch it on again.
+DISABLED_TABS = {'gym'}
 
 DROP_ROW = (29, 63)  # centre lines of the header's two dropdown rows
 TAB_ROW = 138  # the tab strip's centre line, inside the status panel
@@ -203,7 +209,9 @@ class App:
         self.modules = {key: module for key, _, module in TABS}
         self.tabs = {}  # key -> Tab, filled by _draw_tabs
         self.values = {}  # tab key -> {stat key -> canvas item}, filled by _draw_stats
-        if self.prefs['tab'] not in self.modules:  # an edited settings file must not wedge it
+        # An edited settings file must not wedge it, and neither must one saved back when the
+        # tab it was left on was still selectable.
+        if self.prefs['tab'] not in self.modules or self.prefs['tab'] in DISABLED_TABS:
             self.prefs['tab'] = DEFAULT_TAB
         self.tab = self.prefs['tab']
         # Owned here rather than by the runner, and handed to every one we build, so the
@@ -244,6 +252,11 @@ class App:
         self._draw_controls()
         self._paint_backdrop()
         self._show_tab(self.tab)  # hides the other tab's rows and dropdowns
+
+        # Once the dropdown has resolved 'auto' to a real screen, so anything grabbing pixels
+        # before Start is ever pressed (frame capture, the tests) already has the right one.
+        screen.use(self.prefs['monitor'])
+        settings.save(self.prefs)
 
         self._set_status('Stopped', theme.STOPPED)
         self.tick()
@@ -288,9 +301,12 @@ class App:
             item = bar.create_text(width - PAD - offset, theme.TITLEBAR // 2, text=glyph,
                                    fill=rest, font=self.fonts['status'], tags=tag)
             bar.tag_bind(tag, '<Button-1>', lambda _, c=command: c())
-            for event, colour in (('<Enter>', hot), ('<Leave>', rest)):
-                bar.tag_bind(tag, event,
-                             lambda _, i=item, c=colour: bar.itemconfig(i, fill=c))
+            # Canvas items have no cursor of their own, so the bar's own is swapped on the way
+            # in and put back on the way out. Without it these read as more drag handle, and a
+            # move cursor over a button says the click will not do anything.
+            for event, colour, cursor in (('<Enter>', hot, 'hand2'), ('<Leave>', rest, 'fleur')):
+                bar.tag_bind(tag, event, lambda _, i=item, c=colour, k=cursor: (
+                    bar.itemconfig(i, fill=c), bar.config(cursor=k)))
 
         bar.bind('<Button-1>', self._drag_start, add='+')
         bar.bind('<B1-Motion>', self._drag, add='+')
@@ -349,7 +365,15 @@ class App:
             gym_bot.ROUTINES[self.prefs['routine']][0], self._pick_routine, 150, tag='tab:gym',
             tip='How many reps to work through before resting')
 
-        # Second row. Only the flea has anything to put here so far; the gym tab leaves it empty.
+        # Second row. Untagged like the background: which screen the game is on belongs to the
+        # window, not to a mode, so both tabs see it.
+        self.monitors = {m.label: m for m in screen.monitors()}
+        chosen = next((m for m in self.monitors.values() if m.name == self.prefs['monitor']),
+                      None) or self._monitor_now()
+        self.prefs['monitor'] = chosen.name  # 'auto', or an unplugged screen, resolves to a real one
+        self.monitor_var = self._dropdown(
+            'MONITOR', 452, list(self.monitors), chosen.label, self._pick_monitor, 150, row=1,
+            tip='Which screen to watch and click on. Defaults to the one Tarkov is on')
         if self.prefs['undercut'] not in UNDERCUTS:  # an edited settings file must not wedge it
             self.prefs['undercut'] = DEFAULT_UNDERCUT
         self.undercut_var = self._dropdown(
@@ -370,6 +394,8 @@ class App:
         for key, label, _ in TABS:
             self.tabs[key] = Tab(self.canvas, (x, TAB_ROW - 13, x + TAB_WIDTH, TAB_ROW + 13),
                                  label, lambda k=key: self._show_tab(k), self.fonts['plate'])
+            if key in DISABLED_TABS:
+                self.tabs[key].config(False)  # greyed and unclickable, see DISABLED_TABS
             x += TAB_WIDTH + TAB_GAP
         self.canvas.create_line(left + PAD, TAB_ROW + 32, right - PAD, TAB_ROW + 32,
                                 fill=theme.LINE)
@@ -427,20 +453,37 @@ class App:
                                         fill='#2a2c2a', tags=f'tab:{tab}')
 
     def _show_tab(self, tab):
-        """Switch modes: light that tab, show its rows and dropdowns, hide the other's.
+        """Switch modes: stop whatever was running, then light that tab and show its rows.
 
-        Refuses while something is running. Swapping the panel out from under a live runner
-        would leave Stop pointing at a mode the window is no longer showing, and the counters
-        updating behind a hidden panel.
+        Switching used to be refused outright while a runner was alive, which meant the only
+        way across was Stop and then the tab. The switch now does the stopping itself, because
+        the thing that must never happen is the window showing one mode while another is still
+        clicking: Stop would point at a panel that is no longer up, the counters would move
+        behind a hidden one, and Start on the new tab would put a second bot on top of a live
+        one.
+
+        The wait is on the tk thread, so the window sits still until the pass unwinds, the same
+        way the X button does. A stop lands at the next sell.* checkpoint, so that is a second
+        or two, not a whole listing. The lamp is left to tick() rather than tidied here, which
+        keeps the one place that decides what "the runner ended" looks like.
         """
-        if self.thread and self.thread.is_alive():
+        if tab in DISABLED_TABS:
             return
+        # tab != self.tab: __init__ calls this with the tab already set, to do the first draw.
+        if tab != self.tab and (self.pending or (self.thread and self.thread.is_alive())):
+            narrate.log(f'switching to the {tab} tab, so stopping the {self.tab} one first')
+            self.stop()  # cancels a countdown outright, or asks a live runner to unwind
+            if self.thread and self.thread.is_alive():
+                self.thread.join(timeout=JOIN_TIMEOUT)
+                narrate.log('stopped' if not self.thread.is_alive()
+                            else f'still running after {JOIN_TIMEOUT}s, switching anyway', 1)
         self.tab = tab
         self.prefs['tab'] = tab
         settings.save(self.prefs)
         for key in self.modules:
             self.canvas.itemconfigure(f'tab:{key}', state='normal' if key == tab else 'hidden')
-            self.tabs[key].select(key == tab)
+            if key not in DISABLED_TABS:  # select() would light a tab that cannot be used
+                self.tabs[key].select(key == tab)
 
     def _draw_footer(self):
         y = theme.FOOTER_RULE + 34
@@ -483,6 +526,26 @@ class App:
         self.canvas.itemconfig(self.status, text=spaced(text.upper()), fill=colour)
 
     # ------------------------------------------------------------------ preferences
+
+    def _monitor_now(self):
+        """The monitor to start on: the one Tarkov is on, or the primary if it is not running.
+
+        Read off the window's middle rather than its top left corner, which on a maximised
+        window can sit a pixel over the edge onto the screen next door.
+        """
+        try:
+            hwnd = tarkov_window.handle()
+            (x, y), (width, height) = tarkov_window.position(hwnd), tarkov_window.size(hwnd)
+            found = screen.containing((x + width // 2, y + height // 2))
+            narrate.log(f'Tarkov is on monitor {found.label}, starting there')
+            return found
+        except tarkov_window.WindowError:
+            return screen.current()  # the game is not running, so there is nothing to follow
+
+    def _pick_monitor(self, label):
+        self.prefs['monitor'] = self.monitors[label].name  # the label is for reading, not saving
+        settings.save(self.prefs)
+        screen.use(self.prefs['monitor'])
 
     def _pick_background(self, name):
         self.prefs['background'] = name
@@ -593,18 +656,33 @@ class App:
         window against a frame that is no longer there, and without this it walks a title bar's
         height down the screen every time.
         """
-        self.restore_to = (self.root.winfo_x(), self.root.winfo_y())
+        where = (self.root.winfo_x(), self.root.winfo_y())
+        narrate.log(f'minimising, window at {where} to be put back there')
         self.root.overrideredirect(False)
+        # Putting the frame back remaps the window, which queues a <Map> of its own. Drained
+        # here while restore_to is still None, so _restored ignores it; arming afterwards is
+        # what makes the next <Map> mean "the user brought us back" and nothing else.
+        self.root.update()
+        narrate.log('system frame back on, since an overrideredirect window cannot iconify, '
+                    'and its own <Map> drained so it does not read as a restore', 1)
+        self.restore_to = where
         self.root.iconify()
+        narrate.log(f'iconified, tk calls that state {self.root.state()!r}; '
+                    f'the taskbar button is the way back', 1)
 
-    def _restored(self, _event=None):
+    def _restored(self, event=None):
         """Take the system frame back off once Windows has finished restoring the window."""
+        if event is not None and event.widget is not self.root:
+            return  # a child canvas being mapped; those reach the toplevel's bindings too
         if self.restore_to is None:
             return  # a Map we did not ask for: the first show, or strip_titlebar's own redisplay
         x, y = self.restore_to
         self.restore_to = None  # cleared first, or strip_titlebar's deiconify lands back in here
+        narrate.log(f'restored from the taskbar at {(self.root.winfo_x(), self.root.winfo_y())}, '
+                    f'taking the system frame back off')
         strip_titlebar(self.root)
         self.root.geometry(f'+{x}+{y}')
+        narrate.log(f'window put back at {(x, y)}, which the restore had moved it off', 1)
 
     def close(self):
         """Window closed: stop the bot and wait for it, so nothing keeps clicking after the GUI."""

@@ -31,6 +31,7 @@ from pathlib import Path
 import pyautogui
 from PIL import Image
 
+import screen
 from gui.settings import APP_DIR
 from narrate import log
 
@@ -100,7 +101,9 @@ def capture(label='', image=None):
     # No collision guard: a grab takes tens of milliseconds, so two frames cannot share a
     # stamp *and* a label unless the clock jumps, and a lost frame is not worth a stat call.
     path = _dir / (f'{stamp}-{label}{SUFFIX}' if label else f'{stamp}{SUFFIX}')
-    (image if image is not None else pyautogui.screenshot()).save(path, compress_level=COMPRESS)
+    # The working monitor, not the primary and not the whole desk: the point of a frame is what
+    # the game was showing, and screen.py is the only thing that knows which screen that is.
+    (image if image is not None else screen.grab()).save(path, compress_level=COMPRESS)
     _kept.append(path)
     _prune()
     return path
@@ -164,7 +167,7 @@ if __name__ == '__main__':
         assert len(list(directory.glob(f'*{SUFFIX}'))) == 3, 'a lower cap trims on start'
 
         # The wrapper takes its two frames around whatever it is given, and only once.
-        pyautogui.screenshot = lambda *a, **k: blank  # no real screen needed to check the wiring
+        screen.grab = lambda *a, **k: blank  # no real screen needed to check the wiring
         calls = []
 
         class _Fake:

@@ -5,6 +5,7 @@ from collections import namedtuple
 
 import pyautogui
 
+import screen
 import tarkov_window
 from interact import sell
 from narrate import log
@@ -72,12 +73,23 @@ class Tarkbot:
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
         self.size = tarkov_window.size(self.hwnd)
-        self.region = self.position + self.size  # (left, top, width, height) to search in
+        self.monitor = screen.current()
+        # What gets searched is the window clipped to the chosen monitor. The window alone is
+        # wrong when the user has picked a screen the game is not on, and the monitor alone is
+        # wrong when the game is windowed; the part they share is right either way.
+        self.region = screen.overlap(self.position + self.size, self.monitor.rect)
+        if self.region is None:
+            raise tarkov_window.WindowError(
+                f'Tarkov is at {self.position + self.size}, which is not on monitor '
+                f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
+                f'the game onto this one.')
         self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
         self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
+        log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
+            f'searching {self.region}', 1)
         log(f'scav cases {"on" if target_scav_cases else "off"} '
             f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
             f'undercut {undercut[0]:.1%} or {undercut[1]} roubles', 1)
@@ -261,6 +273,7 @@ def build(prefs, stats):
     sits beside the constants those keys index into. gym_bot.build() is the same function for the
     other mode, and the GUI calls whichever the active tab names.
     """
+    screen.use(prefs.get('monitor', screen.AUTO))  # before the Tarkbot, which clips to it
     _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])
     stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
     undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])

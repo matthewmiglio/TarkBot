@@ -14,6 +14,7 @@ import numpy as np
 import pyautogui
 from PIL import Image
 
+import screen
 from interact import find  # for find.scale(), the one place the screen-vs-1080p ratio lives
 from narrate import log
 
@@ -114,7 +115,7 @@ def read_region(rect):
     the same factor find.py grows its needles by puts the digits back at the size they were cut
     at. A 1080p screen is left alone.
     """
-    image = pyautogui.screenshot(region=rect)
+    image = screen.grab(rect)
     factor = find.scale()
     if factor != 1.0:
         image = image.resize((max(1, round(image.width / factor)),
