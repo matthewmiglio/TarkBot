@@ -35,6 +35,14 @@ session_log.py       One log file per session in %APPDATA%/tarkbot/logs/, where 
                      stderr, so running from source still narrates to the console. Keeps the
                      10 newest and deletes the rest as each session opens.
                      Self-check: python -m session_log
+frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, sister of logs/.
+                     start() wraps pyautogui's input calls in place, so every click, drag and
+                     keypress leaves a full screen png before it and another after it, named
+                     for the millisecond (1754702835123-pre.png) and logged by name, which is
+                     what lines a frame up against the narration. Not a recording: only
+                     changes are captured. 500 frames across all sessions, oldest deleted as
+                     new ones arrive. Whole screen, native resolution, lossless.
+                     Self-check: python -m frames
 narrate.py           log(message, indent): one timestamped print. Everything in the selling
                      path narrates through it rather than print(), so a run reads back as a
                      flow with a clock on each line. indent 0 is a step in the pass, 1 is what
@@ -51,11 +59,13 @@ scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. On
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, one
                      tab per mode (FLEA SELL / HIDEOUT GYM) and the pickers each mode needs.
                      Run: python -m gui.app
-                     Under the buttons, one line of narrate.LAST, repainted by tick() once a
-                     second: the lamp says which state the run is in, this says what it is
-                     doing right now, which is how a working pass is told from a stuck one.
-                     one_line() trims it to the window measured in the real font, and to its
-                     first line, since a canvas draws every newline a traceback has in it.
+                     Under the buttons, one boxed line of narrate.LAST, repainted by tick()
+                     once a second: the lamp says which state the run is in, this says what it
+                     is doing right now, which is how a working pass is told from a stuck one.
+                     one_line() trims it to the inside of that box measured in the real font,
+                     and to its first line, since a canvas draws every newline a traceback has
+                     in it. LOGS, left of START, opens %APPDATA%/tarkbot in Explorer, which is
+                     where the session logs and the frames are.
                      Modes are rows in TABS, and each mode's module supplies exactly three
                      things: STAT_LABELS (rows to draw), TINT_STAT (the row that goes green,
                      or None) and build(prefs, stats) -> a runner with start/stop/stats. A
@@ -69,9 +79,14 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured s
                      the glass; the dropdowns are the only real widgets, and they sit in the
                      two header rows DROP_ROW names. The system title
                      bar is off (overrideredirect) and replaced by one of our own, which is
-                     what drags the window and carries the close X; WS_EX_APPWINDOW is put
-                     back by hand or the window would vanish from the taskbar and alt-tab and
-                     be unreachable behind fullscreen Tarkov. The bot runs on a
+                     what drags the window and carries the close X and the minimise beside it;
+                     WS_EX_APPWINDOW is put back by hand or the window would vanish from the
+                     taskbar and alt-tab and be unreachable behind fullscreen Tarkov. An
+                     overrideredirect window cannot be iconified, so minimise() puts the system
+                     frame back for the length of the minimise and the <Map> binding strips it
+                     again on the way back, restoring the position by hand because the
+                     re-measure against a frame that is gone walks the window down the screen.
+                     The bot runs on a
                      daemon thread so the window stays responsive, the X button stops it and
                      joins before destroying, and a pass that dies on a wrong screen turns the
                      lamp red instead of vanishing.
@@ -162,8 +177,8 @@ interact/reference_images/<target>/*.png
 
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
-`test_price_corpus.py`, `test_activity_line.py`, `python -m interact.sell` and
-`python -m interact.find`.
+`test_price_corpus.py`, `test_activity_line.py`, `python -m interact.sell`,
+`python -m interact.find` and `python -m frames`.
 
 ```
 test_bot_loop.py             The whole thing. --loop runs pass after pass until ctrl+c, and
