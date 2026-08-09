@@ -21,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pyautogui  # noqa: E402
 from PIL import ImageDraw  # noqa: E402
 
+import frames  # noqa: E402
+import session_log  # noqa: E402
 import tarkov_window  # noqa: E402
 from interact import find, sell  # noqa: E402
 from narrate import log  # noqa: E402
@@ -38,6 +40,8 @@ if __name__ == '__main__':
     if '--settle' in sys.argv:
         settle = float(sys.argv[sys.argv.index('--settle') + 1])
     find.VERBOSE = '--quiet' not in sys.argv
+    session_log.start()  # the console scrolls past; the file is what gets read afterwards
+    frames.start()  # a screenshot either side of every click this sweep makes
 
     hwnd = tarkov_window.handle()
     region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
