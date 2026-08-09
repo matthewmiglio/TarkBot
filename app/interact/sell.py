@@ -61,6 +61,11 @@ UNDERCUT_FRACTION = 0.90  # of the suggested price
 UNDERCUT_FLAT = 2000  # roubles off the suggested price
 PRICE_INPUT_TARGET = 'price_rubles_input'
 PLACE_OFFER_TARGET = 'place_offer_button'
+# The "are you sure, this is below market value" confirmation. It only appears for some items,
+# and while it is up the offer has NOT been placed, so a pass that ignores it counts a sale it
+# never made and then clicks the next pass into a modal that is still sat there.
+CHEAP_OFFER_POPUP_TARGET = 'cheap_offer_popup'
+CHEAP_OFFER_POPUP_DELAY = 1.0  # seconds after place offer for the popup to draw, if it is coming
 MORE_OFFERS_BRIGHTNESS = 190  # max channel in the add offer button: measured 255 lit, 123 greyed
 OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
 # Everything belonging to the flea's filter window shares a flea_filters_ prefix, so the
@@ -472,6 +477,18 @@ def click_place_offer(region=None):
     if point:
         pyautogui.click(*point)
     return point
+
+
+def cheap_offer_popup(region=None):
+    """True if the below-market-value confirmation is up, meaning the offer did not go through.
+
+    Read after CHEAP_OFFER_POPUP_DELAY, not immediately: the popup animates in, and asking too
+    early answers 'no popup' for the one case this exists to catch.
+    """
+    up = find.find(CHEAP_OFFER_POPUP_TARGET, region) is not None
+    log('the cheap offer confirmation is up, the offer was not placed' if up
+        else 'no cheap offer confirmation, the offer went through', 2)
+    return up
 
 
 def is_item_selected(region=None):

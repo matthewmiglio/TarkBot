@@ -139,8 +139,11 @@ class HideoutGym:
                     self._pause(self.rest)  # a fatigued character needs the rest more, not less
         except Stopped:
             log('stopped part way through a set')
-        log(f'Hideout Gym finished after {sets} sets. '
-            + ', '.join(f'{label} {self.stats[key]}' for key, label in STAT_LABELS))
+        finally:
+            # finally, for the same reason as sell_bot.start(): a RuntimeError from a set is
+            # not caught here, and the totals are worth more on a crashed run than a clean one.
+            log(f'Hideout Gym finished after {sets} sets. '
+                + ', '.join(f'{label} {self.stats[key]}' for key, label in STAT_LABELS))
 
     def stop(self):
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""

@@ -108,13 +108,15 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured s
                      daemon thread so the window stays responsive, the X button stops it and
                      joins before destroying, and a pass that dies on a wrong screen turns the
                      lamp red instead of vanishing.
-gui/theme.py         Palette, font stack and backdrop(): the chosen photo blurred and dimmed,
-                     glass panels composited on, character trimmed and feathered in.
-                     Preview it without opening the GUI: python -m gui.theme [name.png]
+gui/theme.py         Palette, font stack and backdrop(background, tab): the chosen photo blurred
+                     and dimmed, glass panels composited on, that tab's character trimmed and
+                     feathered in.
+                     Preview it without opening the GUI: python -m gui.theme [name.png] [tab]
 gui/settings.py      Preferences in %APPDATA%/tarkbot/settings.json. Never raises: a corrupt
                      file is ignored so the GUI always opens. Self-check: python -m gui.settings
 gui/backgrounds/     The photos the picker offers. Drop a png in and it appears in the list.
-gui/poster_character.png   The figure on the left panel.
+gui/characters/      The figure on the left panel, one png per mode named for its tab key
+                     (flea.png, gym.png), swapped by repainting the backdrop on tab switch.
 gui/tarkbot.svg, gui/tarkbot.ico   Window, taskbar and exe icon. The svg is the source; the
                      ico is generated from it and committed.
 interact/find.py     Locating things on screen. find(), find_all(), find_center() take a target
@@ -195,8 +197,9 @@ interact/reference_images/<target>/*.png
 
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
-`test_price_corpus.py`, `test_activity_line.py`, `python -m interact.sell`,
-`python -m interact.find`, `python -m frames`, `python -m screen` and `test_monitors.py`.
+`test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
+`test_cheap_offer_popup.py`, `test_totals_line.py`, `test_tab_switch.py`, `test_monitors.py`,
+`python -m interact.sell`, `python -m interact.find`, `python -m frames` and `python -m screen`.
 
 ```
 test_bot_loop.py             The whole thing. --loop runs pass after pass until ctrl+c, and
@@ -213,6 +216,11 @@ test_monitors.py             Puts a known colour on each monitor in turn and rea
 test_activity_line.py        The footer's activity line: is it showing the newest log line, and
                              does it stay inside the window when that line is long. Opens the
                              GUI for a moment, no game needed.
+test_cheap_offer_popup.py    The below-market-value confirmation means no sale: sell_one must
+                             not count posted or money, must count a price failure, and must
+                             escape one more time than the pass otherwise would. No game needed.
+test_totals_line.py          The end-of-run totals still get logged when a pass raises, for
+                             both bots. No game needed.
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each

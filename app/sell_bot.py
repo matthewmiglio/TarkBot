@@ -34,6 +34,10 @@ PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading 
 INVENTORY_ESCAPES = 1  # the offer creation window
 SCAV_ESCAPES = 2  # that, plus the scav case window sat on top of it
 PRICE_ESCAPES = 1  # an unreadable price leaves only the offer window open
+# The below-market-value confirmation, on top of whatever the pass already had open. Added to
+# the pass's own count rather than written out per mode, so it stays 2 from the stash and 3 with
+# a scav case open without a second place to keep those numbers in step.
+CHEAP_POPUP_ESCAPES = 1
 
 # The counters Tarkbot keeps, in the order the GUI lists them. Keys are also stats dict keys,
 # and posted_<source> has to match the source names Selection carries.
@@ -230,6 +234,17 @@ class Tarkbot:
             raise RuntimeError('no roubles price field on screen')
         if not sell.click_place_offer(self.region):
             raise RuntimeError('no place offer button on screen')
+
+        # Some items get a "below market value, are you sure" confirmation instead of being
+        # listed. Everything below this point assumes the offer went up, so it is checked before
+        # a single counter moves: the popup means no sale, and treating it as one inflates both
+        # the posted count and the money asked for by an offer that never existed.
+        self._pause(sell.CHEAP_OFFER_POPUP_DELAY)
+        if sell.cheap_offer_popup(self.region):
+            self.stats['price_missing'] += 1  # the price is what it rejected, so it counts here
+            self._escape(picked.escapes + CHEAP_POPUP_ESCAPES)
+            raise Retry('the offer was refused as below market value')
+
         self.stats['posted'] += 1
         self.stats[f'posted_{picked.source}'] += 1
         # What we asked for, not what we got: nothing on screen says whether an offer ever sold.
@@ -257,8 +272,12 @@ class Tarkbot:
                     log(f'{e}, starting a fresh pass')
         except Stopped:
             log('stopped part way through a pass')
-        log(f'Tarkbot finished after {passes} passes. '
-            + ', '.join(f'{label.strip()} {self.stats[key]}' for key, label in STAT_LABELS))
+        finally:
+            # finally, not after the try: a RuntimeError from a pass is not caught here, and
+            # without this the totals line is skipped on exactly the runs worth reading back.
+            # The GUI logs the exception itself, so this only has to survive it, not report it.
+            log(f'Tarkbot finished after {passes} passes. '
+                + ', '.join(f'{label.strip()} {self.stats[key]}' for key, label in STAT_LABELS))
 
     def stop(self):
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""
