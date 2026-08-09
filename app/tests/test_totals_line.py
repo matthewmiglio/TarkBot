@@ -32,6 +32,7 @@ def bare(cls, labels, pass_name, boom):
     bot._stop = threading.Event()
     bot.stats = {key: 0 for key, _ in labels}
     bot.rest = 0  # gym_bot's Retry branch sleeps on it; unused here, but start() must not fail on it
+    bot._recover = lambda: None  # reads the real screen on Start; test_recover_on_start covers it
     setattr(bot, pass_name, boom)
     return bot
 

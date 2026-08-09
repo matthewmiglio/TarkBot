@@ -257,10 +257,26 @@ class Tarkbot:
         pyautogui.press('f5')
         self._pause(REFRESH_DELAY)  # and let the redraw finish before the next pass reads the screen
 
+    def _recover(self):
+        """Get to the flea from whatever the last session left on screen.
+
+        Runs once, on Start. Every screen a pass meets afterwards is one the bot opened itself,
+        so this is the only point where the state is genuinely unknown: the user may have hit
+        Start with a scav case open, or over the wreckage of a run that was stopped mid pass.
+
+        Nothing here is fatal. If the flea will not open, the first pass raises about it with
+        the message that has always meant that, rather than a second one from up here.
+        """
+        log('checking for anything left open from last time')
+        sell.close_leftover_windows(self.region)
+        if not sell.open_flea(self.region):
+            log('the flea did not open during recovery, leaving it to the first pass', 1)
+
     def start(self):
         """Sell one item after another until stop() is called. Blocks, so give it a thread."""
         log('Starting Tarkbot')
         self._stop.clear()
+        self._recover()
         passes = 0
         try:
             while not self._stop.is_set():

@@ -14,8 +14,10 @@ import screen
 from interact import find, ocr
 from narrate import log
 
+ALL_BUTTON_TARGET = 'inventory_all_button'  # the ALL tab over the inventory grid
+AUTOSELECT_TARGET = 'autoselect_similar'  # the autoselect similar checkbox, on the offer window
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
-EDGES = ('inventory_all_button', 'autoselect_similar', 'auto_sort')
+EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'auto_sort')
 SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their pixels are dropped
 # Every colour an empty slot is known to take, read off screenshots showing nothing but empty
 # slots. Drop another png in that folder to teach it more. ponytail: the images are the list.
@@ -43,6 +45,7 @@ CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we
 NO_SELECTION_TARGET = 'no_items_selected'  # the placeholder shown while nothing is picked
 SELECTION_TARGET = 'item_is_selected'  # the panel shown once something is, the other half of the read
 FLEA_ICON_TARGET = 'flea_icon'  # the taskbar entry, one folder holding both its states
+RECOVER_DELAY = 1.0  # seconds after an escape at startup, for the window to actually go
 FLEA_OPEN_BRIGHTNESS = 90  # mean channel value: measured 57 closed, 117 open
 # The suggested price readout, as (left, top, right, bottom) fractions of the window.
 # Measured at 1920x1080: left 1339, top 147, right 1498, bottom 186.
@@ -114,7 +117,7 @@ STALE_SETTLE = 120  # seconds to let the flea catch up after cancelling, before 
 
 def click_all_button(region=None):
     """Click the inventory's 'All' filter button. Returns the clicked (x, y), or None if not found."""
-    point = find.find_center('inventory_all_button', region)
+    point = find.find_center(ALL_BUTTON_TARGET, region)
     log(f'clicking the All filter at {point}' if point else 'no All filter button on screen', 1)
     if point:
         pyautogui.click(*point)
@@ -209,6 +212,33 @@ def is_flea_open(region=None, threshold=FLEA_OPEN_BRIGHTNESS):
     log(f'flea icon mean brightness {brightness:.0f} vs threshold {threshold}, '
         f'so the flea is {"open" if open_now else "closed"}', 1)
     return open_now
+
+
+def close_leftover_windows(region=None, delay=RECOVER_DELAY):
+    """Escape out of anything a previous session left on screen. Returns how many escapes went.
+
+    Start is the one moment the bot has no idea what is in front of it. Every other screen it
+    meets, it opened itself. A run that was stopped mid pass, or crashed out of one, leaves the
+    scav case window or the offer creation window sitting there, and the first thing the next
+    run does is hunt for the flea tab underneath them and not find it.
+
+    The offer creation window needs both of its buttons present, not either. A lone ALL button
+    is just the inventory, which is a normal screen to start from and must not be escaped.
+    """
+    presses = 0
+    if find.find(SCAV_WINDOW_TARGET, region):
+        log('a scav case window is still open from last time, escaping out of it', 1)
+        pyautogui.press('esc')
+        time.sleep(delay)
+        presses += 1
+    if find.find(ALL_BUTTON_TARGET, region) and find.find(AUTOSELECT_TARGET, region):
+        log('the offer creation window is still open from last time, escaping out of it', 1)
+        pyautogui.press('esc')
+        time.sleep(delay)
+        presses += 1
+    if not presses:
+        log('nothing left open from a previous session', 2)
+    return presses
 
 
 def open_flea(region=None):
@@ -535,7 +565,7 @@ def autoselect_similar_region(region=None, margin=CHECKMARK_MARGIN):
     Raises LookupError if the button is not on screen, which means the screen is not the one
     we think it is, not that the box is empty.
     """
-    box = find.find('autoselect_similar', region)
+    box = find.find(AUTOSELECT_TARGET, region)
     if not box:
         raise LookupError('autoselect similar button not on screen')
     return _crop_to(_expand(box, margin), screen.rect())  # the grown box can run off an edge
@@ -563,7 +593,7 @@ def disable_autoselect_similar(region=None):
     if not is_autoselect_similar_ticked(region):
         log('autoselect similar already off', 1)
         return True
-    point = find.find_center('autoselect_similar', region)
+    point = find.find_center(AUTOSELECT_TARGET, region)
     if not point:
         log('autoselect similar is ticked but its button vanished', 1)
         return False
@@ -826,8 +856,16 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
             grabbed = point
             pyautogui.moveTo(*point)
             pyautogui.dragTo(*destination, duration=duration, button='left')
-        _park_cursor()  # must happen before the fail-safe is back on
     finally:
+        # Parking goes in the finally, not at the end of the try. The cursor is sat on a corner
+        # for the whole drag, and every corner is one of pyautogui's panic points, so a raise
+        # part way through used to switch the fail-safe back on around a cursor still parked on
+        # one. The next pyautogui call anywhere in the bot then died with a fail-safe message
+        # that pointed nowhere near the drag that caused it.
+        try:
+            _park_cursor()
+        except Exception as e:  # never let a parking problem replace the failure being unwound
+            log(f'could not park the cursor after the drag: {e}', 1)
         pyautogui.FAILSAFE = failsafe
         log(f'fail-safe back to {failsafe}, cursor parked mid screen', 2)
     return grabbed

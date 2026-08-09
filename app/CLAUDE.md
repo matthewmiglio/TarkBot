@@ -198,7 +198,8 @@ interact/reference_images/<target>/*.png
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
 `test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
-`test_cheap_offer_popup.py`, `test_totals_line.py`, `test_tab_switch.py`, `test_monitors.py`,
+`test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
+`test_drag_failsafe.py`, `test_tab_switch.py`, `test_monitors.py`,
 `python -m interact.sell`, `python -m interact.find`, `python -m frames` and `python -m screen`.
 
 ```
@@ -221,6 +222,11 @@ test_cheap_offer_popup.py    The below-market-value confirmation means no sale: 
                              escape one more time than the pass otherwise would. No game needed.
 test_totals_line.py          The end-of-run totals still get logged when a pass raises, for
                              both bots. No game needed.
+test_recover_on_start.py     What Start backs out of before it looks for the flea. The case that
+                             matters is the plain inventory, which must be left alone. No game
+                             needed.
+test_drag_failsafe.py        A drag that raises still parks the cursor off the corner before the
+                             fail-safe comes back on. No game needed.
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each
