@@ -17,7 +17,10 @@ CHARACTER = Path(__file__).parent / 'poster_character.png'
 # source: redraw the svg and re-run scripts/make_icon.py rather than editing the ico.
 ICON = Path(__file__).parent / 'tarkbot.ico'
 
-WINDOW = (940, 634)  # 34 taller than it was, for the header's second dropdown row
+# 34 taller than it was for the header's second dropdown row, and 30 taller again for the
+# boxed activity line under the buttons. Only the bottom band grows: every panel below is
+# positioned from the top, so nothing above the footer moves.
+WINDOW = (940, 664)
 
 # Muted, matte, nothing pure white. Values darker than the text they carry.
 INK = '#d8d7d2'        # primary text

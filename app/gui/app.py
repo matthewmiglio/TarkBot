@@ -6,6 +6,7 @@ Canvas text and rectangles can sit over it, so the only real widgets are the dro
 sit in two header rows (see DROP_ROW).
 """
 import ctypes
+import os
 import sys
 import threading
 import time
@@ -15,6 +16,7 @@ from pathlib import Path
 from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import frames  # noqa: E402
 import gym_bot  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
@@ -41,8 +43,11 @@ TAB_GAP = 8
 ROW_TOP = 222  # first stat row's baseline, below the tab strip
 ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
-LOG_DROP = 32  # px below the status row for the activity line, in the band under the buttons
+LOG_DROP = 40  # px below the status row for the activity line, in the band under the buttons
+LOG_BOX = 17  # half the height of the box drawn round that line, and its inset from the text
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
+BUTTON = (130, 34)  # every footer plate, so START, STOP and LOGS cannot drift apart
+BUTTON_GAP = 16
 
 
 def claim_taskbar_identity(app_id='tarkbot'):
@@ -207,6 +212,7 @@ class App:
         self.stats = {key: {k: 0 for k, _ in module.STAT_LABELS}
                       for key, _, module in TABS}
         self.drag_from = None  # where in the header a window drag started, None when not dragging
+        self.restore_to = None  # where to put the window back when it comes up off the taskbar
 
         claim_taskbar_identity()
         root.title('Tarkbot')
@@ -215,11 +221,15 @@ class App:
         root.configure(bg='#101110')
         root.resizable(False, False)
         root.protocol('WM_DELETE_WINDOW', self.close)  # the X button must kill the bot too
+        root.bind('<Map>', self._restored)  # coming back off the taskbar, see minimise()
 
         family = theme.font_family(root)
         self.fonts = {'title': (family, 19), 'heading': (family, 11),
                       'label': (family, 10), 'value': (family, 15),
-                      'status': (family, 12), 'plate': (family, 11), 'small': (family, 9)}
+                      'status': (family, 12), 'plate': (family, 11), 'small': (family, 9),
+                      # The activity line, a quarter up on 'small' so the one thing that
+                      # changes second to second is not the smallest text in the window.
+                      'activity': (family, 11)}
 
         self._build_titlebar(root)  # packed first, so it sits above the main canvas
         self.canvas = tk.Canvas(root, width=theme.WINDOW[0], height=theme.WINDOW[1],
@@ -268,11 +278,19 @@ class App:
         bar.create_text(left, theme.TITLEBAR // 2 + 1, anchor='w', text=spaced('TARKBOT'),
                         fill=theme.INK_FAINT, font=self.fonts['small'])
 
-        close = bar.create_text(width - PAD, theme.TITLEBAR // 2, text='✕',
-                                fill=theme.CLOSE, font=self.fonts['status'], tags='close')
-        bar.tag_bind('close', '<Button-1>', lambda _: self.close())
-        for event, colour in (('<Enter>', theme.CLOSE_HOT), ('<Leave>', theme.CLOSE)):
-            bar.tag_bind('close', event, lambda _, c=colour: bar.itemconfig(close, fill=c))
+        # Close on the corner, minimise inboard of it, in the order Windows puts them. Same
+        # font as each other so they read as one pair of controls, and the minimise is grey
+        # rather than red: closing kills a running bot, minimising is the harmless one.
+        for glyph, offset, command, rest, hot in (
+                ('✕', 0, self.close, theme.CLOSE, theme.CLOSE_HOT),
+                ('−', 26, self.minimise, theme.STOPPED, theme.INK)):
+            tag = f'chrome{offset}'
+            item = bar.create_text(width - PAD - offset, theme.TITLEBAR // 2, text=glyph,
+                                   fill=rest, font=self.fonts['status'], tags=tag)
+            bar.tag_bind(tag, '<Button-1>', lambda _, c=command: c())
+            for event, colour in (('<Enter>', hot), ('<Leave>', rest)):
+                bar.tag_bind(tag, event,
+                             lambda _, i=item, c=colour: bar.itemconfig(i, fill=c))
 
         bar.bind('<Button-1>', self._drag_start, add='+')
         bar.bind('<B1-Motion>', self._drag, add='+')
@@ -434,17 +452,29 @@ class App:
         # lamp says what state the run is in; this says what it is doing right now, which is the
         # difference between a pass that is working and one that is stuck on the same step. The
         # session log keeps the history, so this is only ever the newest line.
-        self.activity = self.canvas.create_text(PAD, y + LOG_DROP, anchor='w', text='',
-                                                fill=theme.INK_DIM, font=self.fonts['small'])
+        #
+        # Boxed, because unboxed it read as a caption drifting under the buttons rather than as
+        # its own readout. Outline only, no fill: the backdrop behind it is a photo composited
+        # into one image (see theme.py) and a canvas rectangle cannot be translucent over it.
+        line = y + LOG_DROP
+        self.canvas.create_rectangle(PAD, line - LOG_BOX, theme.WINDOW[0] - PAD, line + LOG_BOX,
+                                     outline=theme.LINE, fill='')
+        self.activity = self.canvas.create_text(PAD + LOG_BOX // 2, line, anchor='w', text='',
+                                                fill=theme.INK_DIM, font=self.fonts['activity'])
 
     def _draw_controls(self):
+        """START, STOP and LOGS in a row against the right edge, widest thing on the footer."""
         y = theme.FOOTER_RULE + 34
-        self.stop_plate = Plate(self.canvas, (theme.WINDOW[0] - PAD - 130, y - 17,
-                                              theme.WINDOW[0] - PAD, y + 17),
-                                'STOP', self.stop, self.fonts['plate'])
-        self.start_plate = Plate(self.canvas, (theme.WINDOW[0] - PAD - 276, y - 17,
-                                               theme.WINDOW[0] - PAD - 146, y + 17),
-                                 'START', self.start, self.fonts['plate'])
+        width, height = BUTTON
+
+        def box(slot):
+            """The slot'th button in from the right edge, as (left, top, right, bottom)."""
+            edge = theme.WINDOW[0] - PAD - slot * (width + BUTTON_GAP)
+            return (edge - width, y - height // 2, edge, y + height // 2)
+
+        self.stop_plate = Plate(self.canvas, box(0), 'STOP', self.stop, self.fonts['plate'])
+        self.start_plate = Plate(self.canvas, box(1), 'START', self.start, self.fonts['plate'])
+        self.logs_plate = Plate(self.canvas, box(2), 'LOGS', self.open_logs, self.fonts['plate'])
         self.stop_plate.config(False)
 
     def _set_status(self, text, colour):
@@ -541,6 +571,41 @@ class App:
         self.stop_plate.config(False)
         self._set_status('Stopping', theme.WARNING)
 
+    def open_logs(self):
+        """Open %APPDATA%/tarkbot in Explorer: the session logs, the frames and settings.json.
+
+        Made first if it is not there yet, so a fresh install opens an empty folder rather than
+        failing with nothing on screen to say why.
+        """
+        try:
+            settings.APP_DIR.mkdir(parents=True, exist_ok=True)
+            os.startfile(settings.APP_DIR)  # Windows only, like the rest of this app
+        except OSError as e:  # no Explorer, or the folder is somewhere unreachable
+            narrate.log(f'could not open {settings.APP_DIR}: {e}')
+            self._set_status(f'Cannot open {settings.APP_DIR}', theme.ERROR)
+
+    def minimise(self):
+        """Send the window to the taskbar.
+
+        overrideredirect windows cannot be iconified, so the system frame goes back on for as
+        long as it takes to minimise and comes straight off again on the way back (see the
+        <Map> binding). The geometry is put back by hand afterwards: restoring re-measures the
+        window against a frame that is no longer there, and without this it walks a title bar's
+        height down the screen every time.
+        """
+        self.restore_to = (self.root.winfo_x(), self.root.winfo_y())
+        self.root.overrideredirect(False)
+        self.root.iconify()
+
+    def _restored(self, _event=None):
+        """Take the system frame back off once Windows has finished restoring the window."""
+        if self.restore_to is None:
+            return  # a Map we did not ask for: the first show, or strip_titlebar's own redisplay
+        x, y = self.restore_to
+        self.restore_to = None  # cleared first, or strip_titlebar's deiconify lands back in here
+        strip_titlebar(self.root)
+        self.root.geometry(f'+{x}+{y}')
+
     def close(self):
         """Window closed: stop the bot and wait for it, so nothing keeps clicking after the GUI."""
         settings.save(self.prefs)
@@ -566,8 +631,11 @@ class App:
             self.canvas.itemconfig(items['runtime'],
                                    text=clock(time.monotonic() - self.started_at)
                                    if self.started_at and tab == self.tab else '-')
-        self.canvas.itemconfig(self.activity, text=one_line(narrate.LAST, self.fonts['small'],
-                                                            theme.WINDOW[0] - 2 * PAD))
+        # Trimmed to the inside of the box, not to the window, or a long line runs through its
+        # right edge instead of stopping at it.
+        self.canvas.itemconfig(self.activity,
+                               text=one_line(narrate.LAST, self.fonts['activity'],
+                                             theme.WINDOW[0] - 2 * PAD - LOG_BOX))
         if self.thread and not self.thread.is_alive():  # stopped, or died on a wrong screen
             self.thread = None
             self.started_at = None
@@ -582,6 +650,7 @@ class App:
 
 if __name__ == '__main__':
     session_log.start()  # one file per boot, same as the frozen build. See session_log.py.
+    frames.start()  # and a screenshot either side of every click, to read beside that log
     root = tk.Tk()
     App(root)
     root.mainloop()
