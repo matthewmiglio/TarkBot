@@ -70,6 +70,8 @@ desktop.ini
 .claude/
 
 # ---- Not published ----
+# Local screen recorder and its takes, gigabytes of lossless frames. See _recorder/README.md.
+_recorder/
 demo_obfuscator/
 # Local png/webp/avif size comparison scratch, ~10MB of the same picture over and over.
 # Globbed rather than literal: this folder has already been spelled image-size-testing and
