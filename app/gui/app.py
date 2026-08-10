@@ -6,6 +6,7 @@ Canvas text and rectangles can sit over it, so the only real widgets are the dro
 sit in two header rows (see DROP_ROW).
 """
 import ctypes
+import ctypes.wintypes
 import os
 import sys
 import threading
@@ -37,10 +38,8 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
 TABS = (('flea', 'FLEA SELL', sell_bot), ('gym', 'HIDEOUT GYM', gym_bot))
 DEFAULT_TAB = 'flea'
-# Tabs drawn but not selectable. Gym mode is a skeleton: interact/gym.py raises
-# NotImplementedError until its reference images exist, so Start there only ever turns the lamp
-# red. Shown greyed rather than deleted, because the mode is coming back; empty this set to
-# switch it on again.
+# Tabs drawn but not selectable, greyed rather than deleted so a mode being built can still be
+# seen. Gym mode works but its last few reps of each set still miss, so it is off for now.
 DISABLED_TABS = {'gym'}
 
 DROP_ROW = (29, 63)  # centre lines of the header's two dropdown rows
@@ -53,8 +52,41 @@ PAD = 24  # panel inset used for every label and value
 LOG_DROP = 40  # px below the status row for the activity line, in the band under the buttons
 LOG_BOX = 17  # half the height of the box drawn round that line, and its inset from the text
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
-BUTTON = (130, 34)  # every footer plate, so START, STOP and LOGS cannot drift apart
+BUTTON = (130, 34)  # every footer plate, so the run button and LOGS cannot drift apart
 BUTTON_GAP = 16
+HOTKEY = ('F5', 0x74)  # what the run button is bound to: the name to print, and its virtual key
+WM_HOTKEY = 0x0312
+# The run button's three states: label, face color, and whether it can be pressed. Green to go,
+# red to stop, and amber while the ask is with the bot and there is nothing useful to press.
+RUN_STATES = {'start': (f'Start ({HOTKEY[0]})', theme.RUNNING, True),
+              'stop': (f'Stop ({HOTKEY[0]})', theme.ERROR, True),
+              'stopping': ('Stopping...', theme.WARNING, False)}
+
+
+def hotkey(key, fire, name):
+    """Call `fire` whenever `key` is pressed anywhere on the machine, Tarkov included.
+
+    A Windows hotkey registration rather than a tk key binding, because tk only sees keys while
+    its own window has focus and the entire point of this one is to stop the bot while the game
+    is in front of it.
+
+    It is not a poll of the keyboard either. The thread sits blocked inside GetMessageW until
+    Windows pushes the press into its queue, so a press registers the moment it happens rather
+    than having to be held down until something comes round to look at the key.
+    """
+    def pump():
+        user32 = ctypes.windll.user32
+        if not user32.RegisterHotKey(None, 1, 0, key):
+            narrate.log(f'{name} is already claimed by another program, so the hotkey is off. '
+                        f'The button still works.')
+            return
+        narrate.log(f'{name} will start and stop the bot, from inside the game too')
+        message = ctypes.wintypes.MSG()
+        while user32.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
+            if message.message == WM_HOTKEY:
+                fire()
+
+    threading.Thread(target=pump, daemon=True).start()
 
 
 def claim_taskbar_identity(app_id='tarkbot'):
@@ -159,6 +191,7 @@ class Plate:
 
     def __init__(self, canvas, box, text, command, font):
         self.canvas, self.command, self.enabled = canvas, command, True
+        self.fill, self.hot = theme.PLATE, theme.PLATE_HOT
         self.rect = canvas.create_rectangle(*box, fill=theme.PLATE, outline=theme.LINE, width=1)
         self.label = canvas.create_text((box[0] + box[2]) // 2, (box[1] + box[3]) // 2,
                                         text=spaced(text), fill=theme.INK, font=font)
@@ -171,14 +204,24 @@ class Plate:
         if self.enabled:
             self.command()
 
+    def paint(self, text, fill):
+        """Recolor the face and rewrite the label, for a button whose color carries its state.
+
+        The text is written as given, not letter-spaced like the ones set in the constructor:
+        spacing suits an all caps word and turns 'Stop (F5)' into something unreadable.
+        """
+        self.fill, self.hot = fill, theme.lighter(fill)
+        self.canvas.itemconfig(self.label, text=text)
+        self.config(self.enabled)  # so the face and the outline are painted in one place
+
     def _hover(self, over):
         if self.enabled:
-            self.canvas.itemconfig(self.rect, fill=theme.PLATE_HOT if over else theme.PLATE)
+            self.canvas.itemconfig(self.rect, fill=self.hot if over else self.fill)
             self.canvas.config(cursor='hand2' if over else '')
 
     def config(self, enabled):
         self.enabled = enabled
-        self.canvas.itemconfig(self.rect, fill=theme.PLATE,
+        self.canvas.itemconfig(self.rect, fill=self.fill,
                                outline=theme.LINE if enabled else theme.INK_FAINT)
         self.canvas.itemconfig(self.label, fill=theme.INK if enabled else theme.INK_FAINT)
 
@@ -261,6 +304,14 @@ class App:
         self._set_status('Stopped', theme.STOPPED)
         self.tick()
 
+        # The press arrives on the hotkey's own thread, and tk is only safe to touch from the
+        # thread that built it, so the work is handed back over with after(0) rather than done
+        # there. That is a queue jump, not a wait: the tk loop is idle between ticks and picks
+        # it up on the next pass through, which is the same instant from a person's point of
+        # view. The stop itself is a threading.Event the bot is already watching.
+        name, key = HOTKEY
+        hotkey(key, lambda: self.root.after(0, self.toggle), name)
+
         # Last, so the window only appears once it has something to show.
         strip_titlebar(root)
 
@@ -304,8 +355,8 @@ class App:
             # Canvas items have no cursor of their own, so the bar's own is swapped on the way
             # in and put back on the way out. Without it these read as more drag handle, and a
             # move cursor over a button says the click will not do anything.
-            for event, colour, cursor in (('<Enter>', hot, 'hand2'), ('<Leave>', rest, 'fleur')):
-                bar.tag_bind(tag, event, lambda _, i=item, c=colour, k=cursor: (
+            for event, color, cursor in (('<Enter>', hot, 'hand2'), ('<Leave>', rest, 'fleur')):
+                bar.tag_bind(tag, event, lambda _, i=item, c=color, k=cursor: (
                     bar.itemconfig(i, fill=c), bar.config(cursor=k)))
 
         bar.bind('<Button-1>', self._drag_start, add='+')
@@ -352,18 +403,13 @@ class App:
         self.background_var = self._dropdown('BACKGROUND', 684, names or ['none'],
                                              self.prefs['background'], self._pick_background, 112)
 
-        # Both modes put their one mode-specific dropdown in the same slot, and the tab tags
-        # decide which is on screen. They can share the x because they are never both visible.
+        # Tagged tab:flea, so it is on screen only on that tab. Gym mode has nothing of its own
+        # to pick: it watches for the skill check and clicks it, and the only thing it needs
+        # told is which monitor, which the row below asks once for both modes.
         labels = [label for label, _, _ in MODES.values()]
         current = MODES.get(self.prefs['mode'], MODES['inventory'])[0]
         self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 150,
                                        tag='tab:flea')
-        if self.prefs['routine'] not in gym_bot.ROUTINES:
-            self.prefs['routine'] = gym_bot.DEFAULT_ROUTINE
-        self.routine_var = self._dropdown(
-            'ROUTINE', 916, [label for label, _ in gym_bot.ROUTINES.values()],
-            gym_bot.ROUTINES[self.prefs['routine']][0], self._pick_routine, 150, tag='tab:gym',
-            tip='How many reps to work through before resting')
 
         # Second row. Untagged like the background: which screen the game is on belongs to the
         # window, not to a mode, so both tabs see it.
@@ -507,7 +553,12 @@ class App:
                                                 fill=theme.INK_DIM, font=self.fonts['activity'])
 
     def _draw_controls(self):
-        """START, STOP and LOGS in a row against the right edge, widest thing on the footer."""
+        """The run button and LOGS, against the right edge, widest thing on the footer.
+
+        One run button rather than a START beside a STOP: one of that pair was always greyed
+        out, so only ever one of them was really there. Its color and its label say which of
+        the two it is at the moment, which the greying was a poorer way of saying.
+        """
         y = theme.FOOTER_RULE + 34
         width, height = BUTTON
 
@@ -516,15 +567,31 @@ class App:
             edge = theme.WINDOW[0] - PAD - slot * (width + BUTTON_GAP)
             return (edge - width, y - height // 2, edge, y + height // 2)
 
-        self.stop_plate = Plate(self.canvas, box(0), 'STOP', self.stop, self.fonts['plate'])
-        self.start_plate = Plate(self.canvas, box(1), 'START', self.start, self.fonts['plate'])
-        self.logs_plate = Plate(self.canvas, box(2), 'LOGS', self.open_logs, self.fonts['plate'])
-        self.stop_plate.config(False)
+        self.run_plate = Plate(self.canvas, box(0), '', self.toggle, self.fonts['plate'])
+        self.logs_plate = Plate(self.canvas, box(1), 'LOGS', self.open_logs, self.fonts['plate'])
+        self._set_run('start')
 
-    def _set_status(self, text, colour):
+    def _set_run(self, state):
+        """The one place the run button is written, so its label and color cannot disagree."""
+        self.run_state = state
+        self.run_plate.paint(*RUN_STATES[state][:2])
+        self.run_plate.config(RUN_STATES[state][2])
+
+    def toggle(self):
+        """The run button, and the hotkey: start when stopped, stop when running.
+
+        'stopping' does nothing on purpose. The ask is already with the bot, and a second one
+        would not reach it any sooner.
+        """
+        if self.run_state == 'start':
+            self.start()
+        elif self.run_state == 'stop':
+            self.stop()
+
+    def _set_status(self, text, color):
         """The one place the state indicator is written, so lamp and words cannot disagree."""
-        self.canvas.itemconfig(self.dot, fill=colour)
-        self.canvas.itemconfig(self.status, text=spaced(text.upper()), fill=colour)
+        self.canvas.itemconfig(self.dot, fill=color)
+        self.canvas.itemconfig(self.status, text=spaced(text.upper()), fill=color)
 
     # ------------------------------------------------------------------ preferences
 
@@ -568,13 +635,6 @@ class App:
         self.prefs['stale'] = label  # the dropdown's labels are the keys, so no lookup
         settings.save(self.prefs)
 
-    def _pick_routine(self, label):
-        for key, (text, _) in gym_bot.ROUTINES.items():
-            if text == label:
-                self.prefs['routine'] = key
-                break
-        settings.save(self.prefs)
-
     # ------------------------------------------------------------------ running
 
     def _run(self):
@@ -597,18 +657,16 @@ class App:
         # ponytail: the start lock is "is it running, or about to be?"
         if self.pending or (self.thread and self.thread.is_alive()):
             return
-        self.start_plate.config(False)
         # Whichever mode the tab is on. Both modules expose build(prefs, stats), so there is no
         # branch here on which one it is.
         try:
             self.bot = self.modules[self.tab].build(self.prefs, self.stats[self.tab])
         except tarkov_window.WindowError as e:
             self.bot = None
-            self.start_plate.config(True)
             self._set_status(str(e), theme.ERROR)
             return
         self.error = None
-        self.stop_plate.config(True)  # enabled now, so the countdown can be cancelled
+        self._set_run('stop')  # pressable through the countdown, so that can be cancelled too
         self._countdown(COUNTDOWN)
 
     def _countdown(self, left):
@@ -630,14 +688,20 @@ class App:
             self.root.after_cancel(self.pending)
             self.pending = None
             self.bot = None
-            self.start_plate.config(True)
-            self.stop_plate.config(False)
+            self._set_run('start')
             self._set_status('Stopped', theme.STOPPED)
             return
         if self.bot:
             self.bot.stop()
-        self.stop_plate.config(False)
-        self._set_status('Stopping', theme.WARNING)
+        # 'Stopping' only while something is actually unwinding. tick() is what clears it, and
+        # tick() only fires on a thread it watched die, so setting it with nothing running
+        # would leave the button amber and unpressable with no way back.
+        if self.thread and self.thread.is_alive():
+            self._set_run('stopping')
+            self._set_status('Stopping', theme.WARNING)
+        else:
+            self._set_run('start')
+            self._set_status('Stopped', theme.STOPPED)
 
     def open_logs(self):
         """Open %APPDATA%/tarkbot in Explorer: the session logs, the frames and settings.json.
@@ -706,7 +770,7 @@ class App:
                 if key in stats:
                     self.canvas.itemconfig(item, text=f'{stats[key]:,}')
             # Green only once that mode's headline counter has moved; zero stays the same ink
-            # as the rest, so the colour means "it has actually done something" not "this row".
+            # as the rest, so the color means "it has actually done something" not "this row".
             tint = self.modules[tab].TINT_STAT
             if tint:
                 self.canvas.itemconfig(items[tint],
@@ -722,8 +786,7 @@ class App:
         if self.thread and not self.thread.is_alive():  # stopped, or died on a wrong screen
             self.thread = None
             self.started_at = None
-            self.start_plate.config(True)
-            self.stop_plate.config(False)
+            self._set_run('start')
             if self.error:
                 self._set_status(f'Error: {self.error}'[:60], theme.ERROR)
             else:

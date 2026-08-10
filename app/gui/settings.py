@@ -10,7 +10,6 @@ APP_DIR = Path(os.environ.get('APPDATA') or Path.home()) / 'tarkbot'
 SETTINGS_PATH = APP_DIR / 'settings.json'
 DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'tab': 'flea',  # which mode tab the GUI opens on
-            'routine': 'normal',  # hideout gym reps per set, see gym_bot.ROUTINES
             # Which screen to watch and click on, as the device name Windows gives it
             # (\\.\DISPLAY1). 'auto' until the user picks, which resolves to the monitor Tarkov
             # is on, or the primary. See screen.py.

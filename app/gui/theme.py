@@ -1,4 +1,4 @@
-"""Colours, fonts and the composited backdrop for the GUI.
+"""Colors, fonts and the composited backdrop for the GUI.
 
 tkinter widgets cannot be translucent, so the 'dirty glass' look is baked into a single
 picture instead: the chosen background photo, blurred and dimmed, with the panel rectangles
@@ -59,6 +59,15 @@ GLASS_EDGE = (72, 74, 72, 255)
 # Windows ships Bahnschrift, which is a DIN condensed and exactly the right register. The
 # rest are fallbacks for a machine that does not have it.
 FONT_STACK = ('Bahnschrift SemiCondensed', 'Bahnschrift', 'Segoe UI Semilight', 'Segoe UI')
+
+
+def lighter(color, amount=0.18):
+    """A '#rrggbb' blended toward white, for the hover face of a button that carries a color.
+
+    PLATE_HOT is only the hover for the default face; the run button has three of its own.
+    """
+    channels = (int(color[at:at + 2], 16) for at in (1, 3, 5))
+    return '#%02x%02x%02x' % tuple(round(v + (255 - v) * amount) for v in channels)
 
 
 def font_family(root):
