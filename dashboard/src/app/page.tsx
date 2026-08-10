@@ -1,9 +1,10 @@
-import { getAnalytics, getFeedback } from "@/lib/data";
+import { getAnalytics, getErrors, getFeedback } from "@/lib/data";
 import {
   ActivityFeed, DownloadSources, DownloadsOverTime, PagePopularity,
   SummaryTiles, TrafficSources, ViewsByCountry, ViewsOverTime,
 } from "@/components/figures";
 import { FeedbackList } from "@/components/feedback";
+import { ErrorList } from "@/components/errors";
 
 // Every figure reads from one server-side fetch, so the page is always fresh
 // and the browser makes no data requests of its own.
@@ -15,12 +16,14 @@ const SECTIONS = [
   { id: "downloads", label: "Downloads" },
   { id: "activity", label: "Activity" },
   { id: "feedback", label: "Feedback" },
+  { id: "errors", label: "Crashes" },
 ];
 
 export default async function Page() {
-  const [{ views, downloads, configured }, feedback] = await Promise.all([
+  const [{ views, downloads, configured }, feedback, errors] = await Promise.all([
     getAnalytics(),
     getFeedback(),
+    getErrors(),
   ]);
 
   return (
@@ -98,10 +101,18 @@ export default async function Page() {
           </h2>
           <FeedbackList items={feedback} />
         </section>
+
+        <section id="errors" className="mb-12 scroll-mt-14">
+          <h2 className="text-sm font-bold uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">
+            Crashes
+          </h2>
+          <ErrorList items={errors} />
+        </section>
       </div>
 
       <footer className="px-6 py-6 border-t border-gray-200 text-xs text-gray-400">
-        Reading Tarkbot_analytics_events, Tarkbot_downloads and Tarkbot_feedback.
+        Reading Tarkbot_analytics_events, Tarkbot_downloads, Tarkbot_feedback and Tarkbot_errors.
+        Screenshot links are signed for an hour and stop working after that; reload for fresh ones.
       </footer>
     </div>
   );
