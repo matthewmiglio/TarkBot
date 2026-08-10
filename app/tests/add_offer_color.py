@@ -1,8 +1,8 @@
-"""Measure the add offer button's colour so its enabled/disabled states can be told apart.
+"""Measure the add offer button's color so its enabled/disabled states can be told apart.
 
-Run:  python tests/add_offer_colour.py            (just report)
-      python tests/add_offer_colour.py enabled    (also tag the saved crop with the state)
-      python tests/add_offer_colour.py disabled
+Run:  python tests/add_offer_color.py            (just report)
+      python tests/add_offer_color.py enabled    (also tag the saved crop with the state)
+      python tests/add_offer_color.py disabled
 
 Read-only, it never clicks. Run it once in each state, then set
 sell.MORE_OFFERS_BRIGHTNESS somewhere between the two numbers. Writes the crop to

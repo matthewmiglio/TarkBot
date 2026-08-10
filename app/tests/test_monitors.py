@@ -2,9 +2,9 @@
 
 Run:  python tests/test_monitors.py
 
-No game needed. For each monitor in turn it selects that one, puts a window of a known colour
+No game needed. For each monitor in turn it selects that one, puts a window of a known color
 in its top left corner, and reads those pixels back through the same path the bot uses. A grab
-that comes back the wrong colour is a grab of the wrong screen, which is the failure this whole
+that comes back the wrong color is a grab of the wrong screen, which is the failure this whole
 module exists to stop: pyscreeze only ever photographs the primary monitor, so before screen.py
 a Tarkov on the second one was invisible no matter what region it was handed.
 
@@ -19,7 +19,7 @@ import screen  # noqa: E402
 from interact import find  # noqa: E402
 from narrate import log  # noqa: E402
 
-PATCH = 160  # px square of known colour to put on each monitor, big enough to see in a picture
+PATCH = 160  # px square of known color to put on each monitor, big enough to see in a picture
 COLOUR = '#00ff88'  # nothing in the theme or on a desktop is this, so a match cannot be luck
 RGB = (0, 255, 136)
 

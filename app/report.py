@@ -11,7 +11,7 @@ The screenshots are not posted through it either: a lossless png of a 1440p scre
 that route cannot accept one, so the endpoint answers with two single-use upload urls and the
 bytes go straight to storage. Png rather than anything lossy on purpose, since the whole point
 of keeping these is cutting reference crops out of them, and interact/ocr.py's digit templates
-and sell.py's dead pixel colours (±5 a channel) do not survive a lossy round trip.
+and sell.py's dead pixel colors (±5 a channel) do not survive a lossy round trip.
 
 Nothing is written to disk here. The before picture is a frame frames.py had already saved, and
 the after picture is grabbed straight into memory.

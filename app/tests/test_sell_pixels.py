@@ -5,7 +5,7 @@ Run:  python tests/test_sell_pixels.py
 
 Writes tests/output/sell_pixels.png: the inventory region cropped out of a live
 screenshot, with a yellow dot on each live pixel. Dead slots keep their original
-colour, so anything still dark grey is what the bot will ignore.
+color, so anything still dark grey is what the bot will ignore.
 
 Tarkov must be the visible window; anything covering it gets captured instead.
 """

@@ -36,9 +36,9 @@ if __name__ == '__main__':
     before = pyautogui.screenshot(region=region)
     draw = ImageDraw.Draw(before)
     for case in cases:
-        colour = 'magenta' if case == pick else 'lime'
+        color = 'magenta' if case == pick else 'lime'
         x, y = case.left - region[0], case.top - region[1]
-        draw.rectangle([x, y, x + case.width, y + case.height], outline=colour, width=3)
+        draw.rectangle([x, y, x + case.width, y + case.height], outline=color, width=3)
     before.save(OUT / 'open_scav_case_before.png')
 
     if dry:

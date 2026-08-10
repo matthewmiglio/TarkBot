@@ -1,6 +1,6 @@
-"""Find the flea icon and report the average colour inside its bbox.
+"""Find the flea icon and report the average color inside its bbox.
 
-Run:  python tests/flea_icon_colour.py
+Run:  python tests/flea_icon_color.py
 
 Not a pass/fail test, a measuring tool. Run it once with the flea closed and once with
 it open, then feed the two averages into sell.is_flea_open. Saves the crop it measured

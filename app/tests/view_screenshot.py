@@ -1,10 +1,10 @@
-"""Open a Tarkov screenshot in matplotlib with a grid, coordinates and pixel colours.
+"""Open a Tarkov screenshot in matplotlib with a grid, coordinates and pixel colors.
 
 Run:  python tests/view_screenshot.py            (grab the live Tarkov window)
       python tests/view_screenshot.py shot.png   (open a saved image instead)
 
 Hover anywhere and the status bar shows that pixel's window coords, the screen
-coords to click, and its colour. Use the magnifier to zoom in on a button, then
+coords to click, and its color. Use the magnifier to zoom in on a button, then
 read the corners off the grid to know what to crop as a reference image.
 """
 import sys

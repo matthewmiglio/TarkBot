@@ -44,10 +44,10 @@ function Card({
 }
 
 function BarList({
-  rows, colour = "bg-indigo-500", empty = "Nothing in this period",
+  rows, color = "bg-indigo-500", empty = "Nothing in this period",
 }: {
   rows: { label: string; count: number }[];
-  colour?: string;
+  color?: string;
   empty?: string;
 }) {
   const max = Math.max(...rows.map((r) => r.count), 1);
@@ -60,7 +60,7 @@ function BarList({
             {r.label}
           </span>
           <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
-            <div className={`h-full rounded ${colour}`} style={{ width: `${(r.count / max) * 100}%` }} />
+            <div className={`h-full rounded ${color}`} style={{ width: `${(r.count / max) * 100}%` }} />
           </div>
           <span className="text-xs font-medium text-gray-500 w-10 text-right">{r.count}</span>
         </div>
@@ -70,10 +70,10 @@ function BarList({
 }
 
 function Columns({
-  data, colour = "bg-indigo-500", unit,
+  data, color = "bg-indigo-500", unit,
 }: {
   data: { day: string; count: number }[];
-  colour?: string;
+  color?: string;
   unit: string;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
@@ -102,7 +102,7 @@ function Columns({
                 </div>
               )}
               <div
-                className={`w-full rounded-t transition-colors ${hovered === i ? "bg-indigo-400" : colour}`}
+                className={`w-full rounded-t transition-colors ${hovered === i ? "bg-indigo-400" : color}`}
                 style={{ height: `${Math.max((d.count / max) * 100, 2)}%` }}
               />
             </div>
@@ -166,7 +166,7 @@ export function DownloadsOverTime({ downloads }: { downloads: DownloadEvent[] })
   const data = useMemo(() => perDay(downloads, 30), [downloads]);
   return (
     <Card title="Downloads · Last 30 Days">
-      <Columns data={data} colour="bg-green-500" unit="downloads" />
+      <Columns data={data} color="bg-green-500" unit="downloads" />
     </Card>
   );
 }
@@ -179,7 +179,7 @@ export function TrafficSources({ views }: { views: ViewEvent[] }) {
   );
   return (
     <Card title="Traffic Sources" tabs={{ period, onChange: setPeriod }}>
-      <BarList rows={rows} colour="bg-green-500" empty="No traffic in this period" />
+      <BarList rows={rows} color="bg-green-500" empty="No traffic in this period" />
     </Card>
   );
 }
@@ -205,7 +205,7 @@ export function ViewsByCountry({ views }: { views: ViewEvent[] }) {
   );
   return (
     <Card title="Views by Country" tabs={{ period, onChange: setPeriod }}>
-      <BarList rows={rows} colour="bg-amber-500" empty="No located views in this period" />
+      <BarList rows={rows} color="bg-amber-500" empty="No located views in this period" />
     </Card>
   );
 }
@@ -218,7 +218,7 @@ export function DownloadSources({ downloads }: { downloads: DownloadEvent[] }) {
   );
   return (
     <Card title="Where Downloaders Came From" tabs={{ period, onChange: setPeriod }}>
-      <BarList rows={rows} colour="bg-green-500" empty="No downloads in this period" />
+      <BarList rows={rows} color="bg-green-500" empty="No downloads in this period" />
     </Card>
   );
 }

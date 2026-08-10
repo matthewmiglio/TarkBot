@@ -23,8 +23,8 @@ const DOESNT = [
 const TECH = [
   ["Template matching", "Every button is a cropped screenshot on disk. OpenCV matches those references against the live window at 0.9 confidence. Teaching it a new UI state is dropping another PNG in the folder."],
   ["Pixel-matched digits", "The price reader is not an OCR engine. Tarkov prints prices in a fixed bitmap font, so the crop gets cut into glyphs and each glyph is pixel-matched against a reference. A real OCR engine was tried first and read 999 as 666 at full confidence."],
-  ["Brightness state reads", "Some elements only change colour, never shape. The flea taskbar icon inverts (mean channel 57 closed, 117 open) and Add Offer greys out (255 lit, 123 greyed), so those get read as thresholds rather than a second template."],
-  ["Empty-slot masking", "Finding loot means knowing what an empty slot looks like. Every colour in the reference set is baked into a 256³ boolean cube at ±5 per channel, and anything matching it is not an item."],
+  ["Brightness state reads", "Some elements only change color, never shape. The flea taskbar icon inverts (mean channel 57 closed, 117 open) and Add Offer greys out (255 lit, 123 greyed), so those get read as thresholds rather than a second template."],
+  ["Empty-slot masking", "Finding loot means knowing what an empty slot looks like. Every color in the reference set is baked into a 256³ boolean cube at ±5 per channel, and anything matching it is not an item."],
 ];
 
 function Rule() {

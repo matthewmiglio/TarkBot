@@ -19,11 +19,11 @@ from interact import find, sell  # noqa: E402
 OUT = Path(__file__).parent / 'output'
 
 
-def box(draw, rect, origin, colour, label, width=2):
+def box(draw, rect, origin, color, label, width=2):
     """Outline a screen-coord (left, top, w, h) on a screenshot that starts at origin."""
     left, top = rect[0] - origin[0], rect[1] - origin[1]
-    draw.rectangle([left, top, left + rect[2], top + rect[3]], outline=colour, width=width)
-    draw.text((left + 2, max(0, top - 10)), label, fill=colour)
+    draw.rectangle([left, top, left + rect[2], top + rect[3]], outline=color, width=width)
+    draw.text((left + 2, max(0, top - 10)), label, fill=color)
 
 
 if __name__ == '__main__':
