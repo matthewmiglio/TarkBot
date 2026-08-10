@@ -38,6 +38,11 @@ PRICE_ESCAPES = 1  # an unreadable price leaves only the offer window open
 # the pass's own count rather than written out per mode, so it stays 2 from the stash and 3 with
 # a scav case open without a second place to keep those numbers in step.
 CHEAP_POPUP_ESCAPES = 1
+# Escape-and-look rounds Start gets to clear the screen. Generous because it only ever runs
+# once, and the alternative to one more round is a failed run.
+RECOVER_ROUNDS = 10
+# The pause between rounds is sell.RECOVER_DELAY, the same one the sweep waits after each click
+# and each escape. There is no separate number for it on purpose.
 
 # The counters Tarkbot keeps, in the order the GUI lists them. Keys are also stats dict keys,
 # and posted_<source> has to match the source names Selection carries.
@@ -264,11 +269,36 @@ class Tarkbot:
         so this is the only point where the state is genuinely unknown: the user may have hit
         Start with a scav case open, or over the wreckage of a run that was stopped mid pass.
 
+        Loops rather than escaping once, because the windows stack. A scav case run that was
+        interrupted leaves the case window with an offer creation window on top of it, and one
+        pass of close_leftover_windows closes the top one and then reports the flea tab still
+        missing, which is exactly what it was asked to fix. Each round escapes what it can see
+        and then looks again, so a stack unwinds a layer at a time.
+
+        The flea tab being visible is the finish line, not the number of escapes. It is the
+        thing the first pass actually needs, and it is the only signal that says the screen is
+        clear rather than merely that this round found nothing it recognised.
+
         Nothing here is fatal. If the flea will not open, the first pass raises about it with
         the message that has always meant that, rather than a second one from up here.
         """
         log('checking for anything left open from last time')
-        sell.close_leftover_windows(self.region)
+        for round_number in range(1, RECOVER_ROUNDS + 1):
+            # Checked here rather than through _pause: _recover runs before start()'s try, so a
+            # Stopped raised in here would leave start() as an unhandled crash in the GUI.
+            if self._stop.is_set():
+                log('stopped during recovery, before the first pass', 1)
+                return
+            escaped = sell.close_leftover_windows(self.region)
+            if sell.find_flea_icon(self.region):
+                log(f'the flea tab is visible, recovery done in {round_number} round(s)', 1)
+                break
+            log(f'round {round_number}/{RECOVER_ROUNDS}: {escaped} escape(s) and the flea tab '
+                f'is still hidden, looking again', 2)
+            time.sleep(sell.RECOVER_DELAY)
+        else:
+            log(f'the flea tab never appeared in {RECOVER_ROUNDS} rounds; something is on '
+                f'screen that recovery does not recognise', 1)
         if not sell.open_flea(self.region):
             log('the flea did not open during recovery, leaving it to the first pass', 1)
 

@@ -3,8 +3,8 @@
 Run:  python tests/test_find.py              (every folder under interact/reference_images)
       python tests/test_find.py scav_case    (just one)
 
-Writes tests/output/find.png: the window screenshot with a box per match and a
-stat overlay listing which targets were found.
+Writes tests/output/find.png: the window screenshot with a labelled box per match, and nothing
+else drawn over it. Which targets were found, and how many of each, goes to the terminal.
 """
 import colorsys
 import hashlib
@@ -19,22 +19,21 @@ import tarkov_window  # noqa: E402
 from interact import find  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
-MISSING, SKIPPED = (255, 60, 60), (255, 200, 0)
 FONT = ImageFont.truetype('arialbd.ttf', 15)
 
 
-def colour(name):
-    """A stable colour per target, so boxes and legend lines agree and runs are comparable.
+def color(name):
+    """A stable color per target, so the same target boxes the same color between runs.
 
     Hashed rather than picked off a palette: there are 28 targets and counting, and a palette
     would need extending every time a reference folder is added. md5 rather than hash(), which
-    is salted per process and would recolour everything on every run.
+    is salted per process and would recolor everything on every run.
     """
     hue = int(hashlib.md5(name.encode()).hexdigest(), 16) % 360 / 360
     return tuple(round(channel * 255) for channel in colorsys.hsv_to_rgb(hue, 0.85, 1.0))
 
 
-# Folders that are data rather than things to find on screen: dead_pixels is a colour palette
+# Folders that are data rather than things to find on screen: dead_pixels is a color palette
 # for sell.py, and price_digits is hundreds of generated glyphs that ocr.py matches inside an
 # already-cropped price. Naming either one explicitly still runs it.
 NOT_TARGETS = {'dead_pixels', 'price_digits'}
@@ -54,22 +53,19 @@ def check(name, shot):
 
 
 def annotate(shot, results):
+    """Box and label every match, in place.
+
+    No summary panel. There used to be a black legend in the top left listing every target and
+    its count, and it covered that corner of the screen: anything matching under it could not be
+    seen, which is the one thing this picture is for. The same counts are printed to the
+    terminal, per target, so nothing was lost by dropping it.
+    """
     draw = ImageDraw.Draw(shot)
     for name, boxes in results.items():
         for box in boxes or []:
             xy = (box.left, box.top, box.left + box.width, box.top + box.height)
-            draw.rectangle(xy, outline=colour(name), width=2)
-            draw.text((box.left, box.top - 16), name, font=FONT, fill=colour(name))
-
-    # The legend swatch carries the target's colour and the text carries its state, so a
-    # target that matched nothing is still readable as red rather than as its own colour.
-    lines = [(f'{name}: {len(boxes)} found' if boxes else
-              f'{name}: none' if boxes is not None else f'{name}: no refs',
-              colour(name) if boxes else MISSING if boxes is not None else SKIPPED)
-             for name, boxes in results.items()]
-    draw.rectangle((8, 8, 268, 20 + 20 * len(lines)), fill=(0, 0, 0))
-    for i, (text, state) in enumerate(lines):
-        draw.text((16, 14 + 20 * i), text, font=FONT, fill=state)
+            draw.rectangle(xy, outline=color(name), width=2)
+            draw.text((box.left, box.top - 16), name, font=FONT, fill=color(name))
 
 
 if __name__ == '__main__':

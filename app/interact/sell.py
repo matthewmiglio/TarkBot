@@ -19,10 +19,10 @@ AUTOSELECT_TARGET = 'autoselect_similar'  # the autoselect similar checkbox, on 
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
 EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'auto_sort')
 SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their pixels are dropped
-# Every colour an empty slot is known to take, read off screenshots showing nothing but empty
+# Every color an empty slot is known to take, read off screenshots showing nothing but empty
 # slots. Drop another png in that folder to teach it more. ponytail: the images are the list.
 DEAD_REFERENCE = 'dead_pixels'  # a folder under reference_images/, any number of pngs
-DEAD_TOL = 5  # per-channel slack; this close to a known slot colour still counts as empty
+DEAD_TOL = 5  # per-channel slack; this close to a known slot color still counts as empty
 MENU_DELAY = 0.3  # seconds for the right-click menu to draw before we go looking for it
 WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab its title bar
 # The scav case window is the one thing on screen that does not draw within WINDOW_DELAY: it
@@ -39,13 +39,19 @@ SELECT_ATTEMPTS = 50  # clicks to try before admitting we cannot land on an item
 SELECT_POLL_DELAY = 0.5  # after a click, before reading what it did
 SELECT_WINDOW_DELAY = WINDOW_DELAY / 2  # after filter by item, for the flea panel to catch up
 ADD_OFFER_TARGET = 'add_offer'  # the button that opens the offer creation window
-OFFER_TARGET = 'offer_creation'  # reference images for the offer creation window
+OFFER_TARGET = 'offer_creation_window_title'  # that window's title bar, for dragging and for
+# spotting one left open. Named to match scav_case_window_title and flea_filters_window_title:
+# the three things recovery escapes are all matched on their title bars, for the same reason.
 SCAV_WINDOW_TARGET = 'scav_case_window_title'  # reference images for the opened scav case window
 CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we want the leftmost
 NO_SELECTION_TARGET = 'no_items_selected'  # the placeholder shown while nothing is picked
 SELECTION_TARGET = 'item_is_selected'  # the panel shown once something is, the other half of the read
 FLEA_ICON_TARGET = 'flea_icon'  # the taskbar entry, one folder holding both its states
-RECOVER_DELAY = 1.0  # seconds after an escape at startup, for the window to actually go
+# The one pause recovery uses, everywhere: after the click that focuses a window, after the
+# escape that closes it, and between rounds of the loop in sell_bot._recover. One number rather
+# than a long one for closing and a short one for looking, because the two were never actually
+# doing different jobs and two knobs only meant two places to get it wrong.
+RECOVER_DELAY = 0.33
 # Clicks land a few pixels off the centre of whatever matched, so a session is not a column of
 # identical coordinates. Small on purpose: these are a nudge inside a button, not an attempt to
 # cover it. Per control, because the smallest of them is a 30x26 gear.
@@ -219,6 +225,31 @@ def is_flea_open(region=None, threshold=FLEA_OPEN_BRIGHTNESS):
     return open_now
 
 
+def _escape_window(target, what, region=None, delay=RECOVER_DELAY):
+    """Click `what`'s title bar to put it in front, then escape out of it. True if it was up.
+
+    The click is what makes the escape reliable. Escape goes to whatever the game thinks is
+    focused, and after a run that died part way that is not necessarily the window still drawn
+    on top; clicking the title bar first says which one is meant. A title bar is the safe place
+    to click for it, being a drag handle rather than a control, so a click that lands on the
+    wrong window cannot press anything.
+
+    `delay` is waited twice, once after each input. The one after the click is the one that is
+    easy to leave out and pointless to leave out: escaping in the same breath as the click races
+    the focus change it was sent to cause, which is the whole reason the click is here.
+    """
+    point = find.find_center(target, region)
+    if not point:
+        return False
+    log(f'{what} is still open from last time, clicking its title bar at {point} to focus it, '
+        f'then escaping out of it', 1)
+    pyautogui.click(*point)
+    time.sleep(delay)  # let the click land and the window come forward before escaping it
+    pyautogui.press('esc')
+    time.sleep(delay)  # and let the window actually go before anything looks at the screen
+    return True
+
+
 def close_leftover_windows(region=None, delay=RECOVER_DELAY):
     """Escape out of anything a previous session left on screen. Returns how many escapes went.
 
@@ -227,34 +258,23 @@ def close_leftover_windows(region=None, delay=RECOVER_DELAY):
     scav case window, the offer creation window or the flea filter window sitting there, and the
     first thing the next run does is hunt for the flea tab underneath them and not find it.
 
-    The offer creation window needs both of its buttons present, not either. A lone ALL button
-    is just the inventory, which is a normal screen to start from and must not be escaped.
+    Every window is matched on its own title bar. Nothing here keys off the controls inside a
+    window: which of those are on screen depends on what the window was opened over, and the
+    inventory is a perfectly normal screen to press Start on and must never be escaped.
 
-    Each window is checked on its own and gets its own escape. They are not expected to be up
-    together, but pairing them off would mean guessing which combinations can happen, and a
-    guess that is wrong here leaves a window on screen for the whole next run.
+    Each window is checked on its own and gets its own click and escape. They are not expected
+    to be up together, but pairing them off would mean guessing which combinations can happen,
+    and a guess that is wrong here leaves a window on screen for the whole next run.
+
+    `delay` is the wait after each escape, for the window to actually go. It is deliberately not
+    the same number as the wait between rounds of the loop in sell_bot._recover: this one is a
+    window closing and wants a full second, that one is only a pause before looking again.
     """
-    presses = 0
-    if find.find(SCAV_WINDOW_TARGET, region):
-        log('a scav case window is still open from last time, escaping out of it', 1)
-        pyautogui.press('esc')
-        time.sleep(delay)
-        presses += 1
-    if find.find(ALL_BUTTON_TARGET, region) and find.find(AUTOSELECT_TARGET, region):
-        log('the offer creation window is still open from last time, escaping out of it', 1)
-        pyautogui.press('esc')
-        time.sleep(delay)
-        presses += 1
-    # Matched on its title bar rather than its OK button, because the state this is most likely
-    # to meet is the one _set_dropdown now dies in: window open with a dropdown list unrolled
-    # over it. The list unrolls downward and can cover the controls below it, but the title bar
-    # is above all of them. One escape is enough either way, since escape here shuts the whole
-    # FILTERS window rather than just the list.
-    if find.find(FILTERS_WINDOW_TARGET, region):
-        log('the flea filter window is still open from last time, escaping out of it', 1)
-        pyautogui.press('esc')
-        time.sleep(delay)
-        presses += 1
+    # Newest first. The offer creation window is opened over the scav case, so it is the one on
+    # top, and taking the top one first means each escape lands on the window it was aimed at.
+    presses = sum((_escape_window(OFFER_TARGET, 'the offer creation window', region, delay),
+                   _escape_window(SCAV_WINDOW_TARGET, 'a scav case window', region, delay),
+                   _escape_window(FILTERS_WINDOW_TARGET, 'the flea filter window', region, delay)))
     if not presses:
         log('nothing left open from a previous session', 2)
     return presses
@@ -682,13 +702,13 @@ def scav_case_regions(region=None, margin=SCAV_MARGIN):
 
 
 def _pack(rgb):
-    """Squash the last axis of an RGB array into one int per pixel, so colours compare as scalars."""
+    """Squash the last axis of an RGB array into one int per pixel, so colors compare as scalars."""
     rgb = np.asarray(rgb).astype(np.uint32)
     return (rgb[..., 0] << 16) | (rgb[..., 1] << 8) | rgb[..., 2]
 
 
-def _load_dead_colours(name=DEAD_REFERENCE):
-    """Every distinct colour across every reference image of empty slots, packed and sorted.
+def _load_dead_colors(name=DEAD_REFERENCE):
+    """Every distinct color across every reference image of empty slots, packed and sorted.
 
     Transparent pixels are skipped, so a screenshot can be masked down to just its empty slots.
     """
@@ -699,14 +719,14 @@ def _load_dead_colours(name=DEAD_REFERENCE):
     return np.unique(np.concatenate(seen))
 
 
-def _dead_cube(colours, tol=DEAD_TOL):
-    """A 256^3 lookup, True for any colour within tol of a known one on every channel.
+def _dead_cube(colors, tol=DEAD_TOL):
+    """A 256^3 lookup, True for any color within tol of a known one on every channel.
 
     ponytail: 16MB of bools built once at import, so the per-pixel test is a plain array
-    index. Widening every known colour beats comparing 500k pixels against 1500 colours.
+    index. Widening every known color beats comparing 500k pixels against 1500 colors.
     """
     cube = np.zeros((256, 256, 256), dtype=bool)
-    rgb = np.stack([(colours >> 16) & 255, (colours >> 8) & 255, colours & 255], axis=1)
+    rgb = np.stack([(colors >> 16) & 255, (colors >> 8) & 255, colors & 255], axis=1)
     span = range(-tol, tol + 1)
     offsets = np.array([(r, g, b) for r in span for g in span for b in span], dtype=np.int16)
     near = np.clip(rgb[:, None, :].astype(np.int16) + offsets, 0, 255).reshape(-1, 3)
@@ -714,15 +734,15 @@ def _dead_cube(colours, tol=DEAD_TOL):
     return cube
 
 
-DEAD_COLOURS = _load_dead_colours()
+DEAD_COLOURS = _load_dead_colors()
 DEAD_CUBE = _dead_cube(DEAD_COLOURS)
 
 
 def calculate_dead_pixel(pixel, cube=None):
-    """True where the colour is within DEAD_TOL of one an empty slot takes.
+    """True where the color is within DEAD_TOL of one an empty slot takes.
 
     Takes one (r, g, b) or a whole HxWx3 array. Not a brightness threshold: a dark blue is
-    dark but is nowhere near a slot colour, so it stays alive.
+    dark but is nowhere near a slot color, so it stays alive.
     """
     rgb = np.asarray(pixel)
     lookup = DEAD_CUBE if cube is None else cube
@@ -1148,13 +1168,13 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     except LookupError:
         pass
 
-    assert len(DEAD_COLOURS) > 100, f'{DEAD_REFERENCE}/ gave only {len(DEAD_COLOURS)} colours'
+    assert len(DEAD_COLOURS) > 100, f'{DEAD_REFERENCE}/ gave only {len(DEAD_COLOURS)} colors'
     one = _dead_cube(np.array([_pack(np.array([100, 100, 100]))]), tol=5)  # tolerance, on its own
     assert one[100, 100, 100] and one[105, 100, 95], 'within 5 on every channel is dead'
     assert not one[106, 100, 100], '6 off on any channel is alive'
     assert calculate_dead_pixel((23, 24, 24)) and not calculate_dead_pixel((200, 0, 0))
     img = np.full((3, 4, 3), (23, 24, 24), dtype=np.uint8)  # 3 rows, 4 cols of empty slot
-    img[0, 0] = (24, 25, 25)  # another slot colour, still empty
+    img[0, 0] = (24, 25, 25)  # another slot color, still empty
     img[1, 2] = (200, 0, 0)  # an item, at row 1 col 2
     img[2, 3] = (0, 200, 0)  # another item, at row 2 col 3
     assert _live_points(img, (100, 200)) == [(102, 201), (103, 202)], 'x/y swapped?'

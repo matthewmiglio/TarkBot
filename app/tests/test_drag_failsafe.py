@@ -38,7 +38,7 @@ def drag_with(find_center):
     try:
         raised = None
         try:
-            sell._drag_to_corner('offer_creation', 'bottom left', duration=0, repeats=1)
+            sell._drag_to_corner(sell.OFFER_TARGET, 'bottom left', duration=0, repeats=1)
         except Exception as e:
             raised = e
         assert pyautogui.FAILSAFE is True, 'the fail-safe was not put back'

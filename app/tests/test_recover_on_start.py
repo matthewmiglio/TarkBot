@@ -28,21 +28,24 @@ from interact import find, sell  # noqa: E402
 
 def recover_with(on_screen):
     """close_leftover_windows against a screen showing exactly `on_screen`. Returns the presses."""
-    keys = []
-    original_find, original_press = find.find, pyautogui.press
-    find.find = lambda name, region=None, **kw: 'a box' if name in on_screen else None
+    keys, clicks = [], []
+    originals = (find.find_center, pyautogui.press, pyautogui.click)
+    find.find_center = lambda name, region=None, **kw: (10, 20) if name in on_screen else None
     pyautogui.press = keys.append
+    pyautogui.click = lambda x, y=None, **kw: clicks.append((x, y))
     try:
         presses = sell.close_leftover_windows(delay=0)
         assert presses == len(keys), f'reported {presses} escapes, actually pressed {len(keys)}'
         assert all(k == 'esc' for k in keys), f'pressed something other than esc: {keys}'
+        # Every escape is preceded by a click on that window's title bar, to focus it first.
+        assert len(clicks) == presses, f'{presses} escapes but {len(clicks)} focusing clicks'
         return presses
     finally:
-        find.find, pyautogui.press = original_find, original_press
+        find.find_center, pyautogui.press, pyautogui.click = originals
 
 
 SCAV = sell.SCAV_WINDOW_TARGET
-OFFER = (sell.ALL_BUTTON_TARGET, sell.AUTOSELECT_TARGET)
+OFFER = (sell.OFFER_TARGET,)
 FILTERS = sell.FILTERS_WINDOW_TARGET
 
 CASES = (
@@ -51,7 +54,10 @@ CASES = (
     (OFFER, 1, 'the offer creation window left open'),
     ((SCAV,) + OFFER, 2, 'both, so both get an escape'),
     ((sell.ALL_BUTTON_TARGET,), 0, 'the plain inventory, which must NOT be escaped'),
-    ((sell.AUTOSELECT_TARGET,), 0, 'half a match is not the offer window either'),
+    ((sell.AUTOSELECT_TARGET,), 0, 'a control inside a window is never what is matched on'),
+    # The reported failure: an interrupted scav run leaves the offer window over the case, and
+    # over a scav case there is no inventory ALL tab, which is what detection used to need.
+    ((SCAV, sell.OFFER_TARGET), 2, 'offer window over a scav case, no inventory in sight'),
     # _set_dropdown gives up with the filter window open and a list unrolled over it, on purpose,
     # so that it can be read. Recovery is what clears it, and it is matched on the title bar
     # because the open list can be sat over everything below it.
