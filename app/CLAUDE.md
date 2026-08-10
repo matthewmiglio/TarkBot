@@ -16,13 +16,57 @@ sell_bot.py          Tarkbot: the flea selling mode.
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a Tarkbot
                      built without one keeps its own.
-gym_bot.py           HideoutGym: the other mode, training at the hideout gym. Its tab is in
-                     gui/app.py's DISABLED_TABS for now, so the GUI draws it greyed out. Same shape as
-                     sell_bot.py (stats dict, _pause checkpoint, Stopped/Retry, start/stop) and
-                     named to pair with it, and so it cannot be mistaken for interact/gym.py.
-                     nothing to do with the flea. SKELETON: train_once() calls into
-                     interact/gym.py, which raises NotImplementedError until its reference
-                     images exist, so starting this mode fails loudly rather than no-opping.
+gym_bot.py           HideoutGym: the other mode, hitting the workout skill check at the hideout
+                     gym. Same shape as sell_bot.py (stats dict, _pause checkpoint, start/stop)
+                     and named to pair with it, and so it cannot be mistaken for
+                     interact/gym.py. Nothing to do with the flea.
+                     do_one_rep() is one look at the screen: match the hexagon icon, and only
+                     if it is there read the strip and click when the two hexagons have met.
+                     No icon means wait IDLE_POLL and look again. start() repeats it until
+                     stop(). It navigates nowhere: start it with the workout already running.
+                     CLICK_GAP is the tuning knob, in ROI columns, 0 today.
+                     The icon gates every look, and must. An earlier version read the strip
+                     first and only checked the icon when the strip came back empty, to save
+                     the match. It clicked fifteen times at a character standing still: a
+                     bright scene fills the whole strip, and one run across all 201 columns is
+                     what two lines that have met also look like. The strip cannot tell a skill
+                     check from a wall. A look costs ~50ms, 45 of which is the one screenshot
+                     it takes of gym.look_region and slices into the icon box and the strip.
+                     The press is aimed, not reacted to. _predict() takes the ring's speed from
+                     the last two readings and, once the overlap is nearer than one look period,
+                     sleeps to it and presses. It has to: the ring closes at ~75 columns a
+                     second on a set's first rep and ~235 by its fifteenth, and a look plus the
+                     ~45ms the pixels are already stale by means waiting to *see* the lines meet
+                     presses 7 to 25 columns past them. That is exactly why reps 1-9 of every
+                     set used to land and 10 onwards did not. CLICK_LEAD is the trim; CLICK_GAP
+                     is only the fallback for a rep whose overlap happened inside one look.
+                     Tarkov scores the rep on the press, not the release, and pyautogui presses
+                     immediately, so its 0.1s PAUSE costs throughput and not accuracy. Do not
+                     turn PAUSE off: sell.py depends on those pauses between its own clicks.
+                     It aims at the two centres lining up, trimmed by AIM_COLUMNS (a spatial
+                     offset, for a miss that looks the same at every speed) and CLICK_LEAD (a
+                     time one, for reps that land early in a set and miss late in it). Aiming
+                     at gym.Lines.touch, where the lines first meet 4-8 columns sooner, was
+                     tried because every fallback press had landed there, and it pressed too
+                     early on every rep.
+                     CLICK_LEAD is 0, and three sessions differing only in it say to leave it
+                     there: +15ms landed reps to ~165 columns a second, 0 to ~205, -30ms to
+                     ~190. Worse both ways, so there is no systematic offset left to cancel and
+                     what limits the last reps of a set is the spread of the error. Do not
+                     reach for either trim again without a measurement saying the misses are
+                     lopsided. An aim can legitimately fall after the two lines merge, which is
+                     why the merged branch honours a pending aim instead of pressing on sight.
+                     Attacking the spread instead: the loop reads through screen.fast_grab, a
+                     BitBlt of just the look box, which took a look from ~60ms to ~17ms. That
+                     shortens the blind extrapolation past the merge from 24-44ms to 8-17ms and
+                     triples the sample rate. Speed is measured across SPEED_SAMPLES readings
+                     end to end rather than the last two, so the faster reads do not turn half
+                     a column of reading error into a large fraction of the speed.
+                     Two Windows clock traps, both measured, both load bearing here. Every
+                     reading is perf_counter, never monotonic, which ticks every 15.6ms and put
+                     30% error in the speed. And the aimed wait is time.sleep via _sleep(), not
+                     Event.wait via _pause(): Event.wait rounds up to that same tick, 45ms for
+                     a 31ms ask, which is a press landing 4 columns late at speed.
 tarkov_window.py     Locates the Tarkov window via ctypes/user32. Load bearing: bot, gui and
                      every test import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h).
                      Raises WindowError if the window is missing or ambiguous.
@@ -57,7 +101,7 @@ report.py            Sends a crash to tarkbot.org: the traceback, plus the frame
                      to storage, where the bucket's own 25MB limit caps them.
                      Png, never lossy: these exist to be cropped into reference images, and
                      while find() survives even JPEG q10, ocr.py's digit templates and sell.py's
-                     dead pixel colours (±5 a channel) do not.
+                     dead pixel colors (±5 a channel) do not.
                      machine_id() is a uuid5 of the Windows build, the account name and the
                      monitor size, so it is stable without anything being stored.
 screen.py            Which monitor the bot works on, and grabbing pixels off it. Exists because
@@ -72,6 +116,13 @@ screen.py            Which monitor the bot works on, and grabbing pixels off it.
                      clips the Tarkov window to it. Importing the module patches
                      pyautogui.screenshot, so the test scripts get the same fix without
                      knowing about any of it. The GUI's MONITOR dropdown is what calls use().
+                     fast_grab(region) is the other capture path, a ctypes BitBlt of just that
+                     rectangle: ~17ms against grab()'s ~45ms, because Pillow photographs the
+                     whole virtual desktop and crops however small the ask. Only gym_bot uses
+                     it, and only because it is pressing a button at an instant. Its pixels
+                     come back 1-2 levels a channel off Pillow's on about half of them, which
+                     is nothing to a brightness threshold and a real problem for ocr.py's digit
+                     bitmaps and sell.py's dead pixel colors at ±5. Those stay on grab().
                      Self-check: python -m screen
 narrate.py           log(message, indent): one timestamped print. Everything in the selling
                      path narrates through it rather than print(), so a run reads back as a
@@ -86,7 +137,7 @@ scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at t
                      python scripts/setup_msi.py bdist_msi --target-version v0.0.0-local
 scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
                      after editing the svg; the ico is committed. Wants cairosvg.
-gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured state lamp, one
+gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored state lamp, one
                      tab per mode (FLEA SELL / HIDEOUT GYM) and the pickers each mode needs.
                      Run: python -m gui.app
                      Under the buttons, one boxed line of narrate.LAST, repainted by tick()
@@ -94,8 +145,20 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured s
                      is doing right now, which is how a working pass is told from a stuck one.
                      one_line() trims it to the inside of that box measured in the real font,
                      and to its first line, since a canvas draws every newline a traceback has
-                     in it. LOGS, left of START, opens %APPDATA%/tarkbot in Explorer, which is
-                     where the session logs and the frames are.
+                     in it. LOGS, left of the run button, opens %APPDATA%/tarkbot in Explorer,
+                     which is where the session logs and the frames are.
+                     One run button, not a START beside a STOP: RUN_STATES holds its three
+                     states, each a label, a face color and whether it can be pressed, and
+                     _set_run() is the only thing that writes it so the two cannot disagree.
+                     Green 'Start (F5)', red 'Stop (F5)', amber 'Stopping...' while the ask is
+                     with the bot, cleared by tick() when the thread comes back. stop() only
+                     goes amber if a thread is actually alive, since tick() is what clears it
+                     and it only fires on a thread it watched die.
+                     F5 does the same as pressing it, through hotkey(): a RegisterHotKey on its
+                     own thread blocked in GetMessageW, not a tk binding (tk sees no keys while
+                     Tarkov has focus) and not a keyboard poll (nothing has to be held down).
+                     The press is handed back to the tk thread with after(0), because tk is
+                     only safe from the thread that built it.
                      Modes are rows in TABS, and each mode's module supplies exactly three
                      things: STAT_LABELS (rows to draw), TINT_STAT (the row that goes green,
                      or None) and build(prefs, stats) -> a runner with start/stop/stats. A
@@ -106,8 +169,8 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a coloured s
                      left was running and waits for it, rather than refusing the switch: the
                      window must never show one mode while another is still clicking. Tabs in
                      DISABLED_TABS are drawn greyed and cannot be switched to at all, which is
-                     where HIDEOUT GYM sits while interact/gym.py is still a skeleton; empty
-                     that set to switch it back on.
+                     where HIDEOUT GYM sits: it hits reps, but the last few of every set still
+                     miss, so it is off until that is fixed. Empty that set to switch it on.
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
                      the glass; the dropdowns are the only real widgets, and they sit in the
@@ -150,8 +213,25 @@ interact/find.py     Locating things on screen. find(), find_all(), find_center(
 interact/sell.py     Everything the flea bot does to a screen. See the section below.
                      Geometry self-check, no game needed: python -m interact.sell
 interact/gym.py      The same for the hideout gym. Separate module on purpose: the two share
-                     find.py and narrate.py and nothing else. All stubs for now; the gym_*
-                     reference folders it names do not exist yet.
+                     find.py and narrate.py and nothing else.
+                     rep_region() is the strip the skill check is read from, held as fractions
+                     of the window (REP_ROI_FRACTIONS) so it lands in the same place at any
+                     resolution, the way sell.grab_price_region does. It is a slice off the
+                     right of both hexagons at the height where their edges are vertical, not a
+                     box around them. icon_region() is the same trick for the hexagon icon: a
+                     145x155 box around where it was measured to land, because the gate reads
+                     it before every look and matching it over the whole window costs 287ms
+                     against 49ms inside that box.
+                     read_lines() collapses that strip to one brightness per column, calls each
+                     run over LINE_BRIGHT a line, and returns Lines(target, moving, gap): the
+                     leftmost is the fixed hexagon's edge, the rightmost the closing ring, each
+                     a sub-pixel column. One run means they have met, so gap is 0. No template
+                     matching, because the ring is a different size in every frame. The target
+                     drifts between reps, so neither line may be measured once and cached.
+                     Getting to the hideout, opening the gym and reading fatigue are still
+                     stubs that raise NotImplementedError, and their gym_* reference folders do
+                     not exist yet.
+                     Self-check, no game needed: python -m interact.gym
 interact/ocr.py      Reads the numbers Tarkov prints. Not an OCR engine: the prices are a fixed
                      bitmap font, so it cuts the crop into glyphs and pixel-matches each against
                      a reference. read_number() is all or nothing, None if any glyph is
@@ -177,7 +257,7 @@ interact/reference_images/<target>/*.png
   buttons framing the grid), `infer_scav_case_region`, `grab_price_region` (fixed window
   fractions, because the number inside changes and there is nothing stable to match).
 - **State reads** `is_flea_open` and `more_offers_available` work off pixel brightness rather
-  than a second template, because those elements only change colour: the flea taskbar icon
+  than a second template, because those elements only change color: the flea taskbar icon
   inverts (mean channel 57 closed, 117 open, threshold 90) and the add offer button greys out
   (brightest channel 255 lit, 123 greyed, threshold 190). `is_item_selected` is three template
   reads that all have to agree, not one: `item_is_selected` and `place_offer_button` present,
@@ -185,7 +265,7 @@ interact/reference_images/<target>/*.png
   a selection and the pass then prices an item it never picked. `is_autoselect_similar_ticked`
   widens the button's box 30% first because the tick sits just outside it.
 - **Finding items** `find_sell_pixels` masks out empty slots using a 256³ boolean cube built
-  from every colour in `reference_images/dead_pixels/`, ±5 per channel. Scav case boxes are
+  from every color in `reference_images/dead_pixels/`, ±5 per channel. Scav case boxes are
   expanded 15% and excluded.
 - **Acting** `click_all_button`, `click_add_offer`, `wait_for_offer_slot` (no timeout unless
   asked for one; pass a threading.Event as `stop` to make it interruptible),
@@ -216,8 +296,24 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
-`test_tab_switch.py`, `test_monitors.py`,
-`python -m interact.sell`, `python -m interact.find`, `python -m frames` and `python -m screen`.
+`test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
+`gym/test_generate_roi.py`,
+`gym/test_line_reads.py`, `gym/test_gym_loop.py`,
+`python -m interact.sell`, `python -m interact.gym`, `python -m interact.find`,
+`python -m frames` and `python -m screen`.
+
+```
+gym/test_generate_roi.py     Cut gym.rep_region out of a saved frame and write the crop plus
+                             the whole frame with the box drawn on it. Where to check a change
+                             to REP_ROI_FRACTIONS. Takes any frame path.
+gym/test_line_reads.py       gym.read_lines over every crop in fixtures/gym/line_reads/, each
+                             one written back out with a green line down the target and a red
+                             one down the closing ring. Takes a file or a folder.
+gym/test_gym_loop.py         The gym loop's decisions against a drawn screen: clicks when the
+                             lines meet and not before, one click per rep, Stop lands mid loop,
+                             and a missing icon crop is a log line rather than the end of the
+                             run.
+```
 
 ```
 test_bot_loop.py             The whole thing. --loop runs pass after pass until ctrl+c, and
@@ -228,7 +324,11 @@ test_price_corpus.py         Reads every fixture in tests/fixtures/prices/ and c
                              its own filename. No game needed. The regression net for ocr.py.
 test_tab_switch.py           Switching tabs stops the mode being left, and a disabled tab
                              refuses the switch. A stand-in runner, no game needed.
-test_monitors.py             Puts a known colour on each monitor in turn and reads it back
+test_run_button.py           The run button's state machine: start -> stop -> stopping -> start,
+                             the label and color agreeing at each step, and the two ways it
+                             used to strand amber (stopping nothing, cancelling a countdown).
+                             Opens the GUI for a moment, no game needed.
+test_monitors.py             Puts a known color on each monitor in turn and reads it back
                              through screen.grab(), so a grab off the wrong screen fails here
                              rather than as the bot finding nothing. No game needed.
 test_activity_line.py        The footer's activity line: is it showing the newest log line, and
@@ -246,6 +346,15 @@ test_drag_failsafe.py        A drag that raises still parks the cursor off the c
                              fail-safe comes back on. No game needed.
 test_click_jitter.py         Clicks land off centre but stay inside the smallest reference crop
                              of the control they are aimed at. No game needed.
+test_recover_loop.py         Start unwinds a stack of leftover windows a layer per round, gives
+                             up on one it cannot clear rather than spinning, and returns when
+                             Stop is pressed part way. No game needed.
+test_recover_targets.py      The other half of that, and the half the fakes cannot cover: a real
+                             Tarkbot against the real window, so the region, the crops and the
+                             loop are all the shipping ones. Bare, it reports which of the three
+                             windows it can see and presses nothing, so it is safe to point at a
+                             live mess. --run calls that bot's own _recover, clicks and all, and
+                             times it. Wants the game up.
 test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
                              and never presses escape, while a pick that did not take still
                              retries. No game needed.
@@ -273,9 +382,9 @@ test_grab_price_window.py    Crop the price region and show what was cropped.
 test_inventory_region.py, test_scav_case_region.py, test_sell_pixels.py, test_select_item.py,
 test_select_scav_item.py, test_open_scav_case.py, test_orientate_offer.py,
 test_click_all_button.py     The individual steps, one script each.
-add_offer_colour.py, flea_icon_colour.py    Measure a UI element's colour in one state, so a
+add_offer_color.py, flea_icon_color.py    Measure a UI element's color in one state, so a
                              brightness threshold can be picked. Run once per state.
-view_screenshot.py           matplotlib viewer with grid, coordinates and colours.
+view_screenshot.py           matplotlib viewer with grid, coordinates and colors.
 find_tarkov_window.py        Dead: a standalone spike that predates tarkov_window.py.
 ```
 
