@@ -31,7 +31,9 @@ import screen
 import version
 from narrate import log
 
-ENDPOINT = os.environ.get('TARKBOT_ERROR_URL', 'https://tarkbot.org/api/error')
+# The www host, not the bare one, which answers a 308 to it. urllib will not carry a POST across
+# a redirect and raises instead, so the bare domain here means no report ever arrives.
+ENDPOINT = os.environ.get('TARKBOT_ERROR_URL', 'https://www.tarkbot.org/api/error')
 TIMEOUT = 20  # seconds; a slow site must not keep a dead run's thread alive for long
 MESSAGE_LIMIT = 2000
 TRACEBACK_LIMIT = 20000  # the endpoint refuses a body over 64KB, and a traceback is the bulk of it
