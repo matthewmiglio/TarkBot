@@ -224,11 +224,15 @@ def close_leftover_windows(region=None, delay=RECOVER_DELAY):
 
     Start is the one moment the bot has no idea what is in front of it. Every other screen it
     meets, it opened itself. A run that was stopped mid pass, or crashed out of one, leaves the
-    scav case window or the offer creation window sitting there, and the first thing the next
-    run does is hunt for the flea tab underneath them and not find it.
+    scav case window, the offer creation window or the flea filter window sitting there, and the
+    first thing the next run does is hunt for the flea tab underneath them and not find it.
 
     The offer creation window needs both of its buttons present, not either. A lone ALL button
     is just the inventory, which is a normal screen to start from and must not be escaped.
+
+    Each window is checked on its own and gets its own escape. They are not expected to be up
+    together, but pairing them off would mean guessing which combinations can happen, and a
+    guess that is wrong here leaves a window on screen for the whole next run.
     """
     presses = 0
     if find.find(SCAV_WINDOW_TARGET, region):
@@ -238,6 +242,16 @@ def close_leftover_windows(region=None, delay=RECOVER_DELAY):
         presses += 1
     if find.find(ALL_BUTTON_TARGET, region) and find.find(AUTOSELECT_TARGET, region):
         log('the offer creation window is still open from last time, escaping out of it', 1)
+        pyautogui.press('esc')
+        time.sleep(delay)
+        presses += 1
+    # Matched on its title bar rather than its OK button, because the state this is most likely
+    # to meet is the one _set_dropdown now dies in: window open with a dropdown list unrolled
+    # over it. The list unrolls downward and can cover the controls below it, but the title bar
+    # is above all of them. One escape is enough either way, since escape here shuts the whole
+    # FILTERS window rather than just the list.
+    if find.find(FILTERS_WINDOW_TARGET, region):
+        log('the flea filter window is still open from last time, escaping out of it', 1)
         pyautogui.press('esc')
         time.sleep(delay)
         presses += 1
@@ -913,8 +927,11 @@ def _set_dropdown(any_target, option_target, settled_target, region=None, delay=
     and the log says the filter was applied.
 
     Every attempt now ends by re-reading the closed dropdown. Only settled_target present with
-    any_target gone counts as done; anything else is retried, because the usual cause is a
-    click that landed while the list was still unrolling.
+    any_target gone counts as done.
+
+    The retries exist for one failure and one only: a click that landed while the list was
+    still unrolling, so the option was picked but the field did not take it. That is worth
+    another go. An option that is not in the open list is not, and returns False on the spot.
 
     Returns True once the dropdown is read as settled, False if it never is.
     """
@@ -945,10 +962,22 @@ def _set_dropdown(any_target, option_target, settled_target, region=None, delay=
         time.sleep(delay)
         point = find.find_center(option_target, region)
         if not point:
-            log(f'{option_target} not in the opened {any_target} dropdown', 2)
-            pyautogui.press('esc')  # shut the list, or the next attempt clicks inside it
-            time.sleep(MENU_DELAY)
-            continue
+            # Straight out, no retry and no escape. Retrying assumed the list was still
+            # unrolling, but the click above was already followed by `delay` and the list is
+            # open: if the option is not there now, it is not going to be there on attempt 3
+            # either. The option's crops do not match what the game is drawing, and no amount
+            # of reopening fixes that.
+            #
+            # The escape was worse than useless. It shuts the whole FILTERS window, not just
+            # the open list, so attempts 2 and 3 clicked at coordinates on a window that was
+            # no longer there, into the live flea board behind it. That is a blind click on a
+            # real market with real money.
+            #
+            # The list is deliberately left open. It is the only evidence of what the game
+            # actually says, and this is the one failure that needs a human to look.
+            log(f'{option_target} not in the opened {any_target} dropdown. Leaving it open so '
+                f'you can see what it reads: the crops for {option_target} do not match it', 1)
+            return False
         log(f'picking {option_target} at {point}', 2)
         pyautogui.click(*point)
         time.sleep(MENU_DELAY)  # let it close before the top of the loop reads it back

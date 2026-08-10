@@ -199,7 +199,8 @@ Nothing here is pytest. Each script runs against the live game, prints what it s
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
 `test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
-`test_drag_failsafe.py`, `test_click_jitter.py`, `test_tab_switch.py`, `test_monitors.py`,
+`test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
+`test_tab_switch.py`, `test_monitors.py`,
 `python -m interact.sell`, `python -m interact.find`, `python -m frames` and `python -m screen`.
 
 ```
@@ -229,6 +230,9 @@ test_drag_failsafe.py        A drag that raises still parks the cursor off the c
                              fail-safe comes back on. No game needed.
 test_click_jitter.py         Clicks land off centre but stay inside the smallest reference crop
                              of the control they are aimed at. No game needed.
+test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
+                             and never presses escape, while a pick that did not take still
+                             retries. No game needed.
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each

@@ -9,9 +9,13 @@ Start is the one moment the bot does not know what is in front of it: the user m
 with a scav case open, or over a run that was stopped mid pass. Every other screen a pass meets
 is one it opened itself.
 
-The case worth protecting is the last one. The offer creation window is recognised by two
+The case worth protecting is the inventory. The offer creation window is recognised by two
 buttons together, and the ALL button on its own is just the inventory, which is a normal place
 to start from. Escaping out of that would close the thing the user was looking at, every time.
+
+The filter window is here for the opposite reason. A dropdown whose option cannot be found now
+leaves that window open deliberately, so the state can be read, which means recovery is the only
+thing that ever clears it.
 """
 import sys
 from pathlib import Path
@@ -39,6 +43,7 @@ def recover_with(on_screen):
 
 SCAV = sell.SCAV_WINDOW_TARGET
 OFFER = (sell.ALL_BUTTON_TARGET, sell.AUTOSELECT_TARGET)
+FILTERS = sell.FILTERS_WINDOW_TARGET
 
 CASES = (
     ((), 0, 'a clean flea screen, nothing to back out of'),
@@ -47,6 +52,12 @@ CASES = (
     ((SCAV,) + OFFER, 2, 'both, so both get an escape'),
     ((sell.ALL_BUTTON_TARGET,), 0, 'the plain inventory, which must NOT be escaped'),
     ((sell.AUTOSELECT_TARGET,), 0, 'half a match is not the offer window either'),
+    # _set_dropdown gives up with the filter window open and a list unrolled over it, on purpose,
+    # so that it can be read. Recovery is what clears it, and it is matched on the title bar
+    # because the open list can be sat over everything below it.
+    ((FILTERS,), 1, 'the flea filter window a failed dropdown left open'),
+    ((FILTERS, sell.CURRENCY_ANY_TARGET), 1, 'the same, list still unrolled, still one escape'),
+    ((SCAV, FILTERS) + OFFER, 3, 'all three, so all three get an escape'),
 )
 
 if __name__ == '__main__':
