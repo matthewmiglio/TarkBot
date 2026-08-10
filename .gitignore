@@ -72,7 +72,9 @@ desktop.ini
 # ---- Not published ----
 demo_obfuscator/
 # Local png/webp/avif size comparison scratch, ~10MB of the same picture over and over.
-image-size-testing/
+# Globbed rather than literal: this folder has already been spelled image-size-testing and
+# _image_size_testing, and a rename should not quietly put 10MB back on the table.
+*image?size?testing/
 # docs/ itself stays out; readme_assets is the exception, the README links its images.
 docs/*
 !docs/readme_assets/
