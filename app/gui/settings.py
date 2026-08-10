@@ -15,6 +15,9 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # (\\.\DISPLAY1). 'auto' until the user picks, which resolves to the monitor Tarkov
             # is on, or the primary. See screen.py.
             'monitor': 'auto',
+            # Post a crash and two screenshots to tarkbot.org so it can be diagnosed and cropped
+            # into the reference image that would have matched. See report.py for what is sent.
+            'send_error_reports': True,
             'undercut': '2k rubles | 90%'}  # how far under the suggested price, see sell_bot.UNDERCUTS
 
 

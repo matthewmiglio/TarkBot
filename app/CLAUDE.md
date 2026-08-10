@@ -44,6 +44,22 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      changes are captured. 250 frames across all sessions, oldest deleted as
                      new ones arrive. Whole screen, native resolution, lossless.
                      Self-check: python -m frames
+report.py            Sends a crash to tarkbot.org: the traceback, plus the frame from before the
+                     last click and the screen as it is now. Hooked into the one catch in
+                     gui/app.py's _run, on a daemon thread, so a slow or dead site cannot hold
+                     up the red lamp or raise on top of the error it is reporting. Off with
+                     send_error_reports false in settings.json.
+                     Ships no key: it posts to a route on our own site, which holds the Supabase
+                     service key server side, the same way the download counter does. The
+                     screenshots do not go through that route. A lossless png of a 1440p screen
+                     is 4.5MB and Vercel rejects bodies at 4.5MB before route code runs, so the
+                     endpoint answers with two single-use upload urls and the bytes go straight
+                     to storage, where the bucket's own 25MB limit caps them.
+                     Png, never lossy: these exist to be cropped into reference images, and
+                     while find() survives even JPEG q10, ocr.py's digit templates and sell.py's
+                     dead pixel colours (±5 a channel) do not.
+                     machine_id() is a uuid5 of the Windows build, the account name and the
+                     monitor size, so it is stable without anything being stored.
 screen.py            Which monitor the bot works on, and grabbing pixels off it. Exists because
                      pyscreeze photographs the primary monitor and nothing else, and
                      locateOnScreen throws the caller's region away before grabbing, so a
@@ -233,6 +249,13 @@ test_click_jitter.py         Clicks land off centre but stay inside the smallest
 test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
                              and never presses escape, while a pick that did not take still
                              retries. No game needed.
+test_error_report.py         Crash reporting end to end. The machine id depends on all three of
+                             its inputs, a real screenshot round trips byte for byte, an image
+                             past the bucket cap is refused, and a crash through App._run both
+                             sets the lamp and reports itself. No game needed, but it wants a
+                             screen and the site running (npx next dev in website/); point it
+                             at the deploy with TARKBOT_ERROR_URL. Writes real rows under a
+                             test machine id and deletes them again.
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each
