@@ -46,6 +46,11 @@ NO_SELECTION_TARGET = 'no_items_selected'  # the placeholder shown while nothing
 SELECTION_TARGET = 'item_is_selected'  # the panel shown once something is, the other half of the read
 FLEA_ICON_TARGET = 'flea_icon'  # the taskbar entry, one folder holding both its states
 RECOVER_DELAY = 1.0  # seconds after an escape at startup, for the window to actually go
+# Clicks land a few pixels off the centre of whatever matched, so a session is not a column of
+# identical coordinates. Small on purpose: these are a nudge inside a button, not an attempt to
+# cover it. Per control, because the smallest of them is a 30x26 gear.
+CLICK_JITTER = 3  # px each way, for anything button sized
+GEAR_JITTER = 2  # the flea filter gear, small enough to want less
 FLEA_OPEN_BRIGHTNESS = 90  # mean channel value: measured 57 closed, 117 open
 # The suggested price readout, as (left, top, right, bottom) fractions of the window.
 # Measured at 1920x1080: left 1339, top 147, right 1498, bottom 186.
@@ -473,9 +478,24 @@ def remove_stale_offers(region=None, stop=None, settle=STALE_SETTLE):
     return removed
 
 
+def jitter(point, x=CLICK_JITTER, y=CLICK_JITTER):
+    """`point` nudged by up to x and y pixels each way. None passes straight through.
+
+    Uniform across the range rather than tapered toward the middle: at 2-3px on controls tens of
+    pixels wide, every draw is comfortably inside the button, so there is no edge to lean away
+    from. Anything wide enough to want a bigger spread would want tapering with it.
+
+    y=0 is a real setting, for the right-click menu rows: their reference crops are a 6px strip
+    of text, so the box says nothing about where the row's top and bottom actually are.
+    """
+    if point is None:
+        return None
+    return (point[0] + random.randint(-x, x), point[1] + random.randint(-y, y))
+
+
 def click_add_offer(region=None):
     """Click the add offer button. Returns the clicked (x, y), or None if not found."""
-    point = find.find_center(ADD_OFFER_TARGET, region)
+    point = jitter(find.find_center(ADD_OFFER_TARGET, region))
     log(f'clicking add offer at {point}' if point else 'no add offer button on screen', 1)
     if point:
         pyautogui.click(*point)
@@ -488,7 +508,7 @@ def enter_price(value, region=None):
     Select all first: the field arrives holding the suggested price, and typing into it
     without clearing appends, which turns 99000 into something like 10000099000.
     """
-    point = find.find_center(PRICE_INPUT_TARGET, region)
+    point = jitter(find.find_center(PRICE_INPUT_TARGET, region))
     if not point:
         log('no roubles price field on screen', 1)
         return None
@@ -502,7 +522,7 @@ def enter_price(value, region=None):
 
 def click_place_offer(region=None):
     """Click the place offer button. Returns the clicked (x, y), or None if not found."""
-    point = find.find_center(PLACE_OFFER_TARGET, region)
+    point = jitter(find.find_center(PLACE_OFFER_TARGET, region))
     log(f'clicking place offer at {point}' if point else 'no place offer button on screen', 1)
     if point:
         pyautogui.click(*point)
@@ -790,7 +810,7 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
             log('no filter by item in the menu, escaping out', 2)
             pyautogui.press('esc')  # shut whatever did open, or the next find hits a stale menu
             continue
-        point = pyautogui.center(box)
+        point = jitter(pyautogui.center(box), y=0)  # a 6px tall crop says nothing about the row
         log(f'clicking filter by item at {point}', 2)
         pyautogui.click(*point)
         time.sleep(SELECT_WINDOW_DELAY)  # the flea panel has to catch up before we read it
@@ -944,7 +964,7 @@ def apply_flea_filters(region=None):
     and the remember box only while it is off, so running this against an already filtered
     board opens the window and OKs straight back out rather than undoing the settings.
     """
-    point = find.find_center(FILTER_BUTTON_TARGET, region)
+    point = jitter(find.find_center(FILTER_BUTTON_TARGET, region), GEAR_JITTER, GEAR_JITTER)
     if not point:
         log('no filter button on screen', 1)
         return False
@@ -984,7 +1004,7 @@ def apply_flea_filters(region=None):
                          OFFERS_FROM_PLAYERS_TARGET, region, OFFERS_FROM_DELAY):
         return False
 
-    point = find.find_center(FILTERS_OK_TARGET, region)  # applies them and shuts the window
+    point = jitter(find.find_center(FILTERS_OK_TARGET, region))  # applies them and shuts the window
     if not point:
         log('no OK button on the flea filter window', 1)
         return False
@@ -1077,7 +1097,7 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
             log('no filter by item in the menu, escaping out', 2)
             pyautogui.press('esc')  # same as the inventory path: a left open menu eats the next click
             continue
-        point = pyautogui.center(box)
+        point = jitter(pyautogui.center(box), y=0)  # a 6px tall crop says nothing about the row
         log(f'clicking filter by item at {point}', 2)
         pyautogui.click(*point)
         time.sleep(SELECT_WINDOW_DELAY)  # the flea panel has to catch up before we read it
