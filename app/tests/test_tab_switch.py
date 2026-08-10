@@ -45,7 +45,14 @@ if __name__ == '__main__':
         print(f'ok, still on {app.tab!r}')
 
     gui_app.DISABLED_TABS = set()  # so the switch itself can be exercised
-    app.tabs['gym'].config(True)
+    for key, _, _ in gui_app.TABS:
+        app.tabs[key].config(True)
+
+    # Whichever tab the GUI did not open on. Not hardcoded to 'gym': the tab it opens on is
+    # whichever one was last used, so once gym mode became selectable this test started
+    # switching to the tab it was already on, which stops nothing and proves nothing.
+    target = next(key for key, _, _ in gui_app.TABS if key != app.tab)
+    origin = app.tab
 
     runner = FakeRunner()
     app.bot = runner
@@ -54,22 +61,22 @@ if __name__ == '__main__':
     root.update()
     if not app.thread.is_alive():
         sys.exit('FAILED: the stand-in runner never started, so this proves nothing')
-    print(f'runner alive on the {app.tab!r} tab, switching to gym')
+    print(f'runner alive on the {app.tab!r} tab, switching to {target!r}')
 
-    app._show_tab('gym')
+    app._show_tab(target)
     root.update()
 
     if not runner.stopped:
         sys.exit('FAILED: switching tabs did not ask the running mode to stop')
     if app.thread.is_alive():
         sys.exit('FAILED: switched away while the old mode was still running')
-    if app.tab != 'gym':
+    if app.tab != target:
         sys.exit(f'FAILED: the switch did not happen, still on {app.tab!r}')
     print(f'ok, runner stopped and the tab is {app.tab!r}')
 
     # A switch with nothing running is still just a switch, and must not trip over a dead thread.
-    app._show_tab('flea')
-    if app.tab != 'flea':
+    app._show_tab(origin)
+    if app.tab != origin:
         sys.exit(f'FAILED: switching back with nothing running left it on {app.tab!r}')
 
     root.destroy()

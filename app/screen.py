@@ -32,6 +32,8 @@ AUTO = 'auto'  # the saved preference before anyone has picked, and after a moni
 # GetSystemMetrics indices for the rectangle enclosing every monitor.
 SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN = 76, 77, 78, 79
 MONITORINFOF_PRIMARY = 1
+SRCCOPY = 0x00CC0020  # plain copy, for fast_grab. CAPTUREBLT would add layered windows, and
+DIB_RGB_COLORS = 0    # measured no slower, but the game is not one and neither is the flea.
 
 # name is the device name Windows gives it (\\.\DISPLAY1), stable enough to save and match
 # against next boot. label is what the dropdown shows. rect is (left, top, width, height) in
@@ -169,6 +171,60 @@ def grab(region=None):
                  virtual_origin())
 
 
+class _BITMAPINFOHEADER(ctypes.Structure):
+    _fields_ = [('biSize', wintypes.DWORD), ('biWidth', wintypes.LONG),
+                ('biHeight', wintypes.LONG), ('biPlanes', wintypes.WORD),
+                ('biBitCount', wintypes.WORD), ('biCompression', wintypes.DWORD),
+                ('biSizeImage', wintypes.DWORD), ('biXPelsPerMeter', wintypes.LONG),
+                ('biYPelsPerMeter', wintypes.LONG), ('biClrUsed', wintypes.DWORD),
+                ('biClrImportant', wintypes.DWORD)]
+
+
+def fast_grab(region):
+    """`region` copied straight off the screen, for callers that care more about when than what.
+
+    grab() goes through Pillow, which photographs the entire virtual desktop and crops: about
+    45ms whatever is asked for, and passing Pillow a bbox does not help because it crops
+    internally too. This copies only the asked-for rectangle, measured at 17ms for a 311x155
+    box, and the difference is not saved work but freshness. It exists for gym_bot, whose whole
+    job is pressing a button at a particular instant, and where 28ms is several columns of a
+    moving target.
+
+    NOT a drop-in for grab(), which is why it is a separate function with a duller name rather
+    than an option on that one. Its pixels come back one to two levels a channel off Pillow's
+    on roughly half of them, and nobody has explained why. That is nothing against a threshold
+    of 100 sitting between a floor of 18 and a peak of 204, and nothing against template
+    matching at 0.9 confidence, and it is a real problem for ocr.py's digit bitmaps and for
+    sell.py's dead pixel colors, which match to within ±5 a channel. Those go through grab().
+
+    region is (left, top, width, height) in the same screen coordinates as everything else: the
+    screen DC covers the whole virtual desktop, so a monitor at a negative x needs no
+    adjustment here, unlike the Pillow path.
+    """
+    from PIL import Image
+
+    gdi32 = ctypes.windll.gdi32
+    left, top, width, height = region
+    screen_dc = user32.GetDC(None)
+    memory_dc = gdi32.CreateCompatibleDC(screen_dc)
+    bitmap = gdi32.CreateCompatibleBitmap(screen_dc, width, height)
+    try:
+        gdi32.SelectObject(memory_dc, bitmap)
+        gdi32.BitBlt(memory_dc, 0, 0, width, height, screen_dc, left, top, SRCCOPY)
+        header = _BITMAPINFOHEADER()
+        header.biSize = ctypes.sizeof(_BITMAPINFOHEADER)
+        header.biWidth, header.biHeight = width, -height  # negative height means top down rows
+        header.biPlanes, header.biBitCount = 1, 32
+        buffer = ctypes.create_string_buffer(width * height * 4)
+        gdi32.GetDIBits(memory_dc, bitmap, 0, height, buffer, ctypes.byref(header),
+                        DIB_RGB_COLORS)
+        return Image.frombuffer('RGB', (width, height), buffer, 'raw', 'BGRX', 0, 1)
+    finally:
+        gdi32.DeleteObject(bitmap)
+        gdi32.DeleteDC(memory_dc)
+        user32.ReleaseDC(None, screen_dc)
+
+
 def watch(module=pyautogui):
     """Point pyautogui.screenshot at grab(), so call sites that never heard of this still work.
 
@@ -244,6 +300,19 @@ if __name__ == '__main__':
     assert grabbed.size == size(), f'a bare grab is the whole monitor, {grabbed.size} != {size()}'
     part = grab((rect()[0] + 4, rect()[1] + 6, 20, 10))
     assert part.size == (20, 10), f'a region grab is exactly that region, {part.size}'
+
+    # fast_grab against grab(), which is the only thing that says the BitBlt geometry is right.
+    # Pixels are not compared: the screen moves between the two, and they are known to disagree
+    # slightly anyway (see fast_grab). Size and placement are what would break silently.
+    box = (rect()[0] + 40, rect()[1] + 30, 64, 48)
+    quick = fast_grab(box)
+    assert quick.size == (64, 48), f'fast_grab returned {quick.size}'
+    assert quick.mode == 'RGB', quick.mode
+    assert fast_grab(rect()).size == size(), 'a whole monitor comes back whole'
+    # Off the left of the primary is where a BGRX or an origin mistake would show up, since
+    # BitBlt takes screen coordinates and Pillow does not.
+    left_edge = (virtual_origin()[0], rect()[1], 16, 16)
+    assert fast_grab(left_edge).size == (16, 16), 'the far left of the desktop is reachable'
 
     watch()
     watch()  # a second call must not wrap the wrapper

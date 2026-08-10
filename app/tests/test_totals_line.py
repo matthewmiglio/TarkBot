@@ -15,6 +15,7 @@ likely way this comes back.
 """
 import sys
 import threading
+from collections import deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -31,8 +32,10 @@ def bare(cls, labels, pass_name, boom):
     bot = object.__new__(cls)
     bot._stop = threading.Event()
     bot.stats = {key: 0 for key, _ in labels}
-    bot.rest = 0  # gym_bot's Retry branch sleeps on it; unused here, but start() must not fail on it
     bot._recover = lambda: None  # reads the real screen on Start; test_recover_on_start covers it
+    # gym_bot.start() clears its per rep state on the way in. Unused here, since the pass
+    # function is replaced, but start() must not trip over its absence before reaching it.
+    bot._last, bot._due, bot._idle = deque(), None, False
     setattr(bot, pass_name, boom)
     return bot
 
@@ -56,7 +59,9 @@ def check(cls, labels, pass_name, expected):
 if __name__ == '__main__':
     print('a pass raises, and the totals line still lands:')
     check(sell_bot.Tarkbot, sell_bot.STAT_LABELS, 'sell_one', 'finished after 1 passes')
-    check(gym_bot.HideoutGym, gym_bot.STAT_LABELS, 'train_once', 'finished after 1 sets')
+    # The gym counts seconds rather than passes, so its totals line is matched on the counter
+    # it carries instead of on a count of anything.
+    check(gym_bot.HideoutGym, gym_bot.STAT_LABELS, 'do_one_rep', 'Reps clicked 0')
 
     # And the clean path still works, or the finally could be hiding a broken normal exit.
     # The pass stops the bot from inside itself: start() clears the flag on the way in, so
