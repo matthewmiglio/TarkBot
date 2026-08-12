@@ -30,7 +30,11 @@ WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab it
 # rather than slept through, so a fast open costs a poll and a slow one still works.
 SCAV_WINDOW_TIMEOUT = 10.0  # seconds the scav case window gets to appear before we give up
 SCAV_WINDOW_POLL = 0.25  # seconds between rechecks while waiting for it
-SELECT_ATTEMPTS = 50  # clicks to try before admitting we cannot land on an item
+# Clicks to try before admitting we cannot land on an item. Was 50, which took a minute or two
+# to burn through at roughly 1.5s a miss, all of it clicking gaps in a grid the pass had already
+# read once. Ten misses is enough to say this screen is not giving up an item; starting a fresh
+# pass re-reads the inventory region and costs less than the forty attempts it replaces.
+SELECT_ATTEMPTS = 10
 # After a left click, before asking the offer panel what it did. Was MENU_DELAY / 2, which
 # was under the panel's own redraw: the read landed on the *previous* attempt's panel, so a
 # hit read as a miss (click on, one slot later) and a miss read as a hit (right click a gap,
@@ -119,7 +123,7 @@ STALE_TOP_FRACTION = 153 / 1080
 STALE_BOTTOM_FRACTION = 380 / 1080
 STALE_STEP_FRACTION = 20 / 1080
 # After clicking a row, before looking for its remove buttons. Its own constant rather than
-# the select loop's poll: that one is tuned for fifty cheap retries, and here a search that
+# the select loop's poll: that one is tuned for a run of cheap retries, and here a search that
 # runs early just finds nothing and silently leaves the offer up.
 STALE_ROW_DELAY = 1.5
 STALE_CONFIRM_DELAY = 0.33  # seconds either side of the y that answers the are-you-sure dialog
@@ -802,7 +806,7 @@ def find_scav_case_pixels(region=None):
     return points
 
 
-def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
+def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS, stop=None):
     """Grab a random item from the inventory screen and filter by it on the flea.
 
     Left-clicks a random sellable pixel and asks the offer panel whether that actually
@@ -815,9 +819,19 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
     Checking the cheap thing first is the point: a miss now costs one left click instead of a
     right click, a menu wait and a menu search.
 
+    stop: a threading.Event that abandons the loop the moment it is set, returning None. This
+    is the longest stretch of a pass with nothing else to interrupt it. Every attempt is a
+    screenshot, a click and a poll, so without this a Stop pressed at the wrong moment sat
+    through the rest of them, which is most of the delay between the button going amber and
+    the run actually ending. Checked at the top of the attempt, before the screenshot, so a
+    stop already set costs nothing at all.
+
     ponytail: re-screenshots per attempt as asked, so each retry costs a fraction of a second.
     """
     for attempt in range(1, attempts + 1):
+        if stop is not None and stop.is_set():
+            log(f'stop asked for after {attempt - 1} attempt(s), abandoning the selection', 2)
+            return None
         points = find_sell_pixels(region)
         if not points:
             log('no sellable pixels in the inventory, the stash looks empty', 1)
@@ -825,7 +839,9 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS):
         chosen = random.choice(points)
         log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)
         pyautogui.click(*chosen)
-        time.sleep(SELECT_POLL_DELAY)
+        if _sleep(SELECT_POLL_DELAY, stop):  # cut short means stop, not a poll that finished
+            log('stop asked for while waiting on the offer panel, abandoning the selection', 2)
+            return None
         if not is_item_selected(region):
             # Get the pointer off the grid before the next attempt re-reads the screen. A click
             # leaves it where it landed, and one resting in the top rows puts a hover state or a
@@ -1111,15 +1127,20 @@ def open_scav_case(region=None):
     return point
 
 
-def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
+def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, stop=None):
     """Grab a random item from the open scav case and filter by it on the flea.
 
     Assumes the case is already open and orientated. Same flow as
     select_item_from_inventory, just over the scav case grid instead of the stash: left click,
     ask the offer panel whether anything got selected, and only then go for the right-click
     menu. Returns the clicked (x, y), or None if every attempt missed.
+
+    stop: as the inventory loop, a threading.Event that abandons the attempts at once.
     """
     for attempt in range(1, attempts + 1):
+        if stop is not None and stop.is_set():
+            log(f'stop asked for after {attempt - 1} attempt(s), abandoning the selection', 2)
+            return None
         points = find_scav_case_pixels(region)
         if not points:
             log('no live pixels in the scav case, it is empty', 1)
@@ -1127,7 +1148,9 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS):
         chosen = random.choice(points)
         log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)
         pyautogui.click(*chosen)
-        time.sleep(SELECT_POLL_DELAY)
+        if _sleep(SELECT_POLL_DELAY, stop):  # cut short means stop, not a poll that finished
+            log('stop asked for while waiting on the offer panel, abandoning the selection', 2)
+            return None
         if not is_item_selected(region):
             # Get the pointer off the grid before the next attempt re-reads the screen. A click
             # leaves it where it landed, and one resting in the top rows puts a hover state or a
@@ -1225,4 +1248,32 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
         raise AssertionError('expected LookupError')
     except LookupError:
         pass
+
+    # Stop lands inside the select loop rather than at the end of it. Faked down to the three
+    # things the loop touches, since the real one wants a screen and a game: what is being
+    # checked is where the stop is read, not whether a click hits an item.
+    import threading
+
+    clicks = []
+    saved = {name: globals()[name] for name in ('find_sell_pixels', 'is_item_selected',
+                                                '_park_cursor')}
+    real_click = pyautogui.click
+    try:
+        globals()['find_sell_pixels'] = lambda region=None: [(1, 1)]
+        globals()['is_item_selected'] = lambda region=None: False  # every attempt misses
+        globals()['_park_cursor'] = lambda: None
+        pyautogui.click = lambda *args, **kwargs: clicks.append(args)
+
+        assert select_item_from_inventory(stop=threading.Event()) is None, 'every attempt missed'
+        assert len(clicks) == SELECT_ATTEMPTS, \
+            f'an unset stop runs every attempt, got {len(clicks)} of {SELECT_ATTEMPTS}'
+
+        clicks.clear()
+        already = threading.Event()
+        already.set()
+        assert select_item_from_inventory(stop=already) is None, 'a set stop returns at once'
+        assert clicks == [], 'and it never clicked: the stop is read before the screenshot'
+    finally:
+        globals().update(saved)
+        pyautogui.click = real_click
     print('ok')

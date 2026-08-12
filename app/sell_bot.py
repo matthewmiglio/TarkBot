@@ -70,7 +70,7 @@ class Retry(Exception):
     """Raised to abandon this pass and start a fresh one, rather than to stop the bot.
 
     For the things that go wrong often enough that quitting over them would be silly: a price
-    that never populates, a stash where fifty clicks all landed on nothing.
+    that never populates, a stash where every click of the select loop landed on nothing.
     """
 
 
@@ -194,13 +194,14 @@ class Tarkbot:
             else:
                 escapes = SCAV_ESCAPES  # open now, and open whatever happens next
                 try:
-                    point = sell.select_item_from_random_scav_case(self.region)
+                    point = sell.select_item_from_random_scav_case(self.region, stop=self._stop)
                     return Selection(point, escapes, 'scav')
                 except LookupError as e:  # opened, but the window never became readable
                     log(f'scav case window not readable ({e}), falling back to the stash', 1)
         else:
             log('picking an item out of the stash')
-        return Selection(sell.select_item_from_inventory(self.region), escapes, 'inventory')
+        return Selection(sell.select_item_from_inventory(self.region, stop=self._stop),
+                         escapes, 'inventory')
 
     def _escape(self, presses):
         """Back out of whatever is on screen, so the next pass starts somewhere known."""
@@ -214,6 +215,10 @@ class Tarkbot:
         started = time.monotonic()
         self.open_offer_creation()
         picked = self.select_item()
+        # Before the no-item accounting below, because the select loop also returns None when
+        # it was stopped part way. Without this a Stop read as 'nothing selectable', which
+        # counted a find failure that never happened and pressed escape on the way out.
+        self._pause()
         if not picked.point:
             self.stats['select_failed'] += 1
             self._escape(picked.escapes)
