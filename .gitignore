@@ -81,6 +81,11 @@ demo_obfuscator/
 # A 2560x1440 lossless png is 4.5MB and this fills up with them. The finding itself is written
 # up in that folder's README and the fix landed in screen.py, so nothing here needs keeping.
 _1440p_find_fix/
+# Crash screenshots pulled out of Tarkbot_screenshots to cut 1440p reference crops from. These
+# are somebody's actual screen, character name and rouble balance included, so they never go
+# near a commit. The skill downloads them to the temp folder for exactly this reason; this
+# folder exists because the crops have to be cut against a real frame and that wants them kept.
+_1440p_find_patch/
 # docs/ itself stays out; readme_assets is the exception, the README links its images.
 docs/*
 !docs/readme_assets/
