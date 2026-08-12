@@ -908,6 +908,13 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     points, so the fail-safe comes off for the drag and only goes back on once the cursor is
     clear of it. Leaving it parked in a corner trips the next call instead, which is a crash
     a long way from its cause.
+
+    Every pass logs where the window was before the drag, the cursor path, and where it ended
+    up. That last one is the one that used to be missing: the old log said which point was
+    grabbed and never where the window landed, so a run reading back as 72 clean orientations
+    said nothing about whether any of them actually reached the corner. The read after the
+    last drag is the only genuinely extra match this costs, since the read after every other
+    one is the read the next pass was going to do anyway.
     """
     destination = _corner_point(corner, screen.rect())
     log(f'dragging {target} to the {corner} at {destination}, up to {repeats} passes, '
@@ -916,16 +923,31 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     failsafe = pyautogui.FAILSAFE
     pyautogui.FAILSAFE = False
     try:
+        box = find.find(target, region)
         for attempt in range(1, repeats + 1):
-            point = find.find_center(target, region)
-            if not point:
+            if not box:
                 log(f'pass {attempt}/{repeats}: {target} not on screen, stopping here', 2)
                 break
-            log(f'pass {attempt}/{repeats}: grabbing {target} at {point}, '
-                f'dragging to {destination} over {duration:.2f}s', 2)
+            point = pyautogui.center(box)
+            log(f'pass {attempt}/{repeats}: {target} pre ({int(box.left)}, {int(box.top)}) '
+                f'{int(box.width)}x{int(box.height)}, grabbing its centre {tuple(point)}', 2)
+            log(f'cursor {tuple(point)} -> {destination} over {duration:.2f}s, left button down', 2)
             grabbed = point
             pyautogui.moveTo(*point)
             pyautogui.dragTo(*destination, duration=duration, button='left')
+            box = find.find(target, region)  # the post of this pass, and the pre of the next
+            if not box:
+                log(f'{target} post: gone from the screen after the drag', 2)
+                continue  # the top of the loop reports it and stops
+            # int() throughout: pyautogui.center returns floats on some versions, and a
+            # '+d' format against one of those raises inside the logging of a working drag.
+            after = pyautogui.center(box)
+            was, now = (int(point[0]), int(point[1])), (int(after[0]), int(after[1]))
+            log(f'{target} post ({int(box.left)}, {int(box.top)}) '
+                f'{int(box.width)}x{int(box.height)}, centre {now}: '
+                f'moved ({now[0] - was[0]:+d}, {now[1] - was[1]:+d}), '
+                f'still ({now[0] - destination[0]:+d}, {now[1] - destination[1]:+d}) '
+                f'from the {corner}', 2)
     finally:
         # Parking goes in the finally, not at the end of the try. The cursor is sat on a corner
         # for the whole drag, and every corner is one of pyautogui's panic points, so a raise

@@ -17,22 +17,26 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pyautogui  # noqa: E402
+from pyscreeze import Box  # noqa: E402
 
 import screen  # noqa: E402
 from interact import find, sell  # noqa: E402
 
 CORNER = (0, 1079)  # bottom left, where the offer creation window gets dragged every pass
 MIDDLE = (960, 540)  # where _park_cursor should leave it, clear of all four panic points
+# A title bar whose centre is (71, 121), which is what _drag_to_corner grabs. The function
+# reads the whole Box now rather than just a centre, so it can log where the window sat before
+# the drag and where it ended up, and the fake has to be a Box for the same reason.
+TITLE_BAR = Box(61, 111, 20, 20)
 
 
-def drag_with(find_center):
+def drag_with(finder, dragger=None):
     """_drag_to_corner with the screen faked. Returns (where the cursor ended, what was raised)."""
     at = [None]
-    originals = (find.find_center, pyautogui.moveTo, pyautogui.dragTo, screen.rect,
-                 pyautogui.FAILSAFE)
-    find.find_center = find_center
+    originals = (find.find, pyautogui.moveTo, pyautogui.dragTo, screen.rect, pyautogui.FAILSAFE)
+    find.find = finder
     pyautogui.moveTo = lambda x, y=None, **kw: at.__setitem__(0, (x, y))
-    pyautogui.dragTo = lambda x, y=None, **kw: at.__setitem__(0, (x, y))
+    pyautogui.dragTo = dragger or (lambda x, y=None, **kw: at.__setitem__(0, (x, y)))
     screen.rect = lambda: (0, 0, 1920, 1080)
     pyautogui.FAILSAFE = True
     try:
@@ -44,7 +48,7 @@ def drag_with(find_center):
         assert pyautogui.FAILSAFE is True, 'the fail-safe was not put back'
         return at[0], raised
     finally:
-        (find.find_center, pyautogui.moveTo, pyautogui.dragTo, screen.rect,
+        (find.find, pyautogui.moveTo, pyautogui.dragTo, screen.rect,
          pyautogui.FAILSAFE) = originals
 
 
@@ -53,12 +57,15 @@ def boom(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    ended, raised = drag_with(lambda *a, **kw: (71, 121))
+    ended, raised = drag_with(lambda *a, **kw: TITLE_BAR)
     assert raised is None, f'a clean drag should not raise, got {raised}'
     assert ended == MIDDLE, f'clean drag left the cursor at {ended}, wanted {MIDDLE}'
     print(f'  ok  clean drag      cursor parked at {ended}, fail-safe back on')
 
-    ended, raised = drag_with(boom)
+    # The raise comes from the drag itself, so the cursor really is sat on the corner with the
+    # fail-safe off when it happens. Raising out of the find instead, which is what this used
+    # to do, never got that far and so never tested the thing in the docstring.
+    ended, raised = drag_with(lambda *a, **kw: TITLE_BAR, dragger=boom)
     assert raised is not None, 'the real failure was swallowed'
     assert ended == MIDDLE, (f'the drag raised and left the cursor at {ended}, a panic point; '
                              f'the next pyautogui call anywhere would die with a fail-safe error')
