@@ -101,7 +101,7 @@ def use(name):
             _chosen = monitor
             log(f'working on monitor {monitor.label} ({monitor.name}) at {monitor.rect}')
             return monitor
-    _chosen = available[0]
+    _chosen = _default()
     if name not in (None, '', AUTO):
         log(f'no monitor named {name!r} any more, falling back to {_chosen.label}')
     else:
@@ -110,8 +110,8 @@ def use(name):
 
 
 def current():
-    """The monitor in use, defaulting to the primary until use() says otherwise."""
-    return _chosen if _chosen is not None else monitors()[0]
+    """The monitor in use: the one picked, else Tarkov's own, else the primary."""
+    return _chosen if _chosen is not None else _default()
 
 
 def containing(point):
@@ -122,6 +122,34 @@ def containing(point):
         if left <= x < left + width and top <= y < top + height:
             return monitor
     return monitors()[0]
+
+
+def _game_monitor():
+    """The monitor the Tarkov window is on, or None if it is not up.
+
+    Imported inside the function on purpose. screen.py is imported by plenty that has no
+    business caring whether a game is running, and a missing window must never be able to stop
+    a screenshot: everything here falls back rather than raises.
+    """
+    try:
+        import tarkov_window
+        hwnd = tarkov_window.handle()
+        (left, top), (width, height) = tarkov_window.position(hwnd), tarkov_window.size(hwnd)
+        return containing((left + width // 2, top + height // 2))  # centre, not a corner a
+    except Exception:  # window rect can share with the neighbouring screen
+        return None
+
+
+def _default():
+    """What to work on when nothing has been picked: Tarkov's screen, else the primary.
+
+    The primary alone used to be the whole answer, and it is wrong on exactly the layout this
+    app exists for: the game on a 1440p second monitor with a 1080p primary. find.scale()
+    measures off the working monitor, so that resized every reference image by 1.0 instead of
+    1.333 and every target on screen missed at once. Nothing raised and nothing looked wrong;
+    the log just said the flea icon was not on screen, for hours.
+    """
+    return _game_monitor() or monitors()[0]
 
 
 def rect():
@@ -262,8 +290,12 @@ if __name__ == '__main__':
               + ('  primary' if monitor.primary else ''))
     print(f'virtual desktop {virtual_rect()}, origin {virtual_origin()}')
 
-    assert current().primary, 'nothing picked yet means the primary'
-    assert use('\\\\.\\NOPE').primary, 'an unplugged monitor falls back to the primary'
+    # Both fallbacks go through _default(), which is Tarkov's screen when the game is up and the
+    # primary when it is not. Asserted against _default() rather than against .primary, which
+    # was the old rule and is only still true with the game closed or on the primary.
+    assert current() == _default(), 'nothing picked yet means the game screen, else the primary'
+    assert use('\\\\.\\NOPE') == _default(), 'an unplugged monitor falls back the same way'
+    assert _game_monitor() is None or _game_monitor() in found, 'the game is on a real monitor'
     last = found[-1]
     assert use(last.name) == last, 'picking one by device name selects it'
     assert size() == last.rect[2:] and rect() == last.rect
