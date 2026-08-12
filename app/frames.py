@@ -47,6 +47,12 @@ WATCHED = ('click', 'doubleClick', 'rightClick', 'middleClick', 'dragTo', 'drag'
 _dir = None  # None until start(), and capture() is a no-op until then
 _keep = KEEP  # the live cap, so every capture prunes to the number start() was given
 _kept = deque()  # frame paths, oldest first, so pruning is a popleft rather than a glob
+# True while a wrapped call is in flight. Several of the watched functions are written in terms
+# of the others: pyautogui.typewrite presses each character through the module's own press(),
+# which is patched too, so typing 18900 left a pair of frames per digit inside the pair around
+# the typewrite. Only the outermost call takes frames now.
+# ponytail: one flag, not threading.local, because only ever one bot thread clicks at a time.
+_busy = False
 
 
 def start(directory=FRAME_DIR, keep=KEEP):
@@ -110,14 +116,17 @@ def capture(label='', image=None):
 
 
 def _wrap(func, name):
-    """`func`, with a frame either side of it."""
+    """`func`, with a frame either side of it. Nested watched calls pass straight through."""
     def framed(*args, **kwargs):
-        if _dir is None:
+        global _busy
+        if _dir is None or _busy:
             return func(*args, **kwargs)
+        _busy = True
         before = capture('pre')
         try:
             return func(*args, **kwargs)
         finally:
+            _busy = False
             after = capture('post')
             # The names go in the log so a line of narration points straight at the two
             # pictures taken around it, which is the whole point of stamping them.
@@ -184,6 +193,32 @@ if __name__ == '__main__':
         assert calls == [(7, 9)], f'the real click still ran with its arguments, {calls}'
         assert len(list(directory.glob(f'*{SUFFIX}'))) == before + 2, 'one click, two frames'
         assert pair[0].endswith(f'-pre{SUFFIX}') and pair[1].endswith(f'-post{SUFFIX}'), pair
+
+        # A watched function written in terms of another watched one, which is what
+        # pyautogui.typewrite is: one pair of frames for the whole call, not one per keystroke.
+        class _Nested:
+            def press(self, key):
+                calls.append(key)
+
+            def typewrite(self, text):
+                for character in text:
+                    nested.press(character)  # the module's own press, wrapper and all
+
+        nested = _Nested()
+        watch(nested, ('press', 'typewrite'))
+        calls.clear()
+        # Counted off _kept rather than off the directory: a real grab takes tens of
+        # milliseconds, but the fake one above is instant, so back to back frames land on the
+        # same millisecond stamp and overwrite each other. _kept gets an entry per capture.
+        before = len(_kept)
+        nested.typewrite('18900')
+        assert calls == list('18900'), f'every keystroke still went through, {calls}'
+        assert len(_kept) - before == 2, \
+            f'one typewrite is two frames, not two per character, got {len(_kept) - before}'
+        # And the guard is released afterwards, so the next call up top still takes its pair.
+        before = len(_kept)
+        nested.press('f5')
+        assert len(_kept) - before == 2, 'the guard lifted again'
 
         stop()
         count = len(list(directory.glob(f'*{SUFFIX}')))
