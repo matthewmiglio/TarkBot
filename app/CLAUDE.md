@@ -150,11 +150,11 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      One run button, not a START beside a STOP: RUN_STATES holds its three
                      states, each a label, a face color and whether it can be pressed, and
                      _set_run() is the only thing that writes it so the two cannot disagree.
-                     Green 'Start (F5)', red 'Stop (F5)', amber 'Stopping...' while the ask is
+                     Green 'Start (F4)', red 'Stop (F4)', amber 'Stopping...' while the ask is
                      with the bot, cleared by tick() when the thread comes back. stop() only
                      goes amber if a thread is actually alive, since tick() is what clears it
                      and it only fires on a thread it watched die.
-                     F5 does the same as pressing it, through hotkey(): a RegisterHotKey on its
+                     F4 does the same as pressing it, through hotkey(): a RegisterHotKey on its
                      own thread blocked in GetMessageW, not a tk binding (tk sees no keys while
                      Tarkov has focus) and not a keyboard poll (nothing has to be held down).
                      The press is handed back to the tk thread with after(0), because tk is

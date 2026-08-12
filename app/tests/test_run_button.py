@@ -1,4 +1,4 @@
-"""The one run button says what it will do, and F5 does the same thing the button does.
+"""The one run button says what it will do, and F4 does the same thing the button does.
 
 Run:  python tests/test_run_button.py
 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     root.update()
     expect(app, 'stop', 'a running bot offers to stop')
 
-    # F5 and the button are the same call, so pressing either while running asks it to stop and
+    # F4 and the button are the same call, so pressing either while running asks it to stop and
     # leaves the button amber until the thread actually comes back.
     app.toggle()
     root.update()

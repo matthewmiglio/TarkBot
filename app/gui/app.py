@@ -54,7 +54,10 @@ LOG_BOX = 17  # half the height of the box drawn round that line, and its inset 
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
 BUTTON = (130, 34)  # every footer plate, so the run button and LOGS cannot drift apart
 BUTTON_GAP = 16
-HOTKEY = ('F5', 0x74)  # what the run button is bound to: the name to print, and its virtual key
+# What the run button is bound to: the name to print, and its virtual key. Not F5, which
+# sell_bot presses itself to refresh the flea after every offer. RegisterHotKey takes the key
+# system wide, so the bot's own refresh came straight back here as a press of its own Stop.
+HOTKEY = ('F4', 0x73)
 WM_HOTKEY = 0x0312
 # The run button's three states: label, face color, and whether it can be pressed. Green to go,
 # red to stop, and amber while the ask is with the bot and there is nothing useful to press.
@@ -208,7 +211,7 @@ class Plate:
         """Recolor the face and rewrite the label, for a button whose color carries its state.
 
         The text is written as given, not letter-spaced like the ones set in the constructor:
-        spacing suits an all caps word and turns 'Stop (F5)' into something unreadable.
+        spacing suits an all caps word and turns 'Stop (F4)' into something unreadable.
         """
         self.fill, self.hot = fill, theme.lighter(fill)
         self.canvas.itemconfig(self.label, text=text)
