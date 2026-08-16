@@ -106,7 +106,10 @@ OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
 # click landing while the list is still unrolling, which the next attempt just repeats past.
 DROPDOWN_ATTEMPTS = 3
 CHECKMARK_TARGET = 'checkmark'  # the tick beside the autoselect similar button
-CHECKMARK_MARGIN = 0.30  # that button's box grows this much per side before we look inside it
+# The right half of that button's box grows this much per side before we look inside it. Half,
+# because the checkbox is at the right hand end of every reference crop of the button, and a
+# region that starts at the left end has the whole label in it for a checkmark to go wrong in.
+CHECKMARK_MARGIN = 0.15
 MY_OFFERS_TAB_TARGET = 'my_offers_tab_button'  # the flea tab listing what we have up for sale
 # The browse tab, split into one folder per state. The tab draws differently depending on
 # whether it is the active one, which is the only thing on screen that says which flea page we
@@ -617,8 +620,20 @@ def _crop_to(ltrb, bounds):
     return (left, top, min(edge_left + width, right) - left, min(edge_top + height, bottom) - top)
 
 
+def _checkmark_region_from(box, bounds, margin=CHECKMARK_MARGIN):
+    """The geometry half of autoselect_similar_region, so it checks without a live screen.
+
+    The right half of the button's box, grown by margin per side and clipped to `bounds`.
+    """
+    half = int(box.width) // 2
+    left, top = int(box.left) + half, int(box.top)
+    width, height = int(box.width) - half, int(box.height)
+    dx, dy = round(width * margin), round(height * margin)
+    return _crop_to((left - dx, top - dy, left + width + dx, top + height + dy), bounds)
+
+
 def autoselect_similar_region(region=None, margin=CHECKMARK_MARGIN):
-    """The autoselect similar button's box grown by margin per side, as (left, top, width, height).
+    """Where to look for the tick: the right half of the autoselect similar button's box, grown.
 
     Raises LookupError if the button is not on screen, which means the screen is not the one
     we think it is, not that the box is empty.
@@ -626,7 +641,7 @@ def autoselect_similar_region(region=None, margin=CHECKMARK_MARGIN):
     box = find.find(AUTOSELECT_TARGET, region)
     if not box:
         raise LookupError('autoselect similar button not on screen')
-    return _crop_to(_expand(box, margin), screen.rect())  # the grown box can run off an edge
+    return _checkmark_region_from(box, screen.rect(), margin)  # the grown box can run off an edge
 
 
 def is_autoselect_similar_ticked(region=None, margin=CHECKMARK_MARGIN):

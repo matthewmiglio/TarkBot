@@ -263,7 +263,10 @@ interact/reference_images/<target>/*.png
   reads that all have to agree, not one: `item_is_selected` and `place_offer_button` present,
   `no_items_selected` absent, because any single match that fails for its own reasons reads as
   a selection and the pass then prices an item it never picked. `is_autoselect_similar_ticked`
-  widens the button's box 30% first because the tick sits just outside it.
+  looks inside the *right half* of that button's box grown 15% (`_checkmark_region_from`),
+  because the checkbox is at that end of every reference crop of it. Sizing the region off the
+  whole box, as it used to, made it depend on which crop won: a short crop matching gave a
+  region too small to hold the checkmark needle, and pyscreeze raises rather than missing.
 - **Finding items** `find_sell_pixels` masks out empty slots using a 256³ boolean cube built
   from every color in `reference_images/dead_pixels/`, ±5 per channel. Scav case boxes are
   expanded 15% and excluded.
@@ -294,6 +297,7 @@ interact/reference_images/<target>/*.png
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
 `test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
+`test_checkmark_region.py`,
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
@@ -355,6 +359,15 @@ test_recover_targets.py      The other half of that, and the half the fakes cann
                              windows it can see and presses nothing, so it is safe to point at a
                              live mess. --run calls that bot's own _recover, clicks and all, and
                              times it. Wants the game up.
+test_checkmark_region.py     Where the tick is looked for and whether it is found there, over
+                             whole frames rather than a live screen. Each frame is run at its
+                             own size and again at 1920x1080, since this only goes wrong on a
+                             screen that is not 1080p. Writes an annotated png and a 4x zoom per
+                             frame to tests/output/checkmark_region/: button blue, region
+                             yellow, tick green. Look at those before believing an 'unticked',
+                             since a region drawn in the wrong place reads the same in the
+                             summary as a checkbox that is genuinely empty. Defaults to the
+                             frame recorder's folder, or takes frame paths. No game needed.
 test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
                              and never presses escape, while a pick that did not take still
                              retries. No game needed.
@@ -402,9 +415,17 @@ find_tarkov_window.py        Dead: a standalone spike that predates tarkov_windo
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. Today that is `offer_creation_window_title` at 0.8:
+  number can be seen to sit in the gap. Two entries today. `offer_creation_window_title` at 0.8:
   its title is a thin strip of small text that scores 0.88 on a 1440p screen once `needle()`
-  has grown it, and 0.58 when the window is not there.
+  has grown it, and 0.58 when the window is not there. `autoselect_similar` at 0.85: 0.889 to
+  0.944 across every frame it is in at either resolution, and never above 0.413 across 134
+  frames it is not in, so the old flat 0.9 ran through the middle of the real matches and lost
+  the button on a 1440p screen by 0.011.
+- Do not "fix" one of these by lowering `CONFIDENCE` itself. How low a target can safely go is a
+  property of that target: a wide element full of structure has a low false-positive ceiling
+  (the button, 0.413), a small plain one does not (`checkmark`, which scores 0.69 against an
+  *empty* checkbox, because empty and ticked are the same square). A global 0.42 would fix the
+  button and make the tick read ticked on a box that is not.
 - Every reference image was cropped at 1920x1080 fullscreen. That is the one resolution the
   files themselves are matched at; every other screen gets them resized at match time by
   `find.scale()`, and the price crop scaled the other way to meet them. Crop new references at

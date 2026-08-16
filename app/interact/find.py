@@ -27,8 +27,13 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # needle() grows it for a screen taller than 1080p, so the crop is fine and the threshold is not.
 # Measured on two 1440p crash frames: offer_creation_window_title scores 0.88 with the window
 # open and 0.58 with it shut, so 0.8 sits in a gap rather than close to a false positive.
+# autoselect_similar is the same story with more frames behind it: 0.889 to 0.944 across every
+# 1080p and 1440p frame it is in, and never once above 0.413 across 134 frames it is not in.
+# The 0.9 default ran straight through the middle of that first range, so a 1440p screen lost
+# the button by 0.011. Anywhere in the half point between 0.42 and 0.88 would do; 0.85 keeps
+# the most margin against a false positive while clearing every real one.
 # Put a number here only with both readings behind it, present and absent, off a real screen.
-CONFIDENCES = {'offer_creation_window_title': 0.8}
+CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 

@@ -86,6 +86,9 @@ _1440p_find_fix/
 # near a commit. The skill downloads them to the temp folder for exactly this reason; this
 # folder exists because the crops have to be cut against a real frame and that wants them kept.
 _1440p_find_patch/
+# The autoselect similar bench: ten frames, half of them somebody else's crash screenshot, for
+# the same reason as the folder above. Same rule, they never go near a commit.
+_autoselect_similar_testing/
 # docs/ itself stays out; readme_assets is the exception, the README links its images.
 docs/*
 !docs/readme_assets/
