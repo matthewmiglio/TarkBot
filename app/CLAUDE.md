@@ -398,7 +398,13 @@ find_tarkov_window.py        Dead: a standalone spike that predates tarkov_windo
   a monitor sitting left of or above the primary. Nothing may assume a screen starts at (0, 0):
   clip against `screen.rect()`, and grab through `screen.grab()` rather than
   `pyautogui.screenshot` (which is patched to it anyway) or `ImageGrab` directly.
-- Matching uses `confidence=0.9` (`find.CONFIDENCE`), which requires opencv-python.
+- Matching uses `confidence=0.9` (`find.CONFIDENCE`), which requires opencv-python. A target that
+  cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
+  looser threshold does not have to be threaded down to one call site. Only add one with both
+  readings behind it, the score with the thing on screen and the score with it gone, so the
+  number can be seen to sit in the gap. Today that is `offer_creation_window_title` at 0.8:
+  its title is a thin strip of small text that scores 0.88 on a 1440p screen once `needle()`
+  has grown it, and 0.58 when the window is not there.
 - Every reference image was cropped at 1920x1080 fullscreen. That is the one resolution the
   files themselves are matched at; every other screen gets them resized at match time by
   `find.scale()`, and the price crop scaled the other way to meet them. Crop new references at

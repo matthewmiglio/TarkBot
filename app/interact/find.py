@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pyautogui
 import pyscreeze
-from PIL import Image
+from PIL import Image, ImageFilter
 
 import screen
 from narrate import log
@@ -22,7 +22,13 @@ NOT_FOUND = (pyautogui.ImageNotFoundException, pyscreeze.ImageNotFoundException)
 VERBOSE = False
 
 REFS = Path(__file__).parent / 'reference_images'
-CONFIDENCE = 0.9  # ponytail: one global threshold; go per-image if some refs need looser matching
+CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
+# Targets that cannot meet 0.9 and why. A thin strip of small text loses too much contrast when
+# needle() grows it for a screen taller than 1080p, so the crop is fine and the threshold is not.
+# Measured on two 1440p crash frames: offer_creation_window_title scores 0.88 with the window
+# open and 0.58 with it shut, so 0.8 sits in a gap rather than close to a false positive.
+# Put a number here only with both readings behind it, present and absent, off a real screen.
+CONFIDENCES = {'offer_creation_window_title': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
@@ -105,12 +111,19 @@ def _shift(box, offset):
                          int(box.width), int(box.height))
 
 
-def find(name, region=None, confidence=CONFIDENCE, haystack=None):
+def confidence_for(name):
+    """The match threshold `name` is held to: its own if it has one, CONFIDENCE otherwise."""
+    return CONFIDENCES.get(name, CONFIDENCE)
+
+
+def find(name, region=None, confidence=None, haystack=None):
     """First match for `name` as Box(left, top, width, height), or None.
 
     region: optional (left, top, width, height) to search in, e.g. the Tarkov window rect.
+    confidence: None means the target's own threshold, which is CONFIDENCE for almost all of them.
     haystack: optional PIL image to search instead of the live screen (boxes are then in its coords).
     """
+    confidence = confidence_for(name) if confidence is None else confidence
     paths = images(name)
     started = time.monotonic()
     image, offset = _haystack(region, haystack)
@@ -150,11 +163,12 @@ def dedupe(boxes, tolerance=IOU_TOLERANCE):
     return kept
 
 
-def find_all(name, region=None, confidence=CONFIDENCE, tolerance=IOU_TOLERANCE, haystack=None):
+def find_all(name, region=None, confidence=None, tolerance=IOU_TOLERANCE, haystack=None):
     """Every match for `name`, across every reference image, deduped. [] if none.
 
     tolerance: IOU at or above which two boxes count as the same hit. 1.0 keeps near-misses.
     """
+    confidence = confidence_for(name) if confidence is None else confidence
     boxes = []
     started = time.monotonic()
     image, offset = _haystack(region, haystack)
@@ -174,7 +188,7 @@ def find_all(name, region=None, confidence=CONFIDENCE, tolerance=IOU_TOLERANCE, 
     return kept
 
 
-def find_center(name, region=None, confidence=CONFIDENCE, haystack=None):
+def find_center(name, region=None, confidence=None, haystack=None):
     """(x, y) to click, or None."""
     box = find(name, region, confidence, haystack)
     return pyautogui.center(box) if box else None
@@ -210,6 +224,24 @@ if __name__ == '__main__':
     assert (offset_box.width, offset_box.height) == (box.width, box.height), 'the size is untouched'
 
     scale = lambda: 1.0  # noqa: E731
+
+    # The per-target thresholds, on a copy faded toward the background until it scores between
+    # the two of them. The loose target has to find it and a target on the default has to miss
+    # it, which is what says the map is actually reaching the matcher and not just sitting there.
+    loose = next(iter(CONFIDENCES))
+    assert confidence_for(loose) < CONFIDENCE, f'{loose} is in the map but not looser'
+    assert confidence_for('no_such_target') == CONFIDENCE, 'everything else keeps the default'
+
+    fake = Image.new('RGB', (1920, 1080), (30, 30, 30))
+    fake.paste(Image.open(images(loose)[0]).convert('RGB'), spot)
+    softened = fake.filter(ImageFilter.GaussianBlur(0.9))  # scores ~0.85: softening, which is
+    assert find(loose, haystack=softened) is not None, \
+        f'{loose} softened to between {confidence_for(loose)} and {CONFIDENCE} was not found ' \
+        f'at its own threshold'  # what growing a reference for a taller screen does to it too
+    assert find(loose, confidence=CONFIDENCE, haystack=softened) is None, \
+        'that same blur matched at 0.9, so the fixture no longer sits between the two thresholds'
+
     assert needle(path) == str(path), '1080p hands the matcher the file itself, unresized'
 
-    print(f'ok, {name} {reference.size} -> {grown.size} found at {box.left, box.top}')
+    print(f'ok, {name} {reference.size} -> {grown.size} found at {box.left, box.top}, '
+          f'{loose} matched at {confidence_for(loose)} and not at {CONFIDENCE}')
