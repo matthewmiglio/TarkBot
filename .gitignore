@@ -95,3 +95,9 @@ docs/*
 
 # Gym bot test rig: recorded playthroughs, frames and all
 _gym_bot_testing/
+
+# Price scraper scratch module
+_price_scraper/
+
+# Flea search harness: the screenshots it takes of the suggestion list
+_item_search_testing/
