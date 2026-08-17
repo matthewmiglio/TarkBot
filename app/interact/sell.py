@@ -97,9 +97,17 @@ CURRENCY_RUB_TARGET = 'flea_filters_currency_dropdown_rub'  # the dropdown once 
 OFFERS_FROM_ANY_TARGET = 'flea_filters_offers_from_any'  # offers-from, while it still says any
 OFFERS_FROM_PLAYERS_OPTION = 'flea_filters_offers_from_select_players'  # players, in the opened dropdown
 OFFERS_FROM_PLAYERS_TARGET = 'flea_filters_offers_from_players'  # the dropdown once it reads players
-REMEMBER_ON_TARGET = 'flea_filters_remember_on'  # the remember-filters box, already ticked
-REMEMBER_OFF_TARGET = 'flea_filters_remember_off'  # and the same box unticked
 FILTERS_OK_TARGET = 'flea_filters_OK_button'  # applies the filters and closes the window
+CONDITION_VALUE = '100'  # only sell pristine items, so the board we undercut is pristine ones
+# The number box carries no border of its own worth matching and its contents are the thing
+# being set, so it is aimed at by crossing two labels that never change instead: the row's Y
+# off 'Condition from:' and the column's X off the 'items expiring' text sitting above it.
+# Both are plain words, so they match the same whatever the field reads, which is exactly what
+# the 80/100 crops cannot do. Keep both crop folders internally consistent in extent: find()
+# cannot say which png matched, so a crop with more padding than its neighbours moves the
+# centre this aims at.
+CONDITION_LABEL_TARGET = 'flea_filters_condition_from_label'  # gives the row: its middle Y
+EXPIRING_TEXT_TARGET = 'flea_filters_items_expiring_text'  # gives the column: its middle X
 DROPDOWN_DELAY = 0.3  # seconds for the currency dropdown to unroll
 OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
 # Goes at one dropdown before giving up on it. More than one because the usual failure is a
@@ -1058,13 +1066,73 @@ def _set_dropdown(any_target, option_target, settled_target, region=None, delay=
     return False
 
 
-def apply_flea_filters(region=None):
-    """Open the flea's filter window, tick remember, set roubles and players only, then OK out.
+def _set_condition_from(region=None):
+    """Type 100 into the filter window's condition-from box.
 
-    Returns True once everything reads the right thing and the window is closed. Nothing that
-    is already set gets clicked: the dropdowns are only touched while they still say 'any',
-    and the remember box only while it is off, so running this against an already filtered
+    Returns True once the value has been typed, which is weaker than the other steps here
+    promise and deliberately so: True means the box was found and typed into, not that it now
+    reads 100. Nothing on this screen can confirm the value. See below.
+
+    Not a dropdown, so it does not go through _set_dropdown: this is a number field, clicked
+    and typed into the way enter_price does the roubles one.
+
+    The box is aimed at by crossing two labels rather than by matching the box itself, and no
+    read guards either end. Both come from the same measurement. A crop of the box is a crop of
+    one particular value, and the value is a few percent of its pixels, so it matches the other
+    values nearly as well: a whole-row crop of 'Condition from: 100' scored 0.924 against a
+    field that actually read 0, and one of '...: 80' scored 0.904 against the same frame. There
+    is no threshold under those, and a read that always says yes is worse than no read, because
+    the pass then skips the typing and reports the filter as set. That is the checkmark problem
+    again, which scores 0.69 against an empty box for the same reason.
+    So the row's Y comes off the 'Condition from:' label and the column's X off the 'items
+    expiring' text above it, both fixed words that read the same whatever the field holds, and
+    the typing simply always happens. It is idempotent: typing 100 into a box already at 100
+    leaves 100, so there is nothing a before-read would have saved.
+
+    ponytail: no confirmation, because the crop that would do it cannot tell values apart. To
+    add one, crop just the digits rather than the whole row (0.68-0.74 against a wrong value
+    against the whole row's 0.90+) and match it inside the box worked out below rather than
+    over the window, since searching 3.7M pixels for a small dark needle finds one anywhere.
+
+    Ctrl+A before typing, which the spec for this step did not ask for. Tarkov's number fields
+    append rather than replace, which is what turns 99000 into 10000099000 in enter_price; here
+    it would leave 0100 in a box that takes three digits and filter to something that is
+    neither. With the confirmation gone this is the only thing standing between a typo and a
+    wrong filter, so it is not optional.
+    """
+    label = find.find(CONDITION_LABEL_TARGET, region)
+    if not label:
+        log(f'{CONDITION_LABEL_TARGET} not on screen, so there is no row to aim at; is the '
+            f'filter window open?', 1)
+        return False
+    expiring = find.find(EXPIRING_TEXT_TARGET, region)
+    if not expiring:
+        log(f'{EXPIRING_TEXT_TARGET} not on screen, so there is no column to aim at', 1)
+        return False
+    point = jitter((pyautogui.center(expiring).x, pyautogui.center(label).y))
+    log(f'typing {CONDITION_VALUE} into condition from at {point} '
+        f'(x off {EXPIRING_TEXT_TARGET}, y off {CONDITION_LABEL_TARGET}); not read back', 1)
+    pyautogui.click(*point)
+    time.sleep(MENU_DELAY)
+    pyautogui.hotkey('ctrl', 'a')
+    pyautogui.typewrite(CONDITION_VALUE)
+    pyautogui.press('enter')
+    time.sleep(MENU_DELAY)
+    return True
+
+
+def apply_flea_filters(region=None):
+    """Open the flea's filter window, set roubles, players and 100% condition, then OK out.
+
+    Returns True once everything reads the right thing and the window is closed. The dropdowns
+    are only touched while they still say 'any', so running this against an already filtered
     board opens the window and OKs straight back out rather than undoing the settings.
+
+    'Remember selected filter' is deliberately not touched. It used to be ticked here, and the
+    tick was confirmed on screen straight after the click, but reopening the window showed the
+    box empty again every time: the setting does not survive the OK. Clicking a control the
+    game throws away bought a click, two reads and a failure path that could abort the whole
+    filter step, in exchange for nothing.
     """
     point = jitter(find.find_center(FILTER_BUTTON_TARGET, region), GEAR_JITTER, GEAR_JITTER)
     if not point:
@@ -1073,22 +1141,6 @@ def apply_flea_filters(region=None):
     log(f'opening the filter window at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
-
-    # Off, or the window never opened at all: either way the 'off' image has to be there next
-    if not find.find(REMEMBER_ON_TARGET, region):
-        toggle = find.find_center(REMEMBER_OFF_TARGET, region)
-        if not toggle:
-            log('remember selected filters checkbox not on screen, did the window open?', 1)
-            return False
-        log(f'ticking remember selected filters at {toggle}', 1)
-        pyautogui.click(*toggle)
-        time.sleep(MENU_DELAY)
-        if not find.find(REMEMBER_ON_TARGET, region):  # confirm the click took, same as the dropdowns
-            log('remember selected filters STILL OFF, the click did not take', 1)
-            return False
-        log('remember selected filters now ticked', 1)
-    else:
-        log('remember selected filters already ticked', 1)
 
     # The confirm-it-took read used to live here, for the currency dropdown only. It is inside
     # _set_dropdown now, so offers-from gets the same treatment instead of being taken on trust.
@@ -1104,6 +1156,9 @@ def apply_flea_filters(region=None):
     # clicking the option looked for a chevron the open list has never had.
     if not _set_dropdown(OFFERS_FROM_ANY_TARGET, OFFERS_FROM_PLAYERS_OPTION,
                          OFFERS_FROM_PLAYERS_TARGET, region, OFFERS_FROM_DELAY):
+        return False
+
+    if not _set_condition_from(region):
         return False
 
     point = jitter(find.find_center(FILTERS_OK_TARGET, region))  # applies them and shuts the window

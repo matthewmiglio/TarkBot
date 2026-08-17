@@ -36,10 +36,10 @@ from interact import find, sell  # noqa: E402
 FIXTURE = Path(__file__).parent / 'fixtures' / '2560x1440' / 'flea-filters-open.png'
 OUT = Path(__file__).parent / 'output'
 
-# What the fixture shows. Currency and offers-from both read 'any' and remember is unticked, so
-# for each pair the first is on screen and the second is not.
-PAIRS = ((sell.REMEMBER_OFF_TARGET, sell.REMEMBER_ON_TARGET, 'remember selected filter'),
-         (sell.CURRENCY_ANY_TARGET, sell.CURRENCY_RUB_TARGET, 'currency'),
+# What the fixture shows. Currency and offers-from both read 'any', so for each pair the first
+# is on screen and the second is not. The remember-selected-filter pair used to be checked here
+# too; apply_flea_filters no longer touches that box, because the tick never survives the OK.
+PAIRS = ((sell.CURRENCY_ANY_TARGET, sell.CURRENCY_RUB_TARGET, 'currency'),
          (sell.OFFERS_FROM_ANY_TARGET, sell.OFFERS_FROM_PLAYERS_TARGET, 'display offers from'))
 # Visible, and with no opposite state to confuse them with.
 SINGLES = ((sell.FILTER_BUTTON_TARGET, 'the gear that opens the window'),
