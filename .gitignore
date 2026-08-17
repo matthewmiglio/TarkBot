@@ -92,3 +92,6 @@ _autoselect_similar_testing/
 # docs/ itself stays out; readme_assets is the exception, the README links its images.
 docs/*
 !docs/readme_assets/
+
+# Gym bot test rig: recorded playthroughs, frames and all
+_gym_bot_testing/

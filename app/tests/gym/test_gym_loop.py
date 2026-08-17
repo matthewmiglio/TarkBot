@@ -83,53 +83,63 @@ if __name__ == '__main__':
     # purpose further down.
     gym_bot.AIM_COLUMNS, gym_bot.CLICK_LEAD = 0.0, 0.0
 
-    # A ring closing at 25 columns per 20ms look, which is 1250 a second, in the range a real
-    # set reaches by its last few reps. Target centre is 25, so a gap of g puts the ring at
-    # 25 + g.
+    # A ring closing at 15 columns per 20ms look, which is about 715 a second, twice what a real
+    # set reaches by its last rep. Target centre is 25, so a gap of g puts the ring at 25 + g.
     def closing(gap):
         return strip([(20, 30), (24 + gap, 26 + gap)])
 
+    # The two lines stop being separate runs once their edges meet, which is Lines.touch apart
+    # and here is 7 columns: an 11 wide band and a 3 wide ring. So a look at a gap of 20 is the
+    # last one that can see two lines at all, and the look after it would find them merged with
+    # nothing left to measure. That, and not "the last look before the press is due", is what
+    # the predictor commits on.
+    APPROACH = (95, 80, 65, 50, 35)  # every one of these still leaves a two line look to come
+    COMMIT = 20
+
     # One reading proves nothing: with no speed yet, a wide gap is not a rep and not a wait.
     bot = make()
-    screen.fast_grab.answer = closing(95)
+    screen.fast_grab.answer = closing(APPROACH[0])
     started = time.perf_counter()
     assert bot.do_one_rep() is False, 'one reading cannot measure a speed'
     assert clicks == [], f'clicked with the lines apart, {clicks}'
     assert time.perf_counter() - started < gym_bot.IDLE_POLL, 'the closing phase must not sleep'
 
-    # A second reading gives a speed, but this overlap is still two looks out, so it is not
-    # committed to: the next look sees it closer and aims better off a shorter extrapolation.
-    screen.fast_grab.answer = closing(70)
-    assert bot.do_one_rep() is False, 'still far out, so no commitment yet'
-    assert clicks == [], f'clicked too early, {clicks}'
+    # More readings give a speed, but each of these still leaves a look with two lines in it, so
+    # none is committed to: the next one aims off a shorter extrapolation and knows better.
+    for gap in APPROACH[1:]:
+        screen.fast_grab.answer = closing(gap)
+        assert bot.do_one_rep() is False, f'committed at a gap of {gap}, with a two line look left'
+        assert clicks == [], f'clicked too early, at a gap of {gap}, {clicks}'
 
-    # Now the overlap will happen before the next look could report it. That is the last chance
-    # to aim, so it sleeps out the remaining travel and presses into it.
+    # Now the *lines* will have merged before the next look, not just the press fallen due. That
+    # is the last chance to aim, so it sleeps out the remaining travel and presses into it.
     clicks.clear()
-    screen.fast_grab.answer = closing(45)
+    screen.fast_grab.answer = closing(COMMIT)
     started = time.perf_counter()
-    assert bot.do_one_rep() is True, 'the last look before the overlap must commit'
+    assert bot.do_one_rep() is True, 'the last look with two lines in it must commit'
     waited = time.perf_counter() - started - GRAB
     left, top, width, height = bot.roi
     assert clicks == [(left + width // 2, top + height // 2)], f'clicked at {clicks}'
     assert bot.stats['reps'] == 1, bot.stats
-    # It pressed into the future, not on sight: 45 columns at 1250 a second is 36ms away and 20
-    # of those went on the grab, so about 16ms should have been slept. Sleeping accurately is
-    # the point, so the window is tight; a threading.Event wait would round this up past it.
-    assert 0.010 < waited < 0.024, f'waited {waited * 1000:.0f}ms, wanted about 16'
+    # It pressed into the future, not on sight: 20 columns at 715 a second is 28ms away, and
+    # those 28ms are counted from when the pixels were grabbed rather than from when the look
+    # began, so the grab does not eat into them. Sleeping accurately is the point, so the window
+    # is tight; a threading.Event wait would round this up past it.
+    assert 0.024 < waited < 0.042, f'waited {waited * 1000:.0f}ms, wanted about 30'
 
     # The same rep with a column of offset asked for presses earlier by exactly that much
-    # travel, which is the knob for a miss that looks the same at every speed.
-    gym_bot.AIM_COLUMNS = 12.5  # 12.5 columns at 1250 a second is 10ms sooner
+    # travel, which is the knob for a miss that looks the same at every speed. It commits on the
+    # same look either way, since which look can still see two lines does not depend on the aim.
+    gym_bot.AIM_COLUMNS = 12.5  # 12.5 columns at 715 a second is 17ms sooner
     bot = make()
     clicks.clear()
-    for gap in (95, 70, 45):
+    for gap in APPROACH + (COMMIT,):
         screen.fast_grab.answer = closing(gap)
         started = time.perf_counter()
         landed = bot.do_one_rep()
     offset_waited = time.perf_counter() - started - GRAB
     assert landed is True and len(clicks) == 1, (landed, clicks)
-    assert offset_waited < waited - 0.005, (f'offset pressed at {offset_waited * 1000:.0f}ms, '
+    assert offset_waited < waited - 0.003, (f'offset pressed at {offset_waited * 1000:.0f}ms, '
                                             f'no earlier than the {waited * 1000:.0f}ms without')
     gym_bot.AIM_COLUMNS = 0.0
 
@@ -138,22 +148,42 @@ if __name__ == '__main__':
     gym_bot.CLICK_LEAD = 0.010
     bot = make()
     clicks.clear()
-    for gap in (95, 70, 45):
+    for gap in APPROACH + (COMMIT,):
         screen.fast_grab.answer = closing(gap)
         started = time.perf_counter()
         landed = bot.do_one_rep()
     lead_waited = time.perf_counter() - started - GRAB
     assert landed is True and len(clicks) == 1, (landed, clicks)
-    assert lead_waited < waited - 0.005, (f'a 10ms lead pressed at {lead_waited * 1000:.0f}ms, '
+    assert lead_waited < waited - 0.003, (f'a 10ms lead pressed at {lead_waited * 1000:.0f}ms, '
                                           f'no earlier than the {waited * 1000:.0f}ms without')
+    # A lead big enough to fall due *before* the lines merge has to commit on the look that can
+    # see that, not sit waiting for a merge look that arrives too late to honour it. 30ms at 715
+    # columns a second aims 21 columns out, well clear of the 7 the two lines meet at. This is
+    # the case a rule that only ever committed on the merge got wrong: it delivered whatever
+    # lead happened to be left by the time it pressed, which on a fast rep was half of it.
+    gym_bot.CLICK_LEAD = 0.030
+    bot = make()
+    clicks.clear()
+    for gap in APPROACH[:-1]:
+        screen.fast_grab.answer = closing(gap)
+        assert bot.do_one_rep() is False, f'committed at a gap of {gap}, too early even for a lead'
+        assert clicks == [], f'clicked at a gap of {gap}, {clicks}'
+    screen.fast_grab.answer = closing(APPROACH[-1])
+    assert bot.do_one_rep() is True, 'a press due before the merge must commit before the merge'
+    assert len(clicks) == 1 and bot.stats['reps'] == 1, (clicks, bot.stats)
+    gym_bot.CLICK_LEAD = 0.0
+
     # A negative lead aims *after* the two lines merge, which is legal: the ring keeps
     # travelling once its edge is inside the band. The rep must still be held for the aimed
     # moment rather than pressed the instant the merge is seen, or a late aim is silently
     # capped at "as late as the merge" and the knob stops working past that point.
+    # The approach stops one look short of the commit here, so the merged strip arrives while
+    # the aim is still only pending. That is the case the merged branch exists for: a rep whose
+    # lines came together sooner than the last two line look predicted.
     gym_bot.CLICK_LEAD = -0.030
     bot = make()
     clicks.clear()
-    for gap in (95, 70, 45):
+    for gap in APPROACH:
         screen.fast_grab.answer = closing(gap)
         bot.do_one_rep()
     assert clicks == [], f'a lead this late should not have pressed yet, {clicks}'

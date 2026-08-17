@@ -30,16 +30,22 @@ gym_bot.py           HideoutGym: the other mode, hitting the workout skill check
                      the match. It clicked fifteen times at a character standing still: a
                      bright scene fills the whole strip, and one run across all 201 columns is
                      what two lines that have met also look like. The strip cannot tell a skill
-                     check from a wall. A look costs ~50ms, 45 of which is the one screenshot
+                     check from a wall. A look costs ~17ms, nearly all of it the one screenshot
                      it takes of gym.look_region and slices into the icon box and the strip.
                      The press is aimed, not reacted to. _predict() takes the ring's speed from
-                     the last two readings and, once the overlap is nearer than one look period,
-                     sleeps to it and presses. It has to: the ring closes at ~75 columns a
-                     second on a set's first rep and ~235 by its fifteenth, and a look plus the
-                     ~45ms the pixels are already stale by means waiting to *see* the lines meet
-                     presses 7 to 25 columns past them. That is exactly why reps 1-9 of every
-                     set used to land and 10 onwards did not. CLICK_LEAD is the trim; CLICK_GAP
-                     is only the fallback for a rep whose overlap happened inside one look.
+                     the readings so far and, once either the press falls due or the two lines
+                     are about to merge, sleeps to the aimed moment and presses. It has to: the
+                     ring closes at ~100 columns a second on a set's first rep and ~320 by its
+                     fifteenth, so waiting to *see* the lines meet presses past them.
+                     A reading is anchored to when its pixels were grabbed, not to when the look
+                     began. Measured, not assumed: the ring's speed inside a rep is constant, so
+                     the right clock is the one that makes gap against time straightest, and
+                     over 453 looks that was 0.62 columns of residual for grabbed against 0.72
+                     for started. A grab is 8-22ms, so anchoring to the start of it was pressing
+                     a whole grab early, which is 4 columns at rep 15 into a window about 2.5
+                     wide. That one argument was most of what stopped a set finishing 15 of 15.
+                     CLICK_LEAD is the trim; CLICK_GAP is only the fallback for a rep whose
+                     overlap happened inside one look.
                      Tarkov scores the rep on the press, not the release, and pyautogui presses
                      immediately, so its 0.1s PAUSE costs throughput and not accuracy. Do not
                      turn PAUSE off: sell.py depends on those pauses between its own clicks.
@@ -49,19 +55,29 @@ gym_bot.py           HideoutGym: the other mode, hitting the workout skill check
                      at gym.Lines.touch, where the lines first meet 4-8 columns sooner, was
                      tried because every fallback press had landed there, and it pressed too
                      early on every rep.
-                     CLICK_LEAD is 0, and three sessions differing only in it say to leave it
-                     there: +15ms landed reps to ~165 columns a second, 0 to ~205, -30ms to
-                     ~190. Worse both ways, so there is no systematic offset left to cancel and
-                     what limits the last reps of a set is the spread of the error. Do not
-                     reach for either trim again without a measurement saying the misses are
-                     lopsided. An aim can legitimately fall after the two lines merge, which is
-                     why the merged branch honours a pending aim instead of pressing on sight.
-                     Attacking the spread instead: the loop reads through screen.fast_grab, a
-                     BitBlt of just the look box, which took a look from ~60ms to ~17ms. That
-                     shortens the blind extrapolation past the merge from 24-44ms to 8-17ms and
-                     triples the sample rate. Speed is measured across SPEED_SAMPLES readings
-                     end to end rather than the last two, so the faster reads do not turn half
-                     a column of reading error into a large fraction of the speed.
+                     CLICK_LEAD is 20ms, and the aim point is therefore about 20ms before the
+                     two centres line up rather than on them. It was 0 on the strength of three
+                     sessions that found a lead worse both ways; those predate fast_grab and the
+                     grabbed anchor below, and with a reading anchored a whole grab early a lead
+                     was being stacked on an error that already pressed early, so they measured
+                     the wrong thing. Scored against the flash the game gives each rep, over
+                     reps 11-15 of six sets: 0 of 2 landed when the press was late, about half
+                     landed under 12ms early, and it is a flat plateau of three quarters to all
+                     from 12ms out to 40ms. Aiming dead on scored 11 of 15.
+                     An aim can legitimately fall after the two lines merge, which is why the
+                     merged branch honours a pending aim instead of pressing on sight, and it
+                     can now fall before the merge too, which is why _predict commits on
+                     whichever of those comes first rather than on the merge alone.
+                     Attacking the spread: the loop reads through screen.fast_grab, a BitBlt of
+                     just the look box, which took a look from ~60ms to ~17ms. Speed is measured
+                     across SPEED_SAMPLES readings end to end rather than the last two, so half
+                     a column of reading error does not become a large fraction of the speed.
+                     What is left is not fixable by aiming. A grab costs ~16.7ms whatever size
+                     it is (measured from 10,000 pixels to 250,000: all 16.7), because it waits
+                     for the display's next frame, so a look is one 60Hz frame and the ring
+                     moves ~5 columns per frame by rep 15. The scoring window there is about
+                     that wide, so the last rep is bounded by frame quantisation and not by the
+                     bot. Shrinking the look box to read faster would gain nothing.
                      Two Windows clock traps, both measured, both load bearing here. Every
                      reading is perf_counter, never monotonic, which ticks every 15.6ms and put
                      30% error in the speed. And the aimed wait is time.sleep via _sleep(), not

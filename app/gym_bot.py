@@ -61,22 +61,40 @@ AIM_COLUMNS = 0.0
 # error costs more columns the faster the ring is going, so this is the knob for reps that land
 # early in a set and miss late in it, when the only thing that has changed is speed.
 #
-# Zero, and it earned that the hard way. Three sessions, same code, same aim point, differing
-# only in this number, scored by the fastest rep that still landed:
-#     lead +15ms  ~165 columns a second
-#     lead   0ms  ~205
-#     lead -30ms  ~190
-# Worse in both directions, so there is no systematic offset left to cancel. What stops the
-# last reps of a set landing is the spread of the error, not its middle, and no constant fixes
-# a spread. Do not reach for this knob again without a measurement that says the misses are
-# lopsided; it has been tried in both directions and it is not the answer.
-CLICK_LEAD = 0.0
+# 15ms, and this is the knob for it rather than AIM_COLUMNS because what is being cancelled is
+# a delay: the press is sent, and Windows and the game between them take a while to act on it.
+# A delay costs more columns the faster the ring goes, which is exactly what a lead in seconds
+# corrects and a spatial offset does not.
+#
+# It was 0, on the strength of three sessions that found a lead worse in both directions. Those
+# predate two changes that make them unreadable: the loop now reads through screen.fast_grab,
+# and a reading is anchored to when its pixels were grabbed rather than to when the look began,
+# which on its own was pressing a whole grab early. Scored properly against the green and red
+# flash the game gives each rep, over reps 11 to 15 of four recorded sets, 20 presses:
+#     press landed under 0ms early    0 of 2 landed
+#                        0 to 5ms     2 of 4
+#                        5 to 10ms    3 of 7
+#                        10 to 15ms   3 of 4
+#                        15 to 20ms   3 of 3
+#                        20 to 35ms   4 of 5
+# So the aim point is not the two centres lining up, it is a good 20ms before that, and pressing
+# at the centres is the one thing that reliably misses. That is the lopsided measurement the
+# note here used to ask for. Aiming dead on scored 11 of 15; the run before it, which pressed
+# early by accident, scored 14. Nothing yet says where too early starts: on the fastest reps,
+# every press 18ms or more ahead has landed.
+CLICK_LEAD = 0.020
 # How many readings the ring's speed is measured across, oldest to newest. Two is the fewest
 # that works and the noisiest: each gap is good to about half a column, so a short baseline
 # turns that half column into a large fraction of the speed. Measuring across a longer span
 # averages it out, and matters more the faster the loop reads, since faster reads mean less
 # travel between them and a worse ratio.
-SPEED_SAMPLES = 4
+#
+# 12, which at the loop's ~15ms look is most of a rep. It was 4, and 4 is not enough now that
+# the aim has to be good to a column: a gap is good to about half a column, so 4 samples spanning
+# 50ms measure a 350 column/second ring to within about 6%, and 12 spanning 150ms to within 2%.
+# The ring's speed inside one rep is dead constant (measured: steps of 11 11 11 11 10 11 10 11
+# columns), so a longer baseline costs nothing and there is still no curve to fit.
+SPEED_SAMPLES = 12
 # ponytail: a look is now one screenshot sliced in two, about 50ms, and 45 of those 50 are the
 # grab. Pillow photographs the whole virtual desktop however small the region asked for, and
 # passing it a bbox does not help, it crops internally. A ctypes BitBlt of just the look box
@@ -205,7 +223,18 @@ class HideoutGym:
             self._forget()
             return False  # icon up but nothing readable yet, which is the prompt still fading in
         if lines.gap > AIM_COLUMNS + self.gap:
-            return self._predict(started, lines, strip)
+            # grabbed, not started. This is when the pixels being read are from, and the whole
+            # aim hangs off it: a reading anchored to the wrong moment is extrapolated forward
+            # from the wrong place, and the press lands early by however long the grab took.
+            # Which of the two it is was measured rather than assumed. The ring closes at a dead
+            # constant speed inside one rep, so the right clock is the one that makes gap against
+            # time straightest. Over 15 reps and 453 looks of recording_06, the residual about a
+            # straight line was 0.62 columns against grabbed and 0.72 against started, and the
+            # grab is not a fixed cost (8 to 22ms), which is what lets the two be told apart at
+            # all. Anchoring to started was therefore pressing a whole grab early: 12ms on
+            # average, which is 4 columns at the 313 columns a second rep 15 closes at, into a
+            # window about 2.5 columns wide.
+            return self._predict(grabbed, lines, strip)
 
         # The lines met before any look could commit to a moment. If an earlier look in this
         # rep worked one out, honour it: the aimed moment can legitimately be *after* the two
@@ -280,8 +309,29 @@ class HideoutGym:
         due = captured + (lines.gap - AIM_COLUMNS) / speed - CLICK_LEAD
         self._due = due  # kept for the merged branch, in case no look gets to commit
         wait = due - time.perf_counter()
-        if wait > period:
-            return False  # the next look will still be in time, and will know better
+        # Commit on the last look that can still see two lines, not on the last look before the
+        # press is due. Those are not the same moment and the difference is the whole reason the
+        # end of a set used to miss: the two runs stop being separate once their edges meet,
+        # which is Lines.touch columns before their centres line up. On rep 15, touch is 3
+        # columns and the ring covers 5 in a look, so the merge lands inside the same look period
+        # the old test was waiting for. The predictor therefore never got to commit, read_lines
+        # came back with one run, and the press fell through to the merged branch, which fires
+        # the moment the edges touch and is early by exactly that much. Measured over a scored
+        # 15 rep set: 13 of 15 presses went through that fallback and every one was early, by
+        # +1.9 columns on average, and the two that missed were the two where the window had
+        # shrunk to less than that.
+        # Two reasons to stop deferring, and it commits on whichever comes first. The lines are
+        # about to merge, so this is the last look that can measure anything; or the press is
+        # about to fall due, so waiting for another look would miss it. Deferring needs both to
+        # agree there is time.
+        # The second one is back because the aim point is no longer the merge. With CLICK_LEAD
+        # at 15ms and a rep 14 ring at 313 columns a second, the press is due about 5 columns
+        # before the centres line up, which is sooner than the two lines stop being separate.
+        # Waiting for the merge look there meant the aim point had already gone by, so the press
+        # went out the instant it could and delivered 8.6ms of the 15ms it was asked for. That
+        # rep missed and the one before it, which got its full lead, landed.
+        if (lines.gap - lines.touch) / speed > period and wait > period:
+            return False  # another look is affordable, and it will know better
         if wait > 0:
             self._sleep(wait)
         self._forget()
