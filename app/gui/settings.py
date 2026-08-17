@@ -17,7 +17,13 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # Post a crash and two screenshots to tarkbot.org so it can be diagnosed and cropped
             # into the reference image that would have matched. See report.py for what is sent.
             'send_error_reports': True,
-            'undercut': '2k rubles | 90%'}  # how far under the suggested price, see sell_bot.UNDERCUTS
+            'undercut': '2k rubles | 90%',  # how far under the suggested price, see sell_bot.UNDERCUTS
+            # How many roubles under trader value a flea offer has to be before snipe mode
+            # buys it. See snipe_bot.MARGINS.
+            'margin': '500 rubles',
+            # Which trader's items snipe mode watches for, so everything bought sells to one
+            # trader. 'All traders' watches the whole list. See snipe_bot.trader_choices.
+            'trader': 'Therapist'}
 
 
 def load(path=SETTINGS_PATH):

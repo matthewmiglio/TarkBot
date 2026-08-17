@@ -16,6 +16,75 @@ sell_bot.py          Tarkbot: the flea selling mode.
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a Tarkbot
                      built without one keeps its own.
+snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of item names,
+                     searches each on the flea, reads the cheapest offer, and buys it when the
+                     asking price is far enough under what a trader pays. Selling to the trader
+                     afterwards is done by hand; nothing here goes near a trader screen.
+                     check_one is one item: type its name into the flea's search box, wait
+                     SEARCH_DELAY for the suggestion list, and if a padlock is showing in that
+                     quarter of the window leave the item alone. Otherwise click the suggestion,
+                     click back into the box and empty it, wait BOARD_DELAY for the board, read
+                     the price on the topmost offer row, and buy that row if it is far enough
+                     under trader value.
+                     sweep_once walks the whole watchlist, start() repeats it. The order is
+                     reshuffled every sweep: a sweep is the same work whatever order it runs in,
+                     and the csv's own order would mean the top of the list is read every few
+                     minutes on the dot while the bottom always waits longest.
+                     The filters go on once per sweep, not once per item: they survive a search,
+                     and that window costs four matches and three menu waits. A filter-by-item is
+                     cleared straight after them and not only at Start, because the filter
+                     window's reset can bring a saved filter set back with it, and a board still
+                     filtered to one item answers every search with that item: 77 checks that are
+                     really one.
+                     The board is read through the topmost PURCHASE button rather than through a
+                     region of its own. That button is the only thing on an offer row with a
+                     reference crop, the price sits at a fixed offset from it, and the match is
+                     needed anyway to click it, so one match does both jobs.
+                     MARGINS is the GUI's MARGIN dropdown: how many roubles under trader value an
+                     offer has to be listed before it is bought, 500/1k/2k/5k. Flat roubles and
+                     not a percentage, because what makes a flip worth the clicks is the profit
+                     and not the ratio: 10% off a 2000 rouble barter item is 200 roubles for the
+                     same six actions that clear 9000 on a scope.
+                     trader_choices/for_trader are the GUI's TRADER dropdown: buy only what one
+                     trader buys back, or everything. Not about the money, about the selling
+                     afterwards being done by hand. A run bringing home 26 Therapist items and 2
+                     Jaeger ones is a run where the two get missed, and an item sold to the wrong
+                     trader pays less: on 2026-08-17 two Jaeger scopes worth 54,894 went to a
+                     trader that was not Jaeger and took most of that run's missing profit with
+                     them. The choices come off the csv rather than a list here, busiest trader
+                     first, so a regenerated watchlist offers the right ones on its own.
+                     DEFAULT_TRADER is Therapist, not ALL_TRADERS: 70 of the 77 items are
+                     Therapist's, so the default gives up 7 and removes the whole class of
+                     mistake. It is a trader's name, so it can go missing from a regenerated
+                     watchlist the same way a saved one can, and gui/app.py falls back through it
+                     to ALL_TRADERS rather than onto it.
+                     SANITY_FLOOR is the other half of worth_buying and is not an optimisation.
+                     Every way a price read goes wrong drops digits rather than adding them, so
+                     every misread looks like a bargain, which is the one direction that spends
+                     money on its own. A listing under a quarter of trader value is refused.
+                     interact/snipe.read_price refuses a clipped crop outright; this catches the
+                     reads that come back looking sane.
+                     Same shape as the other two modes (stats dict, _pause checkpoint,
+                     start/stop, build). Its _pause is the third copy of Tarkbot._pause, which
+                     is the third mode gym_bot.py's note said would settle it: hoist _pause,
+                     _stop and stop() into a Runner before any of the three grows a checkpoint
+                     the other two do not have.
+                     Self-check, no game needed: python -m snipe_bot
+snipe_targets.csv    That watchlist: name, trader, trader price, 24h flea average, gap, category.
+                     Generated, not hand written. _price_scraper/rouble_flips.py writes it from
+                     the pages _price_scraper/scrape_prices.py pulls off tarkov-market.com, and
+                     the scraper module is gitignored while this file is committed and shipped,
+                     so a build has the list without needing the network.
+                     Roubles only, both legs: rows whose trader pays in dollars are dropped at
+                     scrape time. The file is ranked by how far under trader value each item's
+                     flea price usually sits, which is worth reading but is not the order the bot
+                     uses: sweep_once reshuffles every pass.
+                     The Name column comes from the site's span.name, not from the name cell's
+                     text, which runs the item name into its required level and its category
+                     breadcrumbs. That name is typed into the flea's search box, so a breadcrumb
+                     left on the end of one is an item silently never checked.
+                     scripts/setup_msi.py copies it to lib/snipe_targets.csv so the frozen build
+                     finds it beside snipe_bot.py.
 gym_bot.py           HideoutGym: the other mode, hitting the workout skill check at the hideout
                      gym. Same shape as sell_bot.py (stats dict, _pause checkpoint, start/stop)
                      and named to pair with it, and so it cannot be mistaken for
@@ -154,7 +223,11 @@ scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at t
 scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
                      after editing the svg; the ico is committed. Wants cairosvg.
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored state lamp, one
-                     tab per mode (FLEA SELL / HIDEOUT GYM) and the pickers each mode needs.
+                     tab per mode (FLEA SELL / FLEA SNIPE / HIDEOUT GYM) and the pickers each
+                     mode needs. FLEA SNIPE's MARGIN and TRADER dropdowns sit in the same two
+                     header slots as FLEA SELL's UNDERCUT and SOURCE: a tab's dropdowns are never
+                     on screen with another tab's, so they share the positions rather than each
+                     taking one.
                      Run: python -m gui.app
                      Under the buttons, one boxed line of narrate.LAST, repainted by tick()
                      once a second: the lamp says which state the run is in, this says what it
@@ -184,9 +257,9 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      ids stay stable for tick(). Switching tabs stops whatever the tab being
                      left was running and waits for it, rather than refusing the switch: the
                      window must never show one mode while another is still clicking. Tabs in
-                     DISABLED_TABS are drawn greyed and cannot be switched to at all, which is
-                     where HIDEOUT GYM sits: it hits reps, but the last few of every set still
-                     miss, so it is off until that is fixed. Empty that set to switch it on.
+                     DISABLED_TABS are drawn greyed and cannot be switched to at all. It is
+                     empty today, so all three modes are selectable; put a key back in it to
+                     grey one out.
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
                      the glass; the dropdowns are the only real widgets, and they sit in the
@@ -211,7 +284,9 @@ gui/settings.py      Preferences in %APPDATA%/tarkbot/settings.json. Never raise
                      file is ignored so the GUI always opens. Self-check: python -m gui.settings
 gui/backgrounds/     The photos the picker offers. Drop a png in and it appears in the list.
 gui/characters/      The figure on the left panel, one png per mode named for its tab key
-                     (flea.png, gym.png), swapped by repainting the backdrop on tab switch.
+                     (flea.png, gym.png, snipe.png), swapped by repainting the backdrop on tab
+                     switch. The filename is the whole wiring: a new mode drops a png in here
+                     named for its tab and theme.py needs no change.
 gui/tarkbot.svg, gui/tarkbot.ico   Window, taskbar and exe icon. The svg is the source; the
                      ico is generated from it and committed.
 interact/find.py     Locating things on screen. find(), find_all(), find_center() take a target
@@ -228,6 +303,94 @@ interact/find.py     Locating things on screen. find(), find_all(), find_center(
                      Self-check, no game needed: python -m interact.find
 interact/sell.py     Everything the flea bot does to a screen. See the section below.
                      Geometry self-check, no game needed: python -m interact.sell
+interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.return_to_browse
+                     are used as they are, rather than copied: they are the shipping versions and
+                     a second copy would be a second thing to keep in step with the game's UI.
+                     open_flea is the exception and wraps sell.open_flea: open, escape, open
+                     again. Reopening puts the filter chips back at the front of the header,
+                     which is what makes a leftover filter-by-item visible to
+                     remove_filter_by_item_filter. Escape rather than clicking the taskbar icon
+                     a second time, since that icon toggles on brightness and sell.open_flea
+                     would read it as already open and not click.
+                     open_clean_board is the whole opening and what snipe_bot.start() calls:
+                     open_flea, FILTER_SETTLE for the header to draw its chips, then clear a
+                     leftover filter-by-item if one is there and give the board BOARD_DELAY to
+                     reload. The reload wait only happens when something was cleared, since a run
+                     that starts clean has nothing to wait for. apply_flea_filters *is* copied from
+                     sell.py, because it is the step that diverges. The private helpers it calls
+                     are still sell's, since those are the parts not changing and each carries a
+                     paragraph about which crop matches what.
+                     It has already diverged, by a reset: open the filter window, click
+                     flea_filters_reset_button, open it again (the reset closes it), then the
+                     seller's flow. The seller only ever touches a dropdown while it still says
+                     'any', so it leaves a board somebody already filtered exactly as it found
+                     it. Right for a mode that lists items, wrong for one that buys them: a
+                     filter we did not set is a board we are not reading all of, and an offer
+                     missed is invisible in a way a wrong price is not.
+                     search_for finds flea_enter_item_name_input *before* typing and aims
+                     everything after that from where the box was then. It has to: once a name
+                     is in the field no crop of the empty box matches it any more, and the
+                     suggestion list that drops has no reference image at all. SUGGESTION_DROP
+                     is 1.5 box heights under the box's bottom edge, in the box's own height
+                     rather than pixels so it scales like everything else here.
+                     clear_search takes that same box rather than looking for it again, for the
+                     same reason, and runs last rather than first. Emptying the field before
+                     typing would work just as well for the field and would leave the previous
+                     name in it through the whole price read that follows, with the board
+                     underneath filtered by it.
+                     PRICE_LEFT/TOP/WIDTH/HEIGHT are the price's offsets from its row's PURCHASE
+                     button, 1080p pixels like every other measurement. Measured off 250 recorded
+                     frames of a real 1440p board: the button at (2284, 226) 161x32 and the price
+                     spanning x 1819-1960 on rows y 214-247. All 1957 rows across those frames
+                     read back the price the board was showing.
+                     read_price refuses a crop with anything lit in its left gutter. A price
+                     wider than its box has had its leading digits cut off, and a cut price reads
+                     low, which is the direction that makes the sniper buy.
+                     buy() checks that the money left rather than that the click went out, by
+                     photographing ruble_region either side of itself and handing the pair to
+                     purchase_landed. It has to: Tarkov's confirmation sometimes does not take
+                     the 'y' at all, and on 2026-08-17 that cost 55,000 roubles of purchases
+                     counted and never made, with every rouble stat downstream inheriting it. A
+                     second 'y' is sent if the first did not land, which cannot double buy since
+                     the key does nothing with no dialog up, and a 'n' after that, so a
+                     confirmation nobody answered cannot swallow the next item's clicks.
+                     purchase_landed tests brightness before pixels, and needs both. Tarkov dims
+                     everything behind that dialog, and the dimming alone moves 12.8% of the
+                     balance box, against the 13.6% a real purchase moves: a pixel count on its
+                     own says yes to both. Brightness separates them, 0.95 of the old mean for a
+                     real purchase and 0.50 for a live dialog, hence BALANCE_DIM at 0.75.
+                     BALANCE_MOVED is 2%, between a real purchase's 13.6% and the 0.000% two
+                     grabs of an unchanged balance move.
+                     RUBLE_ROI_FRACTIONS is that box, measured on a 2560x1440 flea where the
+                     balance sits at x 1943-2112, y 93-131. Tune it with
+                     tests/test_ruble_region.py, which draws the box on the screen it cut it
+                     from.
+                     remove_filter_by_item_filter clears a filter-by-item chip: check the board
+                     reads as filtered (filter_by_item_filter_applied), find every
+                     clear_filter_button, click the leftmost. Not wired into the loop yet.
+                     The applied check first is the whole design. clear_filter_button is a 12 to
+                     14 pixel crop of a small plain glyph, the shape of target that has no
+                     false-positive headroom, and every other filter chip carries the same x: on
+                     a board filtered only by currency and condition, the leftmost x found is the
+                     *currency* one, and clicking it would quietly unfilter roubles. Something
+                     bigger has to say the item chip is there before its x is trusted.
+                     is_locked looks for flea_item_locked_icon over top_left_quadrant of the
+                     window, which is where the suggestion list drops. The whole window would
+                     find a padlock anywhere in the UI, and a box around one row is not needed:
+                     the list has exactly one row in it, because every watchlist name was typed
+                     into a real flea first and the fourteen that brought back several rows or
+                     none were dropped. One row means one padlock and no question of whose it is.
+                     That is a real coupling: put an ambiguous name back on the list and this
+                     reads the wrong row's lock. _price_scraper/rouble_flips.py's AMBIGUOUS set
+                     is what holds it. It is read while the list is still up,
+                     the only moment it can be: the list closes the instant a suggestion is
+                     clicked, so a locked item is never clicked at all.
+                     Those crops read 2 padlocks in the quadrant of a frame that visibly has 2,
+                     and 0 on a frame with no list up, which is the present-and-absent pair this
+                     repo wants behind any target. An empty flea_item_locked_icon/ raises out of
+                     find and is meant to: this is what stands between the sniper and clicking
+                     purchase on something it cannot buy, so failing quietly is worse than the
+                     run stopping and naming the folder.
 interact/gym.py      The same for the hideout gym. Separate module on purpose: the two share
                      find.py and narrate.py and nothing else.
                      rep_region() is the strip the skill check is read from, held as fractions
@@ -313,13 +476,14 @@ interact/reference_images/<target>/*.png
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
 `test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
-`test_checkmark_region.py`,
+`test_checkmark_region.py`, `test_snipe_loop.py`,
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
-`python -m interact.sell`, `python -m interact.gym`, `python -m interact.find`,
+`python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
+`python -m interact.find`, `python -m snipe_bot`,
 `python -m frames` and `python -m screen`.
 
 ```
@@ -384,6 +548,28 @@ test_checkmark_region.py     Where the tick is looked for and whether it is foun
                              since a region drawn in the wrong place reads the same in the
                              summary as a checkbox that is genuinely empty. Defaults to the
                              frame recorder's folder, or takes frame paths. No game needed.
+test_remove_item_filter.py   What snipe.remove_filter_by_item_filter can see, and with --click
+                             what it does. Bare it clicks nothing: it says whether the board
+                             reads as filtered by item, how many clear-filter buttons are up and
+                             which is leftmost, and draws all of it to
+                             tests/output/remove_item_filter/ (chip blue, buttons yellow,
+                             leftmost green). Takes a saved frame or the live window; --click
+                             wants the game and clears the filter for real.
+test_ruble_region.py         Where snipe.ruble_region lands, drawn on the screen it was cut
+                             from: the whole window with the box on it in yellow, and the crop
+                             at 4x, both to tests/output/ruble_region/. The tuning loop for
+                             RUBLE_ROI_FRACTIONS. Takes a saved frame, or grabs the live window.
+test_snipe_loop.py           The snipe loop's decisions against a stand-in screen: a cheap top
+                             offer is bought, a dear one is left, an unreadable price is never
+                             acted on, a price under SANITY_FLOOR reads as a misread rather than
+                             a bargain, an empty board and a missing search box end the item and
+                             not the run, a filter-by-item that survived the filter window is
+                             cleared before any searching, a purchase whose balance never moved
+                             is counted nowhere but in "buys that missed", a locked item is
+                             skipped before the board is ever read,
+                             filters that will not go on stop the sweep before it reads anything,
+                             a shuffled sweep still covers every item exactly once and two sweeps
+                             do not walk the same order, and Stop lands mid sweep. No game needed.
 test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
                              and never presses escape, while a pick that did not take still
                              retries. No game needed.

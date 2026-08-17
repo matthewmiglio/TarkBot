@@ -51,6 +51,7 @@ build_exe_options = {
         (ROOT / 'interact' / 'reference_images', 'lib/interact/reference_images'),
         (ROOT / 'gui' / 'backgrounds', 'lib/gui/backgrounds'),
         (ROOT / 'gui' / 'characters', 'lib/gui/characters'),
+        (ROOT / 'snipe_targets.csv', 'lib/snipe_targets.csv'),  # snipe_bot reads it beside itself
         (ICON, 'lib/gui/tarkbot.ico'),  # the exe embeds it, iconbitmap() still reads the file
         (version_file, '__version__'),  # version.py reads this next to the exe when frozen
     ],

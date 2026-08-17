@@ -23,9 +23,11 @@ import report  # noqa: E402
 import screen  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
+import snipe_bot  # noqa: E402
 import tarkov_window  # noqa: E402
 import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
 from sell_bot import DEFAULT_STALE, DEFAULT_UNDERCUT, MODES, STALE_THRESHOLDS, UNDERCUTS  # noqa: E402
+from snipe_bot import DEFAULT_MARGIN, MARGINS  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
 JOIN_TIMEOUT = 10  # seconds to give the bot to unwind before the window goes anyway
@@ -36,11 +38,12 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 #   STAT_LABELS  the rows to draw, (key, label)
 #   TINT_STAT    the row that goes green once it is non-zero, or None
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
-TABS = (('flea', 'FLEA SELL', sell_bot), ('gym', 'HIDEOUT GYM', gym_bot))
+TABS = (('flea', 'FLEA SELL', sell_bot), ('snipe', 'FLEA SNIPE', snipe_bot),
+        ('gym', 'HIDEOUT GYM', gym_bot))
 DEFAULT_TAB = 'flea'
 # Tabs drawn but not selectable, greyed rather than deleted so a mode being built can still be
-# seen. Gym mode works but its last few reps of each set still miss, so it is off for now.
-DISABLED_TABS = {'gym'}
+# seen. Empty today: all three modes are selectable. Put a key back in here to grey one out.
+DISABLED_TABS = set()
 
 DROP_ROW = (29, 63)  # centre lines of the header's two dropdown rows
 TAB_ROW = 138  # the tab strip's centre line, inside the status panel
@@ -414,6 +417,19 @@ class App:
         self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 150,
                                        tag='tab:flea')
 
+        # Snipe mode's own pick, in the slot SOURCE uses on the flea tab. The two are never on
+        # screen together, the same arrangement as UNDERCUT and MARGIN on the row below.
+        traders = snipe_bot.trader_choices()
+        if self.prefs['trader'] not in traders:  # a regenerated watchlist can drop a trader
+            # And the default is a trader's name now, so it can go missing the same way.
+            self.prefs['trader'] = (snipe_bot.DEFAULT_TRADER
+                                    if snipe_bot.DEFAULT_TRADER in traders
+                                    else snipe_bot.ALL_TRADERS)
+        self.trader_var = self._dropdown(
+            'TRADER', 916, traders, self.prefs['trader'], self._pick_trader, 150, tag='tab:snipe',
+            tip='Only buy items this trader will buy back, so everything bought goes to one '
+                'trader when you sell it on')
+
         # Second row. Untagged like the background: which screen the game is on belongs to the
         # window, not to a mode, so both tabs see it.
         self.monitors = {m.label: m for m in screen.monitors()}
@@ -430,6 +446,15 @@ class App:
             tag='tab:flea', row=1,
             tip='How far under the suggested price to list: the higher of the flat cut and the '
                 'percentage, so the flat one wins on expensive items')
+        # Snipe mode's one pick, in the slot UNDERCUT uses on the flea tab. They are never on
+        # screen together, so the two share the position rather than each getting their own.
+        if self.prefs['margin'] not in MARGINS:  # an edited settings file must not wedge it
+            self.prefs['margin'] = DEFAULT_MARGIN
+        self.margin_var = self._dropdown(
+            'MARGIN', 916, list(MARGINS), self.prefs['margin'], self._pick_margin, 150,
+            tag='tab:snipe', row=1,
+            tip='How many roubles under trader value an offer has to be listed before it is '
+                'bought')
 
     def _draw_tabs(self):
         """The mode strip along the top of the status panel.
@@ -636,6 +661,14 @@ class App:
 
     def _pick_stale(self, label):
         self.prefs['stale'] = label  # the dropdown's labels are the keys, so no lookup
+        settings.save(self.prefs)
+
+    def _pick_margin(self, label):
+        self.prefs['margin'] = label  # the dropdown's labels are the keys, so no lookup
+        settings.save(self.prefs)
+
+    def _pick_trader(self, label):
+        self.prefs['trader'] = label  # a trader's name, or snipe_bot.ALL_TRADERS
         settings.save(self.prefs)
 
     # ------------------------------------------------------------------ running

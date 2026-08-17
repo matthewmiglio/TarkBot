@@ -1,8 +1,15 @@
 # Tarkbot
 
-A flea market bot for Escape From Tarkov. It reads your screen, picks an item out of your
-stash, reads the price Tarkov suggests, undercuts it, and lists it. Then it does the next one,
-and keeps going until you press Stop.
+A bot for Escape From Tarkov that reads your screen and clicks. It does three jobs, one per tab
+in the window, and you run one at a time:
+
+- **Flea sell.** Picks an item out of your stash, reads the price Tarkov suggests, undercuts it,
+  and lists it. Then the next one, until you press Stop.
+- **Flea snipe.** Works a watchlist of items whose trader price is known, searching each one on
+  the flea and buying any offer listed far enough under what a trader will pay for it. You sell
+  those on to the trader yourself.
+- **Hideout gym.** Hits the workout skill check, rep after rep, so a session at the gym does not
+  need you sitting at it.
 
 ![The Tarkbot control panel](docs/readme_assets/app_gui.png)
 
@@ -14,9 +21,10 @@ and clicks where you would click.
 1. Grab the latest `tarkbot-<version>-win64.msi` from
    [Releases](https://github.com/matthewmiglio/TarkBot/releases).
 2. Run the installer, then launch **Tarkbot** from the Start menu.
-3. Have Tarkov open, in fullscreen, sitting on your stash screen.
-4. Pick where items come from (your inventory, scav cases, or both), pick a background if you
-   care, press **Start**.
+3. Have Tarkov open, in fullscreen. Flea sell and flea snipe both want your stash screen;
+   hideout gym wants the workout already running, since it navigates nowhere.
+4. Pick a tab, set what that mode asks for (where items come from, how far under trader value
+   to buy), pick a background if you care, press **Start**.
 
 You get 3 seconds after Start to get out of the way. The lamp goes green while it works, red if
 a pass lands on a screen it did not expect, and it just starts a fresh pass from there. Stop
@@ -46,6 +54,11 @@ version:
 - **Undercutting** takes the higher of a percentage off and a flat amount off, so the flat cut
   wins on expensive items and the percentage wins on cheap ones. The GUI's UNDERCUT dropdown
   picks the flat cut: 2000, 3000 or 5000 roubles, always against the same 15%.
+- **The snipe watchlist** is `app/snipe_targets.csv`, which ships with the app so it needs no
+  network. It holds the item name to search for and what a trader pays for it. Each pass checks
+  every item on it once, in a fresh random order, so nothing is looked at on a schedule. The
+  MARGIN dropdown says how many roubles under trader value an offer has to be before it gets
+  bought.
 
 ## Running from source
 
@@ -56,8 +69,9 @@ python -m gui.app
 ```
 
 Requires Python 3.11+. The tests are not pytest, they are scripts that run against the live
-game and write a picture of what they saw to `app/tests/output/`. Two of them need no game at
-all: `python tests/test_price_corpus.py` and `python -m interact.sell`.
+game and write a picture of what they saw to `app/tests/output/`. Several need no game at all,
+among them `python tests/test_price_corpus.py`, `python tests/test_snipe_loop.py`,
+`python -m interact.sell` and `python -m snipe_bot`.
 
 ## Building an installer
 
