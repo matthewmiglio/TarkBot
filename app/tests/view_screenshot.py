@@ -16,6 +16,7 @@ import numpy as np  # noqa: E402
 import pyautogui  # noqa: E402
 from PIL import Image  # noqa: E402
 
+import screen  # noqa: E402,F401  importing it patches pyautogui.screenshot onto the right monitor
 import tarkov_window  # noqa: E402
 
 GRID = 100  # px between grid lines
