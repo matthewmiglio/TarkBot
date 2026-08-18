@@ -187,7 +187,14 @@ def flea_icon_brightness(region=None):
 
     The entry inverts when the flea opens: light text on dark becomes dark text on a light
     highlight. That flip is far easier to read than matching two near-identical templates.
+
+    The cursor is parked first because hovering the entry inverts it exactly the same way, so a
+    pointer left sitting on the icon after clicking it reads as open no matter what the flea is
+    actually doing. That is how the sniper's open, escape, open used to end up as open, escape:
+    the escape shut the flea, the cursor was still on the icon, and the reopen saw a lit entry
+    and decided there was nothing to click.
     """
+    _park_cursor()
     box = find_flea_icon(region)
     if not box:
         return None

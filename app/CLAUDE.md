@@ -444,7 +444,9 @@ interact/reference_images/<target>/*.png
   fractions, because the number inside changes and there is nothing stable to match).
 - **State reads** `is_flea_open` and `more_offers_available` work off pixel brightness rather
   than a second template, because those elements only change color: the flea taskbar icon
-  inverts (mean channel 57 closed, 117 open, threshold 90) and the add offer button greys out
+  inverts (mean channel 57 closed, 117 open, threshold 90; the cursor is parked before the
+  read, since hovering the entry inverts it the same way and a pointer left sitting on it
+  after a click reads as open whatever the flea is doing) and the add offer button greys out
   (brightest channel 255 lit, 123 greyed, threshold 190). `is_item_selected` is three template
   reads that all have to agree, not one: `item_is_selected` and `place_offer_button` present,
   `no_items_selected` absent, because any single match that fails for its own reasons reads as
