@@ -65,6 +65,10 @@ FLEA_OPEN_BRIGHTNESS = 90  # mean channel value: measured 57 closed, 117 open
 # The suggested price readout, as (left, top, right, bottom) fractions of the window.
 # Measured at 1920x1080: left 1339, top 147, right 1498, bottom 186.
 PRICE_FRACTIONS = (1339 / 1920, 147 / 1080, 1498 / 1920, 186 / 1080)
+# The topmost offer row on the flea board, same (left, top, right, bottom) fractions.
+# Measured at 2560x1440: left 1109, top 190, right 1774, bottom 284, window relative. Read off
+# the viewer's screen coords (3029/3694) with the game on a monitor starting at x 1920.
+FIRST_OFFER_FRACTIONS = (1109 / 2560, 190 / 1440, 1774 / 2560, 284 / 1440)
 SCAV_TOP_PAD = 5  # px below the scav window title before its grid starts
 SCAV_HEIGHT_FRACTION = 0.81  # of the monitor height
 DRAG_SECONDS = 0.4  # fast, but not a teleport; an instant drag gets dropped by the UI
@@ -215,8 +219,37 @@ def grab_price_region(region=None, fractions=PRICE_FRACTIONS):
             round(width * (x1 - x0)), round(height * (y1 - y0)))
 
 
+def grab_first_offer_region(region=None):
+    """The topmost offer row as (left, top, width, height) in screen coords.
+
+    FIRST_OFFER_FRACTIONS through the same scaling as grab_price_region, so it lands in the
+    same place at any resolution and keeps a negative left edge on a monitor left of the
+    primary.
+    """
+    return grab_price_region(region, FIRST_OFFER_FRACTIONS)
+
+
+def first_offer_is_a_pack(region=None):
+    """Is the topmost comparable offer a pack rather than a single item?
+
+    A pack offer's title ends '- pack', and the suggested price under it is the price of the
+    whole pack. Listing one item at it is not an undercut, it is a giveaway, and nothing later
+    in the pass can tell the two apart: the number in the box is perfectly readable either way.
+    """
+    return find.find('flea_item_pack_sale_text', grab_first_offer_region(region)) is not None
+
+
 def get_price(region=None):
-    """The suggested price as an int, or None if nothing readable is in the box."""
+    """The suggested price as an int, or None if nothing readable is in the box.
+
+    A price quoted against a pack is refused here rather than read, because unreadable is
+    already what the caller does the right thing with: it skips the item and starts a fresh
+    pass. A wrong price is the one failure that costs money.
+    """
+    if first_offer_is_a_pack(region):
+        log('the top comparable offer is a pack, so the suggested price is for the pack and '
+            'not for this item: refusing to read it', 1)
+        return None
     crop = grab_price_region(region)
     price = ocr.read_region(crop)
     log(f'read the suggested price box at {crop}: '

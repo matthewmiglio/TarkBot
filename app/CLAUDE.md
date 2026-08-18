@@ -441,7 +441,10 @@ interact/reference_images/<target>/*.png
 
 - **Geometry** `infer_inventory_region` (derived from the All / autoselect-similar / auto-sort
   buttons framing the grid), `infer_scav_case_region`, `grab_price_region` (fixed window
-  fractions, because the number inside changes and there is nothing stable to match).
+  fractions, because the number inside changes and there is nothing stable to match),
+  `grab_first_offer_region` (the same trick and the same scaling, for the topmost comparable
+  offer; `FIRST_OFFER_FRACTIONS` was measured at 2560x1440 rather than 1080p, since that is
+  what was on screen, and `tests/test_first_offer_region.py` is where to retune it).
 - **State reads** `is_flea_open` and `more_offers_available` work off pixel brightness rather
   than a second template, because those elements only change color: the flea taskbar icon
   inverts (mean channel 57 closed, 117 open, threshold 90; the cursor is parked before the
@@ -473,7 +476,13 @@ interact/reference_images/<target>/*.png
   `disable_autoselect_similar`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
-- **Pricing** `get_price` reads the suggested price, `undercut_price(price, fraction, flat)`
+- **Pricing** `get_price` reads the suggested price, but only after `first_offer_is_a_pack` has
+  said the top comparable offer is a single item. A pack offer's title ends '- pack' and the
+  price quoted under it is the whole pack's, so undercutting it lists one item at twenty items'
+  money. Nothing later in the pass can catch that: the number in the box is perfectly readable,
+  and every counter in the run's totals agrees it went well. A pack reads as None, which is
+  already the answer `sell_bot` handles correctly, by skipping the item and starting a fresh
+  pass, so no new failure mode had to be threaded through. `undercut_price(price, fraction, flat)`
   returns the higher of `price * fraction` and `price - flat`, so the flat cut wins on expensive
   items and the percentage wins on cheap ones without ever going negative. They cross at
   `flat / (1 - fraction)`. Which pair to use is the GUI's UNDERCUT dropdown, `sell_bot.UNDERCUTS`:
@@ -489,7 +498,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
-`test_window_gone.py`,
+`test_window_gone.py`, `test_pack_offer.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -539,6 +548,13 @@ test_recover_on_start.py     What Start backs out of before it looks for the fle
 test_window_gone.py          A game closed mid-run stops the pass before the add offer click
                              rather than clicking where the button used to be, and an open one
                              still goes through. No game needed.
+test_pack_offer.py           A suggested price quoted against a pack is refused before the OCR
+                             is ever reached, and a normal offer still reads. No game needed.
+test_first_offer_region.py   Where sell.grab_first_offer_region lands, drawn on the screen it was
+                             cut from: the window with the box on it in yellow and the crop at
+                             2x, both to tests/output/first_offer_region/. The tuning loop for
+                             FIRST_OFFER_FRACTIONS. Takes a saved frame, or grabs the live
+                             window.
 test_drag_failsafe.py        A drag that raises still parks the cursor off the corner before the
                              fail-safe comes back on. No game needed.
 test_click_jitter.py         Clicks land off centre but stay inside the smallest reference crop
