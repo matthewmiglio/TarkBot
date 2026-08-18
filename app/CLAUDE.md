@@ -83,8 +83,15 @@ snipe_targets.csv    That watchlist: name, trader, trader price, 24h flea averag
                      text, which runs the item name into its required level and its category
                      breadcrumbs. That name is typed into the flea's search box, so a breadcrumb
                      left on the end of one is an item silently never checked.
-                     scripts/setup_msi.py copies it to lib/snipe_targets.csv so the frozen build
-                     finds it beside snipe_bot.py.
+                     scripts/setup_msi.py copies it to lib/snipe_targets.csv, and snipe_bot's
+                     TARGETS_PATH resolves to lib/ off sys.executable when frozen rather than off
+                     __file__. It has to: snipe_bot is a top-level module and cx_Freeze packs
+                     those into lib/library.zip, so __file__ points inside the zip and the plain
+                     form looked for the csv one level too deep. interact/find.py gets away with
+                     the plain form only because interact/ is a package and stays a real folder.
+                     v1.1.0 shipped the csv and could not read it, and since targets() answers a
+                     missing file with an empty list rather than a crash, the only symptom was a
+                     TRADER dropdown with nothing on it but 'All traders'.
 gym_bot.py           HideoutGym: the other mode, hitting the workout skill check at the hideout
                      gym. Same shape as sell_bot.py (stats dict, _pause checkpoint, start/stop)
                      and named to pair with it, and so it cannot be mistaken for
@@ -476,7 +483,7 @@ interact/reference_images/<target>/*.png
 Nothing here is pytest. Each script runs against the live game, prints what it saw, writes a
 picture to `tests/output/`, and exits non-zero on failure. These run with no game open:
 `test_price_corpus.py`, `test_activity_line.py`, `test_flea_filters_fixture.py`,
-`test_checkmark_region.py`, `test_snipe_loop.py`,
+`test_checkmark_region.py`, `test_snipe_loop.py`, `test_snipe_watchlist.py`,
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
@@ -570,6 +577,9 @@ test_snipe_loop.py           The snipe loop's decisions against a stand-in scree
                              filters that will not go on stop the sweep before it reads anything,
                              a shuffled sweep still covers every item exactly once and two sweeps
                              do not walk the same order, and Stop lands mid sweep. No game needed.
+test_snipe_watchlist.py      The watchlist loads and the TRADER dropdown has traders on it,
+                             plus where the frozen build looks for the csv, checked by pretending
+                             to be frozen rather than by freezing. No game needed.
 test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
                              and never presses escape, while a pick that did not take still
                              retries. No game needed.

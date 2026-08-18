@@ -26,6 +26,7 @@ a whole watchlist.
 """
 import csv
 import random
+import sys
 import threading
 import time
 from pathlib import Path
@@ -36,9 +37,13 @@ from interact import snipe  # everything this mode does to a screen goes through
 from narrate import log
 from sell_bot import Stopped  # shared runner plumbing, see the note on _pause below
 
-# The watchlist, beside this module so the frozen build finds it the way find.py finds its
-# reference images. scripts/setup_msi.py copies it to lib/snipe_targets.csv.
-TARGETS_PATH = Path(__file__).parent / 'snipe_targets.csv'
+# The watchlist. setup_msi.py copies it to lib/ beside the frozen modules, but this one is a
+# top-level module and cx_Freeze packs those into lib/library.zip, so __file__ points inside the
+# zip and the csv is one level up from where __file__ says. interact/find.py gets away with the
+# plain form because interact/ is a package and stays a real folder. v1.1.0 shipped the csv and
+# still could not read it, which left the TRADER dropdown with nothing on it but 'All traders'.
+_LIB = Path(sys.executable).parent / 'lib' if getattr(sys, 'frozen', False) else Path(__file__).parent
+TARGETS_PATH = _LIB / 'snipe_targets.csv'
 
 # How many roubles under trader value an offer has to be listed before it is worth buying. GUI
 # label -> roubles, so the dropdown, the saved setting and the test all read off one definition.
