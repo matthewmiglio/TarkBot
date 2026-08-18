@@ -158,6 +158,12 @@ class Tarkbot:
             raise RuntimeError('could not apply the flea filters')
         self._pause()
         log('opening the offer creation window')
+        # The last thing between here and a click, and the only one that asks Windows rather
+        # than the screen. self.region was measured once at Start and every grab since has been
+        # of that rectangle, so a game closed mid-run is invisible to template matching: it
+        # photographs whatever is behind it now and reports the add offer button missing, which
+        # points at the flea instead of at the game being gone. handle() raises WindowError.
+        tarkov_window.handle()
         if not sell.click_add_offer(self.region):
             raise RuntimeError('no add offer button on screen')
         self._pause()

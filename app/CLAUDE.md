@@ -489,6 +489,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
+`test_window_gone.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -535,6 +536,9 @@ test_totals_line.py          The end-of-run totals still get logged when a pass 
 test_recover_on_start.py     What Start backs out of before it looks for the flea. The case that
                              matters is the plain inventory, which must be left alone. No game
                              needed.
+test_window_gone.py          A game closed mid-run stops the pass before the add offer click
+                             rather than clicking where the button used to be, and an open one
+                             still goes through. No game needed.
 test_drag_failsafe.py        A drag that raises still parks the cursor off the corner before the
                              fail-safe comes back on. No game needed.
 test_click_jitter.py         Clicks land off centre but stay inside the smallest reference crop
