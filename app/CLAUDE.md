@@ -7,25 +7,32 @@ the screen, undercuts it, and lists the item on the flea market. Loops until tol
 ## Lay of the land
 
 ```
-sell_bot.py          Tarkbot: the flea selling mode.
+sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like the other two:
+                     it was called Tarkbot while it was the only mode, which left one of three
+                     runners wearing the whole app's name.
                      sell_one() is one full pass, start() repeats it until stop().
                      stop() sets a threading.Event; _pause() is the checkpoint every wait and
                      step boundary goes through, so a stop lands mid pass rather than at the
                      end of one. Raises Stopped internally to unwind, Retry to abandon a pass
                      and start a fresh one. Counts into a stats dict keyed by STAT_LABELS,
                      which the GUI also builds its labels from. The GUI passes its own dict
-                     in, so the counters span the session rather than one Start; a Tarkbot
+                     in, so the counters span the session rather than one Start; a FleaSeller
                      built without one keeps its own.
+                     UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown and
+                     STALE_THRESHOLDS its STALE OFFER THRESHOLD one.
 snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of item names,
                      searches each on the flea, reads the cheapest offer, and buys it when the
                      asking price is far enough under what a trader pays. Selling to the trader
                      afterwards is done by hand; nothing here goes near a trader screen.
-                     check_one is one item: type its name into the flea's search box, wait
-                     SEARCH_DELAY for the suggestion list, and if a padlock is showing in that
-                     quarter of the window leave the item alone. Otherwise click the suggestion,
-                     click back into the box and empty it, wait BOARD_DELAY for the board, read
-                     the price on the topmost offer row, and buy that row if it is far enough
-                     under trader value.
+                     check_one is one item: find the search box, hand it to snipe.search_for
+                     (which types the name, waits SEARCH_DELAY for the suggestion list, gives up
+                     on a padlock, otherwise clicks the suggestion and empties the box), wait
+                     BOARD_DELAY for the board, read the price on the topmost offer row, and buy
+                     that row if it is far enough under trader value.
+                     self._search_box is where the box was last seen, carried across items and
+                     handed back to snipe.find_search_box. The box only matches while it is
+                     empty, so without it one clear that did not take ends the sweep: every item
+                     after it finds no box, types nothing and does nothing but log.
                      sweep_once walks the whole watchlist, start() repeats it. The order is
                      reshuffled every sweep: a sweep is the same work whatever order it runs in,
                      and the csv's own order would mean the top of the list is read every few
@@ -65,7 +72,7 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      interact/snipe.read_price refuses a clipped crop outright; this catches the
                      reads that come back looking sane.
                      Same shape as the other two modes (stats dict, _pause checkpoint,
-                     start/stop, build). Its _pause is the third copy of Tarkbot._pause, which
+                     start/stop, build). Its _pause is the third copy of FleaSeller._pause, which
                      is the third mode gym_bot.py's note said would settle it: hoist _pause,
                      _stop and stop() into a Runner before any of the three grows a checkpoint
                      the other two do not have.
@@ -92,7 +99,7 @@ snipe_targets.csv    That watchlist: name, trader, trader price, 24h flea averag
                      v1.1.0 shipped the csv and could not read it, and since targets() answers a
                      missing file with an empty list rather than a crash, the only symptom was a
                      TRADER dropdown with nothing on it but 'All traders'.
-gym_bot.py           HideoutGym: the other mode, hitting the workout skill check at the hideout
+gym_bot.py           HideoutGym: the third mode, hitting the workout skill check at the hideout
                      gym. Same shape as sell_bot.py (stats dict, _pause checkpoint, start/stop)
                      and named to pair with it, and so it cannot be mistaken for
                      interact/gym.py. Nothing to do with the flea.
@@ -180,8 +187,10 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      changes are captured. 250 frames across all sessions, oldest deleted as
                      new ones arrive. Whole screen, native resolution, lossless.
                      Self-check: python -m frames
-report.py            Sends a crash to tarkbot.org: the traceback, plus the frame from before the
-                     last click and the screen as it is now. Hooked into the one catch in
+crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame from before the
+                     last click and the screen as it is now. Was report.py, which read like a
+                     run report sitting beside session_log.py and frames.py; crashes are all it
+                     has ever sent. Hooked into the one catch in
                      gui/app.py's _run, on a daemon thread, so a slow or dead site cannot hold
                      up the red lamp or raise on top of the error it is reporting. Off with
                      send_error_reports false in settings.json.
@@ -234,7 +243,10 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      mode needs. FLEA SNIPE's MARGIN and TRADER dropdowns sit in the same two
                      header slots as FLEA SELL's UNDERCUT and SOURCE: a tab's dropdowns are never
                      on screen with another tab's, so they share the positions rather than each
-                     taking one.
+                     taking one. BACKGROUND, MONITOR and START KEY are untagged and stay put
+                     across tabs, since a backdrop, a screen and a start key belong to the window
+                     rather than to a mode. STALE OFFER THRESHOLD is FLEA SELL's alone. Each
+                     dropdown can carry a Tip, a hover tooltip drawn after TIP_DELAY.
                      Run: python -m gui.app
                      Under the buttons, one boxed line of narrate.LAST, repainted by tick()
                      once a second: the lamp says which state the run is in, this says what it
@@ -246,15 +258,25 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      One run button, not a START beside a STOP: RUN_STATES holds its three
                      states, each a label, a face color and whether it can be pressed, and
                      _set_run() is the only thing that writes it so the two cannot disagree.
-                     Green 'Start (F4)', red 'Stop (F4)', amber 'Stopping...' while the ask is
-                     with the bot, cleared by tick() when the thread comes back. stop() only
-                     goes amber if a thread is actually alive, since tick() is what clears it
-                     and it only fires on a thread it watched die.
-                     F4 does the same as pressing it, through hotkey(): a RegisterHotKey on its
-                     own thread blocked in GetMessageW, not a tk binding (tk sees no keys while
-                     Tarkov has focus) and not a keyboard poll (nothing has to be held down).
-                     The press is handed back to the tk thread with after(0), because tk is
-                     only safe from the thread that built it.
+                     Green 'Start ({key})', red 'Stop ({key})', amber 'Stopping...' while the
+                     ask is with the bot, cleared by tick() when the thread comes back. {key} is
+                     filled in with whatever the START KEY dropdown holds. stop() only goes amber
+                     if a thread is actually alive, since tick() is what clears it and it only
+                     fires on a thread it watched die.
+                     That key does the same as pressing the button, through hotkey(): a
+                     RegisterHotKey on its own thread blocked in GetMessageW, not a tk binding
+                     (tk sees no keys while Tarkov has focus) and not a keyboard poll (nothing
+                     has to be held down). The press is handed back to the tk thread with
+                     after(0), because tk is only safe from the thread that built it.
+                     HOTKEYS is what it can be bound to: function keys only, and that is a safety
+                     rail. RegisterHotKey takes a key system wide and *eats* it, so binding W
+                     would stop the key walking in Tarkov. F5 is left out because sell_bot presses
+                     it itself to refresh the flea, which came straight back as a press of Stop.
+                     DEFAULT_HOTKEY is F4. hotkey() returns bind(name), and a rebind is a new
+                     thread plus a WM_QUIT to the old one: the registration belongs to the thread
+                     that made it, so only that thread can give the key back. A rebind that just
+                     starts a new thread leaves the old key claimed for the rest of the session,
+                     with no symptom until somebody presses it. tests/test_hotkey_bind.py.
                      Modes are rows in TABS, and each mode's module supplies exactly three
                      things: STAT_LABELS (rows to draw), TINT_STAT (the row that goes green,
                      or None) and build(prefs, stats) -> a runner with start/stop/stats. A
@@ -343,12 +365,19 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      items, wrong for one that buys them: a filter we did not set is a board we
                      are not reading all of, and an offer missed is invisible in a way a wrong
                      price is not.
-                     search_for finds flea_enter_item_name_input *before* typing and aims
-                     everything after that from where the box was then. It has to: once a name
-                     is in the field no crop of the empty box matches it any more, and the
-                     suggestion list that drops has no reference image at all. SUGGESTION_DROP
-                     is 1.5 box heights under the box's bottom edge, in the box's own height
-                     rather than pixels so it scales like everything else here.
+                     find_search_box is the only thing that looks for
+                     flea_enter_item_name_input, and search_for takes the box it found as an
+                     argument. Everything after the typing is aimed from where the box was then,
+                     because once a name is in the field no crop of the empty box matches it any
+                     more, and the suggestion list that drops has no reference image at all.
+                     SUGGESTION_DROP is 1.5 box heights under the box's bottom edge, in the box's
+                     own height rather than pixels so it scales like everything else here.
+                     find_search_box also takes the caller's last known box and falls back to it.
+                     A find that comes back empty when we already know where the box is means the
+                     field still has text in it, which is a clear that did not take rather than a
+                     flea that moved, and the answer is to click the box we know about and clear
+                     it again. A cold start with text already in the field is the one case that
+                     cannot be helped: no cached box either, so it returns None and says so.
                      clear_search takes that same box rather than looking for it again, for the
                      same reason, and runs last rather than first. Emptying the field before
                      typing would work just as well for the field and would leave the previous
@@ -383,7 +412,10 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      from.
                      remove_filter_by_item_filter clears a filter-by-item chip: check the board
                      reads as filtered (filter_by_item_filter_applied), find every
-                     clear_filter_button, click the leftmost. Not wired into the loop yet.
+                     clear_filter_button, click the leftmost. Called twice per run of the loop:
+                     once from open_clean_board at Start, and again from snipe_bot.sweep_once
+                     after every filter pass, since the filter window's reset can bring a saved
+                     filter set back with it.
                      The applied check first is the whole design. clear_filter_button is a 12 to
                      14 pixel crop of a small plain glyph, the shape of target that has no
                      false-positive headroom, and every other filter chip carries the same x: on
@@ -423,9 +455,13 @@ interact/gym.py      The same for the hideout gym. Separate module on purpose: t
                      a sub-pixel column. One run means they have met, so gap is 0. No template
                      matching, because the ring is a different size in every frame. The target
                      drifts between reps, so neither line may be measured once and cached.
-                     Getting to the hideout, opening the gym and reading fatigue are still
-                     stubs that raise NotImplementedError, and their gym_* reference folders do
-                     not exist yet.
+                     Reading a rep is done; navigating to one is not. open_hideout, open_gym,
+                     is_fatigued and finish_workout still raise NotImplementedError, and their
+                     gym_* reference folders do not exist yet. gym_rep_hexagon is the only one
+                     that does. A do_one_rep stub used to sit here too, describing a
+                     marker-against-bar match that was never built; the shipping rep is
+                     gym_bot.HideoutGym.do_one_rep, on read_lines, so the stub is gone rather
+                     than shadowing the name it lost to.
                      Self-check, no game needed: python -m interact.gym
 interact/ocr.py      Reads the numbers Tarkov prints. Not an OCR engine: the prices are a fixed
                      bitmap font, so it cuts the crop into glyphs and pixel-matches each against
@@ -507,7 +543,8 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_cheap_offer_popup.py`, `test_totals_line.py`, `test_recover_on_start.py`,
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
-`test_window_gone.py`, `test_pack_offer.py`,
+`test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
+`test_hotkey_bind.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -572,7 +609,7 @@ test_recover_loop.py         Start unwinds a stack of leftover windows a layer p
                              up on one it cannot clear rather than spinning, and returns when
                              Stop is pressed part way. No game needed.
 test_recover_targets.py      The other half of that, and the half the fakes cannot cover: a real
-                             Tarkbot against the real window, so the region, the crops and the
+                             FleaSeller against the real window, so the region, the crops and the
                              loop are all the shipping ones. Bare, it reports which of the three
                              windows it can see and presses nothing, so it is safe to point at a
                              live mess. --run calls that bot's own _recover, clicks and all, and
@@ -614,6 +651,26 @@ test_snipe_watchlist.py      The watchlist loads and the TRADER dropdown has tra
 test_dropdown_no_retry.py    A filter dropdown missing its option gives up on the first attempt
                              and never presses escape, while a pick that did not take still
                              retries. No game needed.
+test_filter_window_guard.py  open_filters will not let anything read a control until
+                             flea_filters_window_title is on screen. The finder and the mouse
+                             are both stubbed, so this is about what open_filters does with the
+                             answers rather than about matching pixels. Guards the run of
+                             19 Aug, where a plain Error dialog sat over the flea, the gear
+                             click landed on nothing, and the first thing to notice was the
+                             currency dropdown blaming a missing reference crop. No game needed.
+test_hotkey_bind.py          Rebinding the start key claims the new one and gives the old one
+                             back. Registers real Windows hotkeys briefly (F7 and F8), so do not
+                             hold either down while it runs. No game and no GUI.
+test_apply_flea_filters.py   The filter pass against a live flea: roubles, players only,
+                             condition from 100. --dry reports the state and clicks nothing.
+                             Writes the window before and after to tests/output/, the after shot
+                             with the window reopened so it shows what the settings ended up as.
+                             Wants the game up.
+test_inventory_region_stress.py
+                             Drag the offer creation window to random points until one of the
+                             three buttons infer_inventory_region measures from stops matching.
+                             Writes the screen it failed on. Wants the flea open with the offer
+                             creation window on it.
 test_error_report.py         Crash reporting end to end. The machine id depends on all three of
                              its inputs, a real screenshot round trips byte for byte, an image
                              past the bucket cap is refused, and a crash through App._run both
