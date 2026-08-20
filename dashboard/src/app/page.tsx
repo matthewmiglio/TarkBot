@@ -1,7 +1,7 @@
-import { getAnalytics, getErrors, getFeedback } from "@/lib/data";
+import { getAnalytics, getErrors, getFeedback, getSnipes } from "@/lib/data";
 import {
-  ActivityFeed, DownloadSources, DownloadsOverTime, PagePopularity,
-  SummaryTiles, TrafficSources, ViewsByCountry, ViewsOverTime,
+  ActivityFeed, BuysOverTime, DownloadSources, DownloadsOverTime, ItemsByMargin, PagePopularity,
+  SnipeTiles, SummaryTiles, TopItems, TrafficSources, ViewsByCountry, ViewsOverTime,
 } from "@/components/figures";
 import { FeedbackList } from "@/components/feedback";
 import { ErrorList } from "@/components/errors";
@@ -14,16 +14,18 @@ const SECTIONS = [
   { id: "overview", label: "Overview" },
   { id: "traffic", label: "Traffic" },
   { id: "downloads", label: "Downloads" },
+  { id: "snipes", label: "Snipe Data" },
   { id: "activity", label: "Activity" },
   { id: "feedback", label: "Feedback" },
   { id: "errors", label: "Crashes" },
 ];
 
 export default async function Page() {
-  const [{ views, downloads, configured }, feedback, errors] = await Promise.all([
+  const [{ views, downloads, configured }, feedback, errors, snipes] = await Promise.all([
     getAnalytics(),
     getFeedback(),
     getErrors(),
+    getSnipes(),
   ]);
 
   return (
@@ -88,6 +90,20 @@ export default async function Page() {
           </div>
         </section>
 
+        <section id="snipes" className="mb-12 scroll-mt-14">
+          <h2 className="text-sm font-bold uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">
+            Snipe Data
+          </h2>
+          <SnipeTiles snipes={snipes} />
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TopItems snipes={snipes} />
+            <ItemsByMargin snipes={snipes} />
+          </div>
+          <div className="mt-6">
+            <BuysOverTime snipes={snipes} />
+          </div>
+        </section>
+
         <section id="activity" className="mb-12 scroll-mt-14">
           <h2 className="text-sm font-bold uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">
             Live Activity
@@ -111,7 +127,8 @@ export default async function Page() {
       </div>
 
       <footer className="px-6 py-6 border-t border-gray-200 text-xs text-gray-400">
-        Reading Tarkbot_analytics_events, Tarkbot_downloads, Tarkbot_feedback and Tarkbot_errors.
+        Reading Tarkbot_analytics_events, Tarkbot_downloads, Tarkbot_feedback, Tarkbot_errors and
+        Tarkbot_snipes.
         Screenshot links are signed for an hour and stop working after that; reload for fresh ones.
       </footer>
     </div>

@@ -74,6 +74,33 @@ export function tally<T>(
 }
 
 /**
+ * Descending [label, total] pairs, summing a value per label rather than counting rows.
+ *
+ * The same shape and the same tie-break as tally, so BarList draws either without knowing which
+ * it was handed. tally answers "how often", this answers "how much".
+ */
+export function sumBy<T>(
+  rows: T[],
+  label: (row: T) => string | null,
+  value: (row: T) => number,
+): { label: string; count: number }[] {
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    const key = label(row);
+    if (key === null) continue;
+    totals.set(key, (totals.get(key) || 0) + value(row));
+  }
+  return Array.from(totals, ([label, count]) => ({ label, count })).sort(
+    (a, b) => b.count - a.count || a.label.localeCompare(b.label),
+  );
+}
+
+/** Roubles as the game writes them: thin-spaced thousands and the symbol. */
+export function roubles(n: number): string {
+  return `${Math.round(n).toLocaleString("en-GB").replace(/,/g, " ")} ₽`;
+}
+
+/**
  * Referrer URL to a source name. Null means "don't count this": internal
  * navigation and localhost are noise, not traffic.
  */

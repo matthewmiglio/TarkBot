@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ViewEvent, DownloadEvent } from "@/lib/data";
+import type { ViewEvent, DownloadEvent, SnipeRow } from "@/lib/data";
 import {
-  PERIODS, categorizeSource, distinct, normalizePath, perDay, tally, withinPeriod,
+  PERIODS, categorizeSource, distinct, normalizePath, perDay, roubles, sumBy, tally, withinPeriod,
 } from "@/lib/derive";
 import type { Period } from "@/lib/derive";
 
@@ -44,11 +44,14 @@ function Card({
 }
 
 function BarList({
-  rows, color = "bg-indigo-500", empty = "Nothing in this period",
+  rows, color = "bg-indigo-500", empty = "Nothing in this period", format = String,
 }: {
   rows: { label: string; count: number }[];
   color?: string;
   empty?: string;
+  // A count fits in the narrow column at the end; a sum of roubles does not. Callers that
+  // pass one also pass the formatter that shortens it.
+  format?: (n: number) => string;
 }) {
   const max = Math.max(...rows.map((r) => r.count), 1);
   if (rows.length === 0) return <p className="text-xs text-gray-400">{empty}</p>;
@@ -62,7 +65,9 @@ function BarList({
           <div className="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
             <div className={`h-full rounded ${color}`} style={{ width: `${(r.count / max) * 100}%` }} />
           </div>
-          <span className="text-xs font-medium text-gray-500 w-10 text-right">{r.count}</span>
+          <span className="text-xs font-medium text-gray-500 w-16 text-right tabular-nums">
+            {format(r.count)}
+          </span>
         </div>
       ))}
     </div>
@@ -252,6 +257,89 @@ export function ActivityFeed({ views, downloads }: { views: ViewEvent[]; downloa
           ))}
         </div>
       )}
+    </Card>
+  );
+}
+
+// ─── snipe data ──────────────────────────────────────────────────────────────
+// One row per item the flea sniper bought, straight off Tarkbot_snipes. The question these
+// four answer, in order: how much is being bought, what is being bought, what is worth
+// buying, and whether any of it is still happening.
+
+export function SnipeTiles({ snipes }: { snipes: SnipeRow[] }) {
+  const tiles = useMemo(() => {
+    const spent = snipes.reduce((s, r) => s + r.price, 0);
+    const margin = snipes.reduce((s, r) => s + r.margin, 0);
+    const last7 = perDay(snipes, 7).reduce((s, d) => s + d.count, 0);
+    return [
+      { label: "Items bought", value: snipes.length, sub: `${last7} in 7 days` },
+      {
+        label: "Machines sniping",
+        value: distinct(snipes, "machine_id"),
+        sub: `${distinct(snipes, "item")} different items`,
+      },
+      { label: "Roubles spent", value: roubles(spent), sub: `${roubles(spent / (snipes.length || 1))} a buy` },
+      {
+        // What the traders will pay for all of it, less what it cost. The bot's own definition
+        // of profit, added up across everyone rather than across one run.
+        label: "Margin bought",
+        value: roubles(margin),
+        sub: snipes.length ? `${roubles(margin / snipes.length)} a buy` : "nothing bought yet",
+      },
+    ];
+  }, [snipes]);
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      {tiles.map((t) => (
+        <div key={t.label} className="bg-gray-50 rounded-md p-6 border border-gray-200">
+          <p className="text-xs uppercase tracking-wider text-gray-400">{t.label}</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{t.value}</p>
+          <p className="mt-1 text-xs text-gray-400">{t.sub}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TopItems({ snipes }: { snipes: SnipeRow[] }) {
+  const [period, setPeriod] = useState<Period>("all");
+  const rows = useMemo(
+    () => tally(withinPeriod(snipes, period), (s) => s.item),
+    [snipes, period],
+  );
+  return (
+    <Card title="Most Bought Items" tabs={{ period, onChange: setPeriod }}>
+      <BarList rows={rows} empty="Nothing bought in this period" />
+    </Card>
+  );
+}
+
+export function ItemsByMargin({ snipes }: { snipes: SnipeRow[] }) {
+  const [period, setPeriod] = useState<Period>("all");
+  const rows = useMemo(
+    () => sumBy(withinPeriod(snipes, period), (s) => s.item, (s) => s.margin),
+    [snipes, period],
+  );
+  return (
+    <Card title="Margin by Item" tabs={{ period, onChange: setPeriod }}>
+      {/* Thousands, not roubles: the column at the end of a bar has room for "1 240k" and
+          none for "1 240 000 ₽". The tiles above carry the exact totals. */}
+      <BarList
+        rows={rows}
+        color="bg-green-500"
+        empty="Nothing bought in this period"
+        format={(n) => `${Math.round(n / 1000).toLocaleString("en-GB")}k`}
+      />
+    </Card>
+  );
+}
+
+export function BuysOverTime({ snipes }: { snipes: SnipeRow[] }) {
+  const data = useMemo(() => perDay(snipes, 30), [snipes]);
+  return (
+    <Card title="Items Bought · Last 30 Days">
+      <Columns data={data} color="bg-amber-500" unit="buys" />
     </Card>
   );
 }

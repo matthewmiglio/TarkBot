@@ -1,6 +1,6 @@
 import "server-only";
 
-// The dashboard's whole data layer. Reads the two Tarkbot_ tables straight off
+// The dashboard's whole data layer. Reads the Tarkbot_ tables straight off
 // PostgREST with the service key, server-side only, so no key ever reaches the
 // browser and both tables can keep RLS on with no policies.
 // ponytail: no @supabase/supabase-js and no /api/db proxy — the page is a
@@ -155,6 +155,28 @@ export async function getErrors(): Promise<ErrorReport[]> {
     before_url: (r.before_screenshot_id && urls.get(`${r.before_screenshot_id}.png`)) || null,
     after_url: (r.after_screenshot_id && urls.get(`${r.after_screenshot_id}.png`)) || null,
   }));
+}
+
+export type SnipeRow = {
+  ts: string;
+  machine_id: string;
+  version: string | null;
+  item: string;
+  price: number;
+  trader_value: number;
+  // Generated in Postgres as trader_value - price, so it can never disagree with the two
+  // numbers it comes from. The app does not send it.
+  margin: number;
+};
+
+// ponytail: this is the one table that will outgrow ROW_CAP first, since it is a row per
+// purchase rather than a row per visit. When it does, the cap silently drops the oldest rows
+// and "all time" quietly stops being all time. Move it to a Postgres aggregate then.
+export async function getSnipes(): Promise<SnipeRow[]> {
+  return table<SnipeRow>(
+    "Tarkbot_snipes",
+    "ts,machine_id,version,item,price,trader_value,margin",
+  );
 }
 
 export async function getAnalytics() {

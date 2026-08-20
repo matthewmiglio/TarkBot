@@ -2,7 +2,7 @@
 //   node src/lib/derive.check.ts
 import assert from "node:assert/strict";
 import {
-  withinPeriod, perDay, distinct, tally, categorizeSource, normalizePath,
+  withinPeriod, perDay, distinct, tally, sumBy, roubles, categorizeSource, normalizePath,
 } from "./derive.ts";
 
 const NOW = Date.parse("2026-07-27T12:00:00Z");
@@ -42,6 +42,35 @@ assert.deepEqual(t, [
   { label: "b", count: 1 },
   { label: "c", count: 1 },
 ]);
+
+// sumBy: same shape and tie-break as tally, but adding a value instead of counting rows
+const buys = [
+  { item: "Salewa", margin: 5_000 },
+  { item: "Salewa", margin: 7_000 },
+  { item: "Bandage", margin: 12_000 },
+  { item: "Aluminium", margin: 12_000 },
+];
+assert.deepEqual(
+  sumBy(buys, (b) => b.item, (b) => b.margin),
+  [
+    { label: "Salewa", count: 12_000 },
+    { label: "Aluminium", count: 12_000 },
+    { label: "Bandage", count: 12_000 },
+  ],
+  "sums per label, ties broken by label so the order is stable",
+);
+assert.deepEqual(sumBy([], (b: { item: string }) => b.item, () => 1), [], "no rows, no bars");
+assert.deepEqual(
+  sumBy(buys, (b) => (b.item === "Salewa" ? null : b.item), (b) => b.margin).map((r) => r.label),
+  ["Aluminium", "Bandage"],
+  "a null label drops the row, same as tally",
+);
+
+// roubles
+assert.equal(roubles(0), "0 ₽");
+assert.equal(roubles(41_000), "41 000 ₽", "thin spaces, the way the game writes them");
+assert.equal(roubles(1_234_567), "1 234 567 ₽");
+assert.equal(roubles(999.6), "1 000 ₽", "rounded, since a rouble has no fractions here");
 
 // categorizeSource
 assert.equal(categorizeSource(null), "(direct)");
