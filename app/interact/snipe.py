@@ -7,8 +7,9 @@ search box, reads the cheapest offer on the board, and buys it if it is under tr
 
 Getting on and off the flea is not repeated here. sell.open_flea, sell.is_flea_open and
 sell.return_to_browse are already the shipping versions of all three, and a second copy of them
-would be a second thing to keep in step with the game's UI. apply_flea_filters *is* copied,
-because it is the step that will diverge: the sniper wants a buyer's filters, not a seller's.
+would be a second thing to keep in step with the game's UI. apply_flea_filters was a copy for a
+while, on the grounds that a buyer's filters would diverge from a seller's. They never did: the
+reset was the only difference, so it is sell's function with reset=True.
 
 Geometry self-check, no game needed:  python -m interact.snipe
 """
@@ -28,9 +29,6 @@ PURCHASE_TARGET = 'flea_purchase_button'  # one per offer row, so there are many
 # _item_search_testing): searching the whole window would find a padlock anywhere in the UI,
 # and searching a box around one row would have to know how many rows there are first.
 LOCKED_TARGET = 'flea_item_locked_icon'
-# Clears every filter on the flea's filter window, and closes it doing so. The sniper's own
-# step: see apply_flea_filters for why a buyer resets and a seller does not.
-RESET_TARGET = 'flea_filters_reset_button'
 # The chip the flea shows above the board when it is filtered to one item, and the little x that
 # clears a chip. There is an x per chip, so they are found together and the leftmost one is
 # taken: the chips read left to right and the item filter is the first of them.
@@ -109,78 +107,16 @@ BALANCE_MOVED = 0.02
 BALANCE_DIM = 0.75
 
 
-def _open_filters(region=None):
-    """Click the flea's filter gear. True once the click has gone out.
-
-    Its own function because the sniper opens that window twice: once to reset it and once to
-    fill it in. GEAR_JITTER rather than the usual spread, since the gear is small.
-    """
-    point = sell.jitter(find.find_center(sell.FILTER_BUTTON_TARGET, region),
-                        sell.GEAR_JITTER, sell.GEAR_JITTER)
-    if not point:
-        log('no filter button on screen', 1)
-        return False
-    log(f'opening the filter window at {point}', 1)
-    pyautogui.click(*point)
-    time.sleep(sell.MENU_DELAY)
-    return True
-
-
 def apply_flea_filters(region=None):
-    """Reset the flea's filters, then set roubles, player offers and 100% condition, and OK out.
+    """The seller's filter pass, plus the reset a buyer needs. True once the window is closed.
 
-    Five steps: open the filter window, click reset, open it again (the reset closes it), fill it
-    in, OK. The reset is what makes this a buyer's version. Whatever the board was left filtered
-    by, from a previous session or from a hand, is gone before anything is set, so the board the
-    sniper reads is only ever the one it asked for.
-
-    A copy of sell.apply_flea_filters rather than a call to it, and deliberately so: the seller
-    wants the board filtered the way a seller reads it, and the sniper is about to want
-    something else entirely (price ceilings, a barter toggle, offers it can actually afford).
-    Two callers of one function would mean every change to one having to be safe for the other.
-
-    The private helpers it leans on are still sell's. Copying _set_dropdown and
-    _set_condition_from as well would be copying the part that is not going to change, and each
-    of those carries a paragraph of hard-won detail about which crop matches what.
+    One line, because the two modes' versions were the same function apart from that reset:
+    open the window, clear whatever it was left filtered by, and only then set roubles, player
+    offers and 100% condition. It stays named here rather than being called straight out of
+    snipe_bot, so the sniper keeps a seam of its own for the filters it is going to want that a
+    seller never will.
     """
-    if not _open_filters(region):
-        return False
-
-    # Reset first, then start again from a window we know the state of. The seller does not do
-    # this and does not need to: it only ever touches a dropdown while that dropdown still says
-    # 'any', so a board somebody already filtered is left exactly as it was found. That is the
-    # right call for a mode that lists items and the wrong one for a mode that buys them,
-    # because a filter we did not set is a board we are not reading all of, and an offer missed
-    # is invisible in a way a wrong price is not.
-    point = sell.jitter(find.find_center(RESET_TARGET, region))
-    if not point:
-        log(f'no {RESET_TARGET} on the flea filter window', 1)
-        return False
-    log(f'resetting the filters at {point}', 1)
-    pyautogui.click(*point)
-    time.sleep(sell.MENU_DELAY)
-
-    # Reopened, because the reset closes the window along with clearing it.
-    if not _open_filters(region):
-        return False
-
-    if not sell._set_dropdown(sell.CURRENCY_ANY_TARGET, sell.CURRENCY_RUBLES_OPTION,
-                              sell.CURRENCY_RUB_TARGET, region, sell.DROPDOWN_DELAY):
-        return False
-    if not sell._set_dropdown(sell.OFFERS_FROM_ANY_TARGET, sell.OFFERS_FROM_PLAYERS_OPTION,
-                              sell.OFFERS_FROM_PLAYERS_TARGET, region, sell.OFFERS_FROM_DELAY):
-        return False
-    if not sell._set_condition_from(region):
-        return False
-
-    point = sell.jitter(find.find_center(sell.FILTERS_OK_TARGET, region))
-    if not point:
-        log('no OK button on the flea filter window', 1)
-        return False
-    log(f'OK out of the filter window at {point}', 1)
-    pyautogui.click(*point)
-    time.sleep(sell.MENU_DELAY)
-    return True
+    return sell.apply_flea_filters(region, reset=True)
 
 
 def open_flea(region=None):

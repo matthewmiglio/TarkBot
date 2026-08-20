@@ -29,6 +29,9 @@ WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab it
 # loads its contents from the server, which took 2-4s every time it was measured. Waited for
 # rather than slept through, so a fast open costs a poll and a slow one still works.
 SCAV_WINDOW_TIMEOUT = 10.0  # seconds the scav case window gets to appear before we give up
+# Seconds the filter window gets. Shorter than the scav case's: that one waits on the game
+# loading a container, this one on a panel that is either drawn straight away or blocked.
+FILTERS_WINDOW_TIMEOUT = 3.0
 SCAV_WINDOW_POLL = 0.25  # seconds between rechecks while waiting for it
 # Clicks to try before admitting we cannot land on an item. Was 50, which took a minute or two
 # to burn through at roughly 1.5s a miss, all of it clicking gaps in a grid the pass had already
@@ -95,6 +98,9 @@ OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
 # filter_by_item is deliberately not one of these: that is the inventory right-click menu.
 FILTER_BUTTON_TARGET = 'flea_filters_button'  # opens the flea's filter window
 FILTERS_WINDOW_TARGET = 'flea_filters_window_title'  # that window's title bar, for dragging it
+# Clears every filter on that window, and closes it doing so. Only the buyer's pass uses it:
+# see apply_flea_filters for why a buyer resets and a seller does not.
+RESET_TARGET = 'flea_filters_reset_button'
 CURRENCY_ANY_TARGET = 'flea_filters_currency_dropdown_any'  # currency, while it still says any
 CURRENCY_RUBLES_OPTION = 'flea_filters_currency_dropdown_select_rubles'  # roubles, in the opened dropdown
 CURRENCY_RUB_TARGET = 'flea_filters_currency_dropdown_rub'  # the dropdown once it reads roubles
@@ -1161,18 +1167,17 @@ def _set_condition_from(region=None):
     return True
 
 
-def apply_flea_filters(region=None):
-    """Open the flea's filter window, set roubles, players and 100% condition, then OK out.
+def open_filters(region=None):
+    """Click the flea's filter gear and wait for the window. True once its title bar is up.
 
-    Returns True once everything reads the right thing and the window is closed. The dropdowns
-    are only touched while they still say 'any', so running this against an already filtered
-    board opens the window and OKs straight back out rather than undoing the settings.
+    The wait is the point. Clicking the gear is not the same as the window opening: the game
+    can put something else in front of the flea (a plain Error dialog, for one, which is what
+    ended the run of 19 Aug) and the click then lands on nothing. Everything after this reads
+    controls that only exist inside this window, so without the check the first thing to fail
+    is a dropdown read, and the log blames a missing reference crop for a window that was never
+    on screen.
 
-    'Remember selected filter' is deliberately not touched. It used to be ticked here, and the
-    tick was confirmed on screen straight after the click, but reopening the window showed the
-    box empty again every time: the setting does not survive the OK. Clicking a control the
-    game throws away bought a click, two reads and a failure path that could abort the whole
-    filter step, in exchange for nothing.
+    GEAR_JITTER rather than the usual spread, since the gear is small.
     """
     point = jitter(find.find_center(FILTER_BUTTON_TARGET, region), GEAR_JITTER, GEAR_JITTER)
     if not point:
@@ -1180,7 +1185,47 @@ def apply_flea_filters(region=None):
         return False
     log(f'opening the filter window at {point}', 1)
     pyautogui.click(*point)
-    time.sleep(MENU_DELAY)
+    if not wait_for(FILTERS_WINDOW_TARGET, region, timeout=FILTERS_WINDOW_TIMEOUT):
+        log('the filter window did not open. Something else is in front of the flea: check the '
+            'frame saved around that click', 1)
+        return False
+    return True
+
+
+def apply_flea_filters(region=None, reset=False):
+    """Open the flea's filter window, set roubles, players and 100% condition, then OK out.
+
+    Returns True once everything reads the right thing and the window is closed. The dropdowns
+    are only touched while they still say 'any', so running this against an already filtered
+    board opens the window and OKs straight back out rather than undoing the settings.
+
+    reset clears the window first and is the one thing the two modes do differently, which is
+    why this is one function with a flag rather than the two near-copies it used to be. Only
+    the sniper passes it. Leaving a board's existing filters alone is right for a mode that
+    lists items and wrong for one that buys them: a filter we did not set is a board we are not
+    reading all of, and an offer missed is invisible in a way a wrong price is not. Whatever
+    the sniper wants next (price ceilings, a barter toggle) goes here behind its own argument,
+    or forks the function again if the two ever stop sharing this tail.
+
+    'Remember selected filter' is deliberately not touched. It used to be ticked here, and the
+    tick was confirmed on screen straight after the click, but reopening the window showed the
+    box empty again every time: the setting does not survive the OK. Clicking a control the
+    game throws away bought a click, two reads and a failure path that could abort the whole
+    filter step, in exchange for nothing.
+    """
+    if not open_filters(region):
+        return False
+
+    if reset:
+        point = jitter(find.find_center(RESET_TARGET, region))
+        if not point:
+            log(f'no {RESET_TARGET} on the flea filter window', 1)
+            return False
+        log(f'resetting the filters at {point}', 1)
+        pyautogui.click(*point)
+        time.sleep(MENU_DELAY)
+        if not open_filters(region):  # the reset closes the window along with clearing it
+            return False
 
     # The confirm-it-took read used to live here, for the currency dropdown only. It is inside
     # _set_dropdown now, so offers-from gets the same treatment instead of being taken on trust.

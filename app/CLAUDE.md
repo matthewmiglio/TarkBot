@@ -323,17 +323,26 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      open_flea, FILTER_SETTLE for the header to draw its chips, then clear a
                      leftover filter-by-item if one is there and give the board BOARD_DELAY to
                      reload. The reload wait only happens when something was cleared, since a run
-                     that starts clean has nothing to wait for. apply_flea_filters *is* copied from
-                     sell.py, because it is the step that diverges. The private helpers it calls
-                     are still sell's, since those are the parts not changing and each carries a
-                     paragraph about which crop matches what.
-                     It has already diverged, by a reset: open the filter window, click
-                     flea_filters_reset_button, open it again (the reset closes it), then the
-                     seller's flow. The seller only ever touches a dropdown while it still says
-                     'any', so it leaves a board somebody already filtered exactly as it found
-                     it. Right for a mode that lists items, wrong for one that buys them: a
-                     filter we did not set is a board we are not reading all of, and an offer
-                     missed is invisible in a way a wrong price is not.
+                     that starts clean has nothing to wait for. apply_flea_filters is one line:
+                     sell.apply_flea_filters(region, reset=True). It was a copy for a while, on
+                     the grounds that a buyer's filters would diverge from a seller's, and they
+                     never did. The reset was the only difference, so it is a flag on the
+                     seller's function now, and the name survives here as the sniper's seam for
+                     the filters it will want that a seller never will.
+                     Both modes open that window through sell.open_filters, which clicks the
+                     gear and then waits FILTERS_WINDOW_TIMEOUT for flea_filters_window_title
+                     before anything reads a control inside it. A click on the gear is not the
+                     same as the window opening: the game can put a plain Error dialog over the
+                     flea, and without the check the first thing to notice was the currency
+                     dropdown read, which blamed a missing reference crop for a window that was
+                     never on screen.
+                     reset=True clicks flea_filters_reset_button and reopens the window (the
+                     reset closes it) before the seller's flow runs. Without it a dropdown is
+                     only ever touched while it still says 'any', so a board somebody already
+                     filtered is left exactly as it was found. Right for a mode that lists
+                     items, wrong for one that buys them: a filter we did not set is a board we
+                     are not reading all of, and an offer missed is invisible in a way a wrong
+                     price is not.
                      search_for finds flea_enter_item_name_input *before* typing and aims
                      everything after that from where the box was then. It has to: once a name
                      is in the field no crop of the empty box matches it any more, and the
