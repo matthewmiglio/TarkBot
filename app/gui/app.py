@@ -57,20 +57,27 @@ LOG_BOX = 17  # half the height of the box drawn round that line, and its inset 
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
 BUTTON = (130, 34)  # every footer plate, so the run button and LOGS cannot drift apart
 BUTTON_GAP = 16
-# What the run button is bound to: the name to print, and its virtual key. Not F5, which
-# sell_bot presses itself to refresh the flea after every offer. RegisterHotKey takes the key
-# system wide, so the bot's own refresh came straight back here as a press of its own Stop.
-HOTKEY = ('F4', 0x73)
+# What the run button can be bound to: the name shown, and its Windows virtual key. F1 is 0x70
+# and they run in order, so the codes are worked out rather than listed.
+#
+# Function keys only, and that is a safety rail rather than laziness. RegisterHotKey takes the
+# key system wide and *eats* it, so binding W would stop the key walking in Tarkov. F5 is left
+# out because sell_bot presses it itself to refresh the flea after every offer, and the bot's
+# own refresh came straight back here as a press of its own Stop.
+HOTKEYS = {f'F{n}': 0x6F + n for n in range(1, 13) if n != 5}
+DEFAULT_HOTKEY = 'F4'
 WM_HOTKEY = 0x0312
+WM_QUIT = 0x0012
 # The run button's three states: label, face color, and whether it can be pressed. Green to go,
 # red to stop, and amber while the ask is with the bot and there is nothing useful to press.
-RUN_STATES = {'start': (f'Start ({HOTKEY[0]})', theme.RUNNING, True),
-              'stop': (f'Stop ({HOTKEY[0]})', theme.ERROR, True),
+# {key} is filled in with whatever the key is bound to now; 'Stopping...' has none to fill.
+RUN_STATES = {'start': ('Start ({key})', theme.RUNNING, True),
+              'stop': ('Stop ({key})', theme.ERROR, True),
               'stopping': ('Stopping...', theme.WARNING, False)}
 
 
-def hotkey(key, fire, name):
-    """Call `fire` whenever `key` is pressed anywhere on the machine, Tarkov included.
+def hotkey(fire):
+    """Global start/stop key. Returns bind(name), which claims a key and drops the last one.
 
     A Windows hotkey registration rather than a tk key binding, because tk only sees keys while
     its own window has focus and the entire point of this one is to stop the bot while the game
@@ -79,9 +86,16 @@ def hotkey(key, fire, name):
     It is not a poll of the keyboard either. The thread sits blocked inside GetMessageW until
     Windows pushes the press into its queue, so a press registers the moment it happens rather
     than having to be held down until something comes round to look at the key.
+
+    Rebinding is one thread per key rather than a message the running one understands: the
+    registration belongs to the thread that made it, so the old key can only be given back by
+    the thread holding it. WM_QUIT ends its GetMessageW loop and it unregisters on the way out.
     """
-    def pump():
+    live = {}  # the pump thread's id, so the next bind can tell it to let its key go
+
+    def pump(name, key):
         user32 = ctypes.windll.user32
+        live['thread'] = ctypes.windll.kernel32.GetCurrentThreadId()  # kernel32, not user32
         if not user32.RegisterHotKey(None, 1, 0, key):
             narrate.log(f'{name} is already claimed by another program, so the hotkey is off. '
                         f'The button still works.')
@@ -91,8 +105,15 @@ def hotkey(key, fire, name):
         while user32.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
             if message.message == WM_HOTKEY:
                 fire()
+        user32.UnregisterHotKey(None, 1)  # WM_QUIT: a rebind is waiting on this key coming free
 
-    threading.Thread(target=pump, daemon=True).start()
+    def bind(name):
+        old = live.pop('thread', None)
+        if old:
+            ctypes.windll.user32.PostThreadMessageW(old, WM_QUIT, 0, 0)
+        threading.Thread(target=pump, args=(name, HOTKEYS[name]), daemon=True).start()
+
+    return bind
 
 
 def claim_taskbar_identity(app_id='tarkbot'):
@@ -315,8 +336,8 @@ class App:
         # there. That is a queue jump, not a wait: the tk loop is idle between ticks and picks
         # it up on the next pass through, which is the same instant from a person's point of
         # view. The stop itself is a threading.Event the bot is already watching.
-        name, key = HOTKEY
-        hotkey(key, lambda: self.root.after(0, self.toggle), name)
+        self.bind_hotkey = hotkey(lambda: self.root.after(0, self.toggle))
+        self.bind_hotkey(self.prefs['hotkey'])
 
         # Last, so the window only appears once it has something to show.
         strip_titlebar(root)
@@ -439,6 +460,14 @@ class App:
         self.monitor_var = self._dropdown(
             'MONITOR', 452, list(self.monitors), chosen.label, self._pick_monitor, 150, row=1,
             tip='Which screen to watch and click on. Defaults to the one Tarkov is on')
+        # Untagged too, in the slot BACKGROUND uses on the row above: the key starts and stops
+        # whichever mode the tab is on, so it is the window's setting rather than a mode's.
+        if self.prefs['hotkey'] not in HOTKEYS:  # an edited settings file must not wedge it
+            self.prefs['hotkey'] = DEFAULT_HOTKEY
+        self.hotkey_var = self._dropdown(
+            'START KEY', 684, list(HOTKEYS), self.prefs['hotkey'], self._pick_hotkey, 112, row=1,
+            tip='The key that starts and stops the bot from inside the game. Function keys '
+                'only: the key is taken system wide, so a letter would stop working in Tarkov')
         if self.prefs['undercut'] not in UNDERCUTS:  # an edited settings file must not wedge it
             self.prefs['undercut'] = DEFAULT_UNDERCUT
         self.undercut_var = self._dropdown(
@@ -601,9 +630,10 @@ class App:
 
     def _set_run(self, state):
         """The one place the run button is written, so its label and color cannot disagree."""
+        label, color, live = RUN_STATES[state]
         self.run_state = state
-        self.run_plate.paint(*RUN_STATES[state][:2])
-        self.run_plate.config(RUN_STATES[state][2])
+        self.run_plate.paint(label.format(key=self.prefs['hotkey']), color)
+        self.run_plate.config(live)
 
     def toggle(self):
         """The run button, and the hotkey: start when stopped, stop when running.
@@ -654,6 +684,15 @@ class App:
                 self.prefs['mode'] = key
                 break
         settings.save(self.prefs)
+
+    def _pick_hotkey(self, name):
+        """Claim the new key, give the old one back, and relabel the button that names it."""
+        if name == self.prefs['hotkey']:
+            return  # binding it again would fight the registration we already hold
+        self.prefs['hotkey'] = name
+        settings.save(self.prefs)
+        self.bind_hotkey(name)
+        self._set_run(self.run_state)
 
     def _pick_undercut(self, label):
         self.prefs['undercut'] = label  # the dropdown's labels are the keys, so no lookup

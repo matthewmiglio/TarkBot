@@ -23,7 +23,10 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'margin': '500 rubles',
             # Which trader's items snipe mode watches for, so everything bought sells to one
             # trader. 'All traders' watches the whole list. See snipe_bot.trader_choices.
-            'trader': 'Therapist'}
+            'trader': 'Therapist',
+            # The key that starts and stops the bot from inside the game. A name from
+            # gui.app.HOTKEYS; anything else falls back to the default at startup.
+            'hotkey': 'F4'}
 
 
 def load(path=SETTINGS_PATH):
