@@ -602,9 +602,14 @@ test_monitors.py             Puts a known color on each monitor in turn and read
 test_activity_line.py        The footer's activity line: is it showing the newest log line, and
                              does it stay inside the window when that line is long. Opens the
                              GUI for a moment, no game needed.
-test_cheap_offer_popup.py    The below-market-value confirmation means no sale: sell_one must
+test_cheap_offer_popup.py    Both ways a pass ends with nothing listed, and how each backs out.
+                             The below-market-value confirmation means no sale: sell_one must
                              not count posted or money, must count a price failure, and must
-                             escape one more time than the pass otherwise would. No game needed.
+                             escape one more time than the pass otherwise would. An unreadable
+                             price adds no window, so it escapes exactly picked.escapes, one
+                             from the stash and two with a scav case under it. That row is a
+                             regression: a flat 1 there ended the run of 2026-08-20 after 132
+                             good passes. No game needed.
 test_totals_line.py          The end-of-run totals still get logged when a pass raises, for
                              both bots. No game needed.
 test_recover_on_start.py     What Start backs out of before it looks for the flea. The case that

@@ -30,10 +30,11 @@ UNDERCUTS = {'2k rubles | 90%': (0.90, 2000),
 DEFAULT_UNDERCUT = '2k rubles | 90%'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
-# How many escapes it takes to get back to a clean screen from wherever a pass gave up.
+# How many escapes it takes to get back to a clean screen from wherever a pass gave up. What is
+# open depends on where the item came from and not on what went wrong, so every path out of
+# sell_one counts off the Selection it was handed rather than off a constant of its own.
 INVENTORY_ESCAPES = 1  # the offer creation window
 SCAV_ESCAPES = 2  # that, plus the scav case window sat on top of it
-PRICE_ESCAPES = 1  # an unreadable price leaves only the offer window open
 # The below-market-value confirmation, on top of whatever the pass already had open. Added to
 # the pass's own count rather than written out per mode, so it stays 2 from the stash and 3 with
 # a scav case open without a second place to keep those numbers in step.
@@ -241,7 +242,18 @@ class FleaSeller:
         price = sell.get_price(self.region)
         if price is None:  # never guess at it, a half read price is worse than no sale
             self.stats['price_missing'] += 1
-            self._escape(PRICE_ESCAPES)
+            # picked.escapes, not a flat 1. An unreadable price says nothing about how many
+            # windows are open: the item still came from wherever it came from, and a scav case
+            # pass has the case window under the offer window either way. This was the one path
+            # out of sell_one still escaping a fixed number of times, and on 2026-08-20 it ended
+            # a run. A scav case item that could not be listed put an error banner over the
+            # price box; the single escape closed the banner, the offer creation window stayed
+            # up, and it covers the flea taskbar icon, so the next pass could not find the flea
+            # and raised. 132 passes in, then 5h36m sat idle.
+            # ponytail: still one press per window we know about, so a banner on top of a scav
+            # pass leaves the case window open. Harmless today, since the case window does not
+            # reach the taskbar. Loop on close_leftover_windows here if that stops being true.
+            self._escape(picked.escapes)
             raise Retry('could not read the suggested price')
         self.stats['price_found'] += 1
         listing = sell.undercut_price(price, *self.undercut)
