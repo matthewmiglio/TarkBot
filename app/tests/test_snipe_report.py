@@ -100,11 +100,11 @@ if __name__ == '__main__':
     real_sniper = snipe_bot.FleaSniper
     snipe_bot.FleaSniper = Stub
     try:
-        snipe_bot.build({'send_error_reports': False}, None)
+        snipe_bot.build({'send_telemetry': False}, None)
         if built.get('report'):
             sweep()
             sys.exit('opting out of reports still built a sniper that reports')
-        snipe_bot.build({'send_error_reports': True}, None)
+        snipe_bot.build({'send_telemetry': True}, None)
         if not built.get('report'):
             sweep()
             sys.exit('opting in did not switch reporting on')

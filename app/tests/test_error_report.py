@@ -170,7 +170,7 @@ if __name__ == '__main__':
     class Stub:
         """What _run touches, and nothing else: a bot to start and somewhere to put the error."""
         def __init__(self):
-            self.prefs = {'send_error_reports': True}
+            self.prefs = {'send_telemetry': True}
             self.error = None
             self.bot = Boom()
 
@@ -191,11 +191,11 @@ if __name__ == '__main__':
     # Opting out has to actually opt out. Safe to count now: the report above has landed, so
     # there is no thread still in flight to be mistaken for this one.
     settled = len(rows())
-    stub.prefs = {'send_error_reports': False}
+    stub.prefs = {'send_telemetry': False}
     gui_app.App._run(stub)
     time.sleep(3)
-    assert len(rows()) == settled, 'a report was sent with send_error_reports off'
-    print('ok - send_error_reports false sends nothing')
+    assert len(rows()) == settled, 'a report was sent with send_telemetry off'
+    print('ok - send_telemetry false sends nothing')
 
     sweep()
     assert rows() == [], 'cleanup left rows behind'

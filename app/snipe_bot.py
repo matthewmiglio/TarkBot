@@ -352,7 +352,7 @@ def build(prefs, stats):
     # The same preference that gates crash reports, so there is one switch and one meaning:
     # a user who opted out of telling us about a crash has opted out of this too.
     return FleaSniper(margin=margin, watchlist=watchlist, stats=stats,
-                      report=bool(prefs.get('send_error_reports')))
+                      report=bool(prefs.get('send_telemetry')))
 
 
 if __name__ == '__main__':

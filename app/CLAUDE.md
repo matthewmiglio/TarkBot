@@ -193,8 +193,10 @@ crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame
                      has ever sent. Hooked into the one catch in
                      gui/app.py's _run, on a daemon thread, so a slow or dead site cannot hold
                      up the red lamp or raise on top of the error it is reporting. Off with
-                     send_error_reports false in settings.json, which is now one switch over two
-                     kinds of telemetry: this and snipe_report.py.
+                     send_telemetry false in settings.json, one switch over both kinds of
+                     telemetry: this and snipe_report.py. That key was send_error_reports until
+                     the second kind arrived; gui/settings.RENAMED carries an older file's
+                     value across, or the rename would silently opt a user back in.
                      Ships no key: it posts to a route on our own site, which holds the Supabase
                      service key server side, the same way the download counter does. The
                      screenshots do not go through that route. A lossless png of a 1440p screen
@@ -216,7 +218,7 @@ snipe_report.py      Sends one row per item the flea sniper buys: the item, what
                      carries a traceback, two screenshots and two signed uploads; this is six
                      fields and a 200.
                      Called from snipe_bot.check_one, after the counters and only on a purchase
-                     the rouble balance confirmed. Gated on the same send_error_reports
+                     the rouble balance confirmed. Gated on the same send_telemetry
                      preference, threaded in as FleaSniper(report=...) by build(), and off by
                      default so a sniper built in a shell or a test posts nothing.
                      Every failure is swallowed into the log at indent 2. A slow site must never
