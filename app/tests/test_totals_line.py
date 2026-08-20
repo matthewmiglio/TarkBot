@@ -58,7 +58,7 @@ def check(cls, labels, pass_name, expected):
 
 if __name__ == '__main__':
     print('a pass raises, and the totals line still lands:')
-    check(sell_bot.Tarkbot, sell_bot.STAT_LABELS, 'sell_one', 'finished after 1 passes')
+    check(sell_bot.FleaSeller, sell_bot.STAT_LABELS, 'sell_one', 'finished after 1 passes')
     # The gym counts seconds rather than passes, so its totals line is matched on the counter
     # it carries instead of on a count of anything.
     check(gym_bot.HideoutGym, gym_bot.STAT_LABELS, 'do_one_rep', 'Reps clicked 0')
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     # And the clean path still works, or the finally could be hiding a broken normal exit.
     # The pass stops the bot from inside itself: start() clears the flag on the way in, so
     # setting it beforehand does nothing and the loop runs until the disk fills up.
-    bot = bare(sell_bot.Tarkbot, sell_bot.STAT_LABELS, 'sell_one', lambda: None)
+    bot = bare(sell_bot.FleaSeller, sell_bot.STAT_LABELS, 'sell_one', lambda: None)
     bot.sell_one = bot._stop.set  # one pass, then the while condition ends it
     bot.start()
     assert 'finished after 1 passes' in narrate.LAST, narrate.LAST

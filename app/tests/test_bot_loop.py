@@ -25,7 +25,7 @@ import pyautogui  # noqa: E402
 
 import sell_bot as bot_module  # noqa: E402
 import tarkov_window  # noqa: E402
-from sell_bot import Tarkbot  # noqa: E402
+from sell_bot import FleaSeller  # noqa: E402
 from interact import find, sell  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
@@ -72,10 +72,10 @@ if __name__ == '__main__':
         time.sleep(1)
 
     started = time.monotonic()
-    tarkbot = Tarkbot(target_scav_cases=scav)
+    seller = FleaSeller(target_scav_cases=scav)
     failure = None
     if '--loop' in sys.argv:
-        worker = threading.Thread(target=tarkbot.start, daemon=True)
+        worker = threading.Thread(target=seller.start, daemon=True)
         worker.start()
         print('looping, ctrl+c to stop')
         try:
@@ -85,14 +85,14 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             print('\nstop requested, letting the current pass unwind')
             stopped_at = time.monotonic()
-            tarkbot.stop()
+            seller.stop()
             worker.join(timeout=STOP_TIMEOUT)
             print(f'stopped after {time.monotonic() - stopped_at:.1f}s')
             if worker.is_alive():
                 failure = RuntimeError(f'still running {STOP_TIMEOUT}s after stop()')
     else:
         try:
-            tarkbot.sell_one()  # one pass; start() would never return
+            seller.sell_one()  # one pass; start() would never return
         except (RuntimeError, LookupError) as e:  # the steps raise these when a screen is wrong
             failure = e
 

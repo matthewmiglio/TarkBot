@@ -143,7 +143,7 @@ class FleaSniper:
         self.size = tarkov_window.size(self.hwnd)
         self.monitor = screen.current()
         # The window clipped to the chosen monitor, the same rule and the same reason as
-        # Tarkbot.__init__: the window alone is wrong when the user picked a screen the game is
+        # FleaSeller.__init__: the window alone is wrong when the user picked a screen the game is
         # not on, the monitor alone is wrong when the game is windowed.
         self.region = screen.overlap(self.position + self.size, self.monitor.rect)
         if self.region is None:
@@ -167,7 +167,7 @@ class FleaSniper:
     def _pause(self, seconds=0):
         """Wait, or drop out of the loop right now if stop() has been called.
 
-        ponytail: the third copy of Tarkbot._pause, and the one that settles it. gym_bot's copy
+        ponytail: the third copy of FleaSeller._pause, and the one that settles it. gym_bot's copy
         already says to hoist _pause, _stop and stop() into a Runner the moment a third mode
         turns up. This is that mode. Do it before any of the three grows a checkpoint the other
         two do not have.

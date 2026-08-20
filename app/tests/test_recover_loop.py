@@ -2,7 +2,7 @@
 
 Run:  python tests/test_recover_loop.py
 
-No game needed, nothing is clicked. Tarkbot._recover is driven against a fake screen: a list of
+No game needed, nothing is clicked. FleaSeller._recover is driven against a fake screen: a list of
 windows with the newest on top, where escape closes the top one and the flea tab is only visible
 once the list is empty. That is the shape of the real thing, and it is the shape that broke it.
 
@@ -44,7 +44,7 @@ def recover_with(stack, stuck=(), stop_after=None, real_sleep=False):
     exactly why the durations have to be asserted rather than eyeballed in the log timestamps.
     """
     on_screen, rounds, escapes, naps = list(stack), [0], [0], []
-    bot = object.__new__(sell_bot.Tarkbot)
+    bot = object.__new__(sell_bot.FleaSeller)
     bot._stop = threading.Event()
     bot.region = None
     # Rounds are counted by sweeps, one per time round the loop. Not by sleeps: sell_bot.time,

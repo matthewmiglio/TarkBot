@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sell_bot  # noqa: E402
 import tarkov_window  # noqa: E402
 from interact import sell  # noqa: E402
-from sell_bot import Tarkbot  # noqa: E402
+from sell_bot import FleaSeller  # noqa: E402
 
 
 def check(ok, what):
@@ -30,7 +30,7 @@ def check(ok, what):
 
 def run_open(window_open):
     """open_offer_creation with the screen faked out. Returns (what was raised, clicks made)."""
-    bot = object.__new__(Tarkbot)
+    bot = object.__new__(FleaSeller)
     bot.region = None
     bot._stop = threading.Event()
     bot._pause = lambda *a: None

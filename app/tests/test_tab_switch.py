@@ -3,7 +3,7 @@
 Run:  python tests/test_tab_switch.py
 
 No game needed. A stand-in runner takes the place of a real bot: a thread that sits on an event
-until stop() sets it, which is the same contract Tarkbot and HideoutGym both keep. Exits
+until stop() sets it, which is the same contract FleaSeller and HideoutGym both keep. Exits
 non-zero if a switch leaves that thread running, because a window showing one mode while
 another is still clicking is the thing this is here to prevent.
 """

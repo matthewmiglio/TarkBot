@@ -1,4 +1,4 @@
-"""The real recovery, the real Tarkbot, against the real Tarkov window. Nothing is faked.
+"""The real recovery, the real FleaSeller, against the real Tarkov window. Nothing is faked.
 
 Run:  python tests/test_recover_targets.py          report what is on screen, press nothing
       python tests/test_recover_targets.py --run    run the real recovery, clicks and all
@@ -11,7 +11,7 @@ This is the half test_recover_loop.py cannot cover. That one fakes find() so it 
 game open, which makes it airtight about the loop's logic and silent about whether any crop
 matches the actual game. Every window could stop matching tomorrow and it would still pass.
 
-So nothing here is stubbed. It builds a real Tarkbot, which finds the window, picks the monitor
+So nothing here is stubbed. It builds a real FleaSeller, which finds the window, picks the monitor
 and works out the search region exactly as the Start button does, and --run then calls that
 bot's own _recover. No copy of the region maths, no copy of the loop: if this passes, that is
 the shipping code path passing.
@@ -49,8 +49,8 @@ def report(region):
 if __name__ == '__main__':
     # The real thing: finds the window, picks the monitor, works out the region. Raises
     # WindowError if Tarkov is not up, which is the correct way for this to fail.
-    bot = sell_bot.Tarkbot()
-    print(f'\nreal Tarkbot on monitor {bot.monitor.label}, searching {bot.region}\n')
+    bot = sell_bot.FleaSeller()
+    print(f'\nreal FleaSeller on monitor {bot.monitor.label}, searching {bot.region}\n')
 
     if '--run' in sys.argv:
         print(f'running the bot\'s own _recover: real clicks, real waits, up to '

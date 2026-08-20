@@ -121,7 +121,7 @@ class HideoutGym:
         self.size = tarkov_window.size(self.hwnd)
         self.monitor = screen.current()
         self.region = screen.overlap(self.position + self.size, self.monitor.rect)
-        if self.region is None:  # same rule as Tarkbot, see the note there
+        if self.region is None:  # same rule as FleaSeller, see the note there
             raise tarkov_window.WindowError(
                 f'Tarkov is at {self.position + self.size}, which is not on monitor '
                 f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
@@ -138,7 +138,7 @@ class HideoutGym:
             f'searching {self.region}', 1)
         log(f'skill check strip {self.roi}, icon searched in {self.icon_roi}, '
             f'clicking at a gap of {self.gap:.1f} or less', 1)
-        # The GUI hands in its own dict so the counters span the session, exactly as Tarkbot does.
+        # The GUI hands in its own dict so the counters span the session, exactly as FleaSeller does.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
         self._stop = threading.Event()
         self._idle = False  # whether the last look found no icon, so waiting logs once
@@ -148,7 +148,7 @@ class HideoutGym:
     def _pause(self, seconds=0):
         """Wait, or drop out of the loop right now if stop() has been called.
 
-        ponytail: a copy of Tarkbot._pause, not a shared base class. Two runners is not enough
+        ponytail: a copy of FleaSeller._pause, not a shared base class. Two runners is not enough
         to justify one. Hoist _pause, _stop and stop() into a Runner the moment a third mode
         turns up, or the moment these two stop agreeing.
         """

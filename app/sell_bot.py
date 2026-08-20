@@ -44,7 +44,7 @@ RECOVER_ROUNDS = 10
 # The pause between rounds is sell.RECOVER_DELAY, the same one the sweep waits after each click
 # and each escape. There is no separate number for it on purpose.
 
-# The counters Tarkbot keeps, in the order the GUI lists them. Keys are also stats dict keys,
+# The counters FleaSeller keeps, in the order the GUI lists them. Keys are also stats dict keys,
 # and posted_<source> has to match the source names Selection carries.
 STAT_LABELS = (('selected', 'Items found'),
                ('select_failed', 'Find failures'),
@@ -74,11 +74,11 @@ class Retry(Exception):
     """
 
 
-class Tarkbot:
+class FleaSeller:
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
                  undercut=UNDERCUTS[DEFAULT_UNDERCUT], stats=None):
-        log('Initalizing Tarkbot')
+        log('Initalizing Flea Seller')
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
         self.size = tarkov_window.size(self.hwnd)
@@ -102,7 +102,7 @@ class Tarkbot:
         log(f'scav cases {"on" if target_scav_cases else "off"} '
             f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
             f'undercut {undercut[0]:.1%} or {undercut[1]} roubles', 1)
-        # The GUI hands in its own dict, which outlives any one Tarkbot, so the counters carry
+        # The GUI hands in its own dict, which outlives any one FleaSeller, so the counters carry
         # across stop/start and only reset when the app does. Nothing passed, count from zero.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
         self._stop = threading.Event()  # set from whichever thread owns the stop button
@@ -318,7 +318,7 @@ class Tarkbot:
 
     def start(self):
         """Sell one item after another until stop() is called. Blocks, so give it a thread."""
-        log('Starting Tarkbot')
+        log('Starting Flea Seller')
         self._stop.clear()
         self._recover()
         passes = 0
@@ -336,25 +336,25 @@ class Tarkbot:
             # finally, not after the try: a RuntimeError from a pass is not caught here, and
             # without this the totals line is skipped on exactly the runs worth reading back.
             # The GUI logs the exception itself, so this only has to survive it, not report it.
-            log(f'Tarkbot finished after {passes} passes. '
+            log(f'Flea Seller finished after {passes} passes. '
                 + ', '.join(f'{label.strip()} {self.stats[key]}' for key, label in STAT_LABELS))
 
     def stop(self):
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""
-        log('Stopping Tarkbot')
+        log('Stopping Flea Seller')
         self._stop.set()
 
 
 def build(prefs, stats):
-    """A Tarkbot configured from the GUI's saved preferences.
+    """A FleaSeller configured from the GUI's saved preferences.
 
     Here rather than in the GUI so the mapping from a settings key to a constructor argument
     sits beside the constants those keys index into. gym_bot.build() is the same function for the
     other mode, and the GUI calls whichever the active tab names.
     """
-    screen.use(prefs.get('monitor', screen.AUTO))  # before the Tarkbot, which clips to it
+    screen.use(prefs.get('monitor', screen.AUTO))  # before the FleaSeller, which clips to it
     _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])
     stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
     undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])
-    return Tarkbot(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
+    return FleaSeller(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
                    undercut=undercut, stats=stats)

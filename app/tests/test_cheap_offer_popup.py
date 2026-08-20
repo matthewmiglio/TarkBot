@@ -21,12 +21,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sell_bot  # noqa: E402
 from interact import sell  # noqa: E402
-from sell_bot import Retry, Selection, Tarkbot  # noqa: E402
+from sell_bot import FleaSeller, Retry, Selection  # noqa: E402
 
 
 def run_pass(popup, source, escapes):
     """One sell_one with the screen faked out. Returns (stats, escapes pressed, what was raised)."""
-    bot = object.__new__(Tarkbot)
+    bot = object.__new__(FleaSeller)
     bot.region = None
     bot.undercut = (0.90, 2000)
     bot.stats = {key: 0 for key, _ in sell_bot.STAT_LABELS}
