@@ -62,9 +62,6 @@ PRICE_HEIGHT = 29
 PRICE_GUTTER = 8     # 1080p px of the box's left edge that must have nothing lit in it
 PRICE_LIT = 140      # brightest channel that counts as text rather than background
 
-# Seconds between the last keystroke and the click at the suggestion. The list is not drawn the
-# moment typing stops: the flea goes away and looks the name up, and clicking into the gap lands
-# on whatever was underneath, which is the board rather than a suggestion.
 # The rouble balance in the flea's header, as fractions of the window: (left, top, right,
 # bottom). Fractions rather than pixels for the same reason gym.REP_ROI_FRACTIONS is: there is
 # nothing here to template match, since the number inside is the thing being watched.
@@ -79,6 +76,9 @@ PRICE_LIT = 140      # brightest channel that counts as text rather than backgro
 # number still lands inside rather than growing out of the box.
 RUBLE_ROI_FRACTIONS = (0.75, 0.055, 0.84, 0.10)
 
+# Seconds between the last keystroke and the click at the suggestion. The list is not drawn the
+# moment typing stops: the flea goes away and looks the name up, and clicking into the gap lands
+# on whatever was underneath, which is the board rather than a suggestion.
 SEARCH_DELAY = 3.0
 BOARD_DELAY = 3.0    # seconds for the board to repopulate after a suggestion is clicked
 FILTER_SETTLE = 1.0  # seconds for the reopened flea's header to draw its filter chips
