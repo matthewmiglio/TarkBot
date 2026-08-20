@@ -17,9 +17,9 @@ from pathlib import Path
 from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import crash_report  # noqa: E402
 import frames  # noqa: E402
 import gym_bot  # noqa: E402
-import report  # noqa: E402
 import screen  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
@@ -726,7 +726,7 @@ class App:
             # Off to the website too, on its own thread, so a crash on someone else's setup can
             # be looked at here. Opt out by setting send_error_reports false in settings.json.
             if self.prefs.get('send_error_reports'):
-                report.report_later(e)
+                crash_report.report_later(e)
 
     def start(self):
         # ponytail: the start lock is "is it running, or about to be?"

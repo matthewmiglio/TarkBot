@@ -22,7 +22,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import report  # noqa: E402
+import crash_report  # noqa: E402
 import screen  # noqa: E402
 
 ENDPOINT = os.environ.get('TARKBOT_ERROR_URL', 'http://localhost:3000/api/error')
@@ -86,36 +86,37 @@ if __name__ == '__main__':
     # --------------------------------------------------------------- the machine id
     # Derived, not stored, so the same machine has to answer the same thing every time or every
     # report looks like it came from a new person.
-    assert report.machine_id() == report.machine_id(), 'the id is not stable across calls'
-    original = report.machine_id()
+    assert crash_report.machine_id() == crash_report.machine_id(), 'the id is not stable'
+    original = crash_report.machine_id()
     uuid.UUID(original)  # raises unless it really is a uuid, which the endpoint insists on
 
     # And it has to actually depend on all three inputs, or two machines collide.
-    real_platform, real_user, real_size = report.platform.platform, report.getpass.getuser, screen.size
+    real_platform = crash_report.platform.platform
+    real_user, real_size = crash_report.getpass.getuser, screen.size
     seen = {original}
-    report.platform.platform = lambda: 'Windows-11-10.0.99999-SP0'
-    seen.add(report.machine_id())
-    report.platform.platform = real_platform
-    report.getpass.getuser = lambda: 'someone-else'
-    seen.add(report.machine_id())
-    report.getpass.getuser = real_user
-    report.screen.size = lambda: (1920, 1080) if real_size() != (1920, 1080) else (2560, 1440)
-    seen.add(report.machine_id())
-    report.screen.size = real_size
+    crash_report.platform.platform = lambda: 'Windows-11-10.0.99999-SP0'
+    seen.add(crash_report.machine_id())
+    crash_report.platform.platform = real_platform
+    crash_report.getpass.getuser = lambda: 'someone-else'
+    seen.add(crash_report.machine_id())
+    crash_report.getpass.getuser = real_user
+    crash_report.screen.size = lambda: (1920, 1080) if real_size() != (1920, 1080) else (2560, 1440)
+    seen.add(crash_report.machine_id())
+    crash_report.screen.size = real_size
     assert len(seen) == 4, f'os, user and resolution must each move the id, got {len(seen)} of 4'
-    assert report.machine_id() == original, 'the id changed after the stubs were put back'
+    assert crash_report.machine_id() == original, 'the id changed after the stubs were put back'
     print(f'ok - machine id is stable and answers to all three inputs ({original})')
 
     # Everything below writes real rows, so from here on we are a known test machine.
-    report.machine_id = lambda: TEST_MACHINE
+    crash_report.machine_id = lambda: TEST_MACHINE
     sweep()
 
     # --------------------------------------------------------------- a real report
     # A real screenshot and a real traceback, and the bytes have to survive the round trip
     # exactly: a reference image cropped out of a report is only worth having if it is lossless.
     before = FIXTURE.read_bytes()
-    after = report._screen_png()
-    assert report.report(boom(), before=before, after=after, endpoint=ENDPOINT) is True
+    after = crash_report._screen_png()
+    assert crash_report.report(boom(), before=before, after=after, endpoint=ENDPOINT) is True
     landed = rows()
     assert len(landed) == 1, f'expected one row, found {len(landed)}'
     row = landed[0]
