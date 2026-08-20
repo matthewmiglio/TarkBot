@@ -8,13 +8,16 @@ one import and one set of module constants.
 
 Geometry self-check, no game needed:  python -m interact.gym
 
-SKELETON. Every function that touches the screen raises NotImplementedError, deliberately.
-A stub that returns None or False instead would let gym mode "run" and quietly do nothing,
-which is exactly the failure class the flea filters just had to be rewritten to kill. Loud
-beats silent while this is being built out.
+Reading a rep is finished and is what gym_bot.py runs on: rep_region, icon_region,
+look_region and read_lines are all live. Navigating *to* the gym is not. open_hideout,
+open_gym, is_fatigued and finish_workout still raise NotImplementedError, deliberately: a stub
+that returned None or False instead would let gym mode "run" and quietly do nothing, which is
+exactly the failure class the flea filters had to be rewritten to kill. Start gym mode with
+the workout already on screen until those are built.
 
-None of the reference image folders named below exist yet. Cut the crops, then check each one
-matches with:  python tests/test_find.py gym_<name>
+gym_rep_hexagon is the only reference image folder here that exists. The four named for the
+stubs do not. Cut the crops, then check each one matches with:
+    python tests/test_find.py gym_<name>
 """
 import time
 from collections import namedtuple
@@ -93,7 +96,6 @@ Lines = namedtuple('Lines', 'target moving gap touch')
 WINDOW_TIMEOUT = 10.0  # the hideout and gym windows both load from the server, like the scav case
 WINDOW_POLL = 0.25
 MENU_DELAY = 0.3  # for a menu to draw before we look for what is in it
-REP_POLL = 0.05  # how often the rep bar is re-read mid swing; fast, it is a timing minigame
 
 
 def wait_for(target, region=None, timeout=WINDOW_TIMEOUT, poll=WINDOW_POLL):
@@ -258,19 +260,6 @@ def is_fatigued(region=None):
     getting it wrong is a run that grinds a character who cannot lift.
     """
     raise NotImplementedError('capture gym_fatigue_warning')
-
-
-def do_one_rep(region=None):
-    """Hit one rep on the timing bar. True if it landed, False if it was missed.
-
-    This is the only part of the gym that is a reflex rather than a click: the marker travels
-    and the click has to land inside the window. Read REP_MARKER_TARGET against REP_BAR_TARGET
-    every REP_POLL and click when it is inside.
-
-    Returns rather than raises on a miss. A missed rep is normal and the set carries on; only
-    a bar that never appears is a real failure.
-    """
-    raise NotImplementedError('capture gym_rep_bar and gym_rep_marker, then time the marker')
 
 
 def finish_workout(region=None):
