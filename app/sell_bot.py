@@ -7,7 +7,7 @@ import pyautogui
 
 import screen
 import tarkov_window
-from interact import sell
+from interact import sell, snipe
 from narrate import log
 
 SCAV_CHANCE = 0.5  # how often to sell out of a scav case instead of the stash, when enabled
@@ -149,7 +149,10 @@ class Tarkbot:
     def open_offer_creation(self):
         """Get from wherever we are to an offer creation window sat in the top left corner."""
         log('opening the flea market')
-        if not sell.open_flea(self.region):
+        # snipe's opening, not sell.open_flea: open, escape, open again, then clear a
+        # leftover filter-by-item chip. A stash item filtered by last pass survives into
+        # this one and narrows the board the offer window reads.
+        if not snipe.open_clean_board(self.region):
             raise RuntimeError('could not open the flea market')
         self._pause()
         self._await_offer_slot()  # can block for hours, minus the odd stale-offer sweep
