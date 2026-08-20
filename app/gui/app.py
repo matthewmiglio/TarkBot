@@ -724,7 +724,8 @@ class App:
             narrate.log(traceback.format_exc().rstrip(), 1)
             self.error = e
             # Off to the website too, on its own thread, so a crash on someone else's setup can
-            # be looked at here. Opt out by setting send_error_reports false in settings.json.
+            # be looked at here. Opt out by setting send_error_reports false in settings.json,
+            # which also stops snipe mode reporting what it buys. See gui/settings.py.
             if self.prefs.get('send_error_reports'):
                 crash_report.report_later(e)
 

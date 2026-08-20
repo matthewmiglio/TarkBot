@@ -193,7 +193,8 @@ crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame
                      has ever sent. Hooked into the one catch in
                      gui/app.py's _run, on a daemon thread, so a slow or dead site cannot hold
                      up the red lamp or raise on top of the error it is reporting. Off with
-                     send_error_reports false in settings.json.
+                     send_error_reports false in settings.json, which is now one switch over two
+                     kinds of telemetry: this and snipe_report.py.
                      Ships no key: it posts to a route on our own site, which holds the Supabase
                      service key server side, the same way the download counter does. The
                      screenshots do not go through that route. A lossless png of a 1440p screen
@@ -205,6 +206,22 @@ crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame
                      dead pixel colors (±5 a channel) do not.
                      machine_id() is a uuid5 of the Windows build, the account name and the
                      monitor size, so it is stable without anything being stored.
+snipe_report.py      Sends one row per item the flea sniper buys: the item, what it cost, what a
+                     trader pays for it, and the same machine_id crash_report derives, so a
+                     machine's purchases and its crashes read side by side. Margin is not sent;
+                     Postgres computes it as trader_value - price in a generated column, so the
+                     dashboard's figure cannot disagree with the two numbers under it.
+                     Its own module rather than more of crash_report.py, which shares only
+                     machine_id (imported, not copied) and the daemon-thread send. That one
+                     carries a traceback, two screenshots and two signed uploads; this is six
+                     fields and a 200.
+                     Called from snipe_bot.check_one, after the counters and only on a purchase
+                     the rouble balance confirmed. Gated on the same send_error_reports
+                     preference, threaded in as FleaSniper(report=...) by build(), and off by
+                     default so a sniper built in a shell or a test posts nothing.
+                     Every failure is swallowed into the log at indent 2. A slow site must never
+                     stall a sweep sat on a flea board, and a purchase must never be lost to a
+                     telemetry post.
 screen.py            Which monitor the bot works on, and grabbing pixels off it. Exists because
                      pyscreeze photographs the primary monitor and nothing else, and
                      locateOnScreen throws the caller's region away before grabbing, so a

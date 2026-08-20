@@ -32,6 +32,7 @@ import time
 from pathlib import Path
 
 import screen
+import snipe_report
 import tarkov_window
 from interact import snipe  # everything this mode does to a screen goes through that module
 from narrate import log
@@ -136,7 +137,8 @@ def for_trader(watchlist, trader):
 
 
 class FleaSniper:
-    def __init__(self, margin=MARGINS[DEFAULT_MARGIN], watchlist=None, stats=None):
+    def __init__(self, margin=MARGINS[DEFAULT_MARGIN], watchlist=None, stats=None,
+                 report=False):
         log('Initalizing Flea Sniper')
         self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
         self.position = tarkov_window.position(self.hwnd)
@@ -153,6 +155,9 @@ class FleaSniper:
                 f'the game onto this one.')
         self.margin = margin  # fraction under trader value an offer has to be, see MARGINS
         self.watchlist = targets() if watchlist is None else watchlist
+        # Off unless the GUI turns it on. A sniper built in a test or a shell has no business
+        # posting purchases to the website, so the quiet default is the safe one. See build().
+        self.report = report
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
         log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
             f'searching {self.region}', 1)
@@ -251,6 +256,11 @@ class FleaSniper:
         # Counted here rather than worked out in the GUI so the number and the two it comes from
         # can never drift: one place adds all three.
         self.stats['profit'] += under
+        # After the counters, never before them: those are the run's own truth and must not
+        # depend on a website existing. The send is a daemon thread that swallows its failures,
+        # so a slow site costs this sweep nothing. See snipe_report.
+        if self.report:
+            snipe_report.report_buy_later(name, asking, trader_price)
         return True
 
     def sweep_once(self):
@@ -339,7 +349,10 @@ def build(prefs, stats):
     watchlist = for_trader(targets(), trader)
     if trader != ALL_TRADERS:
         log(f'watching only what {trader} buys back: {len(watchlist)} of {len(targets())} items')
-    return FleaSniper(margin=margin, watchlist=watchlist, stats=stats)
+    # The same preference that gates crash reports, so there is one switch and one meaning:
+    # a user who opted out of telling us about a crash has opted out of this too.
+    return FleaSniper(margin=margin, watchlist=watchlist, stats=stats,
+                      report=bool(prefs.get('send_error_reports')))
 
 
 if __name__ == '__main__':
@@ -356,6 +369,9 @@ if __name__ == '__main__':
     # money on its own.
     assert not sniper.worth_buying(8_000, 100_000), 'a quarter of trader value is a misread'
     assert sniper.worth_buying(25_000, 100_000), 'and the floor itself still buys'
+    # The telemetry gate, which is one bool and therefore exactly the kind of thing that gets
+    # flipped by accident. Only build() turns it on, and only from the user's own preference.
+    assert FleaSniper.__init__.__defaults__[-1] is False, 'reporting must default to off'
 
     # The trader filter, which decides what a run even looks at.
     sample = [('a', 'Therapist', 100), ('b', 'Jaeger', 200), ('c', 'Therapist', 300)]

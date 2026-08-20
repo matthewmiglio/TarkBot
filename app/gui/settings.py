@@ -14,9 +14,12 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # (\\.\DISPLAY1). 'auto' until the user picks, which resolves to the monitor Tarkov
             # is on, or the primary. See screen.py.
             'monitor': 'auto',
-            # Post a crash and two screenshots to tarkbot.org so it can be diagnosed and cropped
-            # into the reference image that would have matched. See crash_report.py for
-            # what is sent.
+            # The one telemetry switch, and it now covers two things. A crash goes to
+            # tarkbot.org with two screenshots, so it can be diagnosed and cropped into the
+            # reference image that would have matched (crash_report.py). Snipe mode also
+            # reports each item it buys, with the price and what a trader pays for it
+            # (snipe_report.py). The key is named for the first of those and gates both, on
+            # purpose: one switch means a user who opted out is out of all of it.
             'send_error_reports': True,
             'undercut': '2k rubles | 90%',  # how far under the suggested price, see sell_bot.UNDERCUTS
             # How many roubles under trader value a flea offer has to be before snipe mode
