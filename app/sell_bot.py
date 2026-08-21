@@ -188,7 +188,11 @@ class FleaSeller:
         """Pick something to sell, from a scav case now and then if that is switched on.
 
         Opening the case is part of the scav path: open_scav_case right-clicks one, hits
-        open, and orientates the window. The stash is the fallback whenever that fails.
+        open, and orientates the window. The stash is the fallback whenever that fails, but
+        only in a mode that wanted the stash at all. SCAV CASES ONLY means only: a pass with
+        no case to open gives up with an empty Selection, which sell_one escapes out of and
+        retries, rather than quietly listing whatever the stash happens to hold. That
+        fallback is what a user saw on 2026-08-20 as "scav case only ... selling random shit".
 
         Returns a Selection. Its escapes count is decided when the case opens, not when the
         pick succeeds: a case that opened and then would not read still leaves its window on
@@ -197,9 +201,13 @@ class FleaSeller:
         deliberately disagree on that fallback path.
         """
         escapes = INVENTORY_ESCAPES
+        stash_allowed = self.scav_chance < 1.0  # SCAV CASES ONLY is the only mode without it
         if self.target_scav_cases and random.random() < self.scav_chance:
             log('picking an item, trying a scav case first')
             if not sell.open_scav_case(self.region):
+                if not stash_allowed:
+                    log('no scav case to open and the stash is off, ending this pass', 1)
+                    return Selection(None, escapes, 'scav')
                 log('no scav case to open, falling back to the stash', 1)
             else:
                 escapes = SCAV_ESCAPES  # open now, and open whatever happens next
@@ -207,6 +215,10 @@ class FleaSeller:
                     point = sell.select_item_from_random_scav_case(self.region, stop=self._stop)
                     return Selection(point, escapes, 'scav')
                 except LookupError as e:  # opened, but the window never became readable
+                    if not stash_allowed:
+                        log(f'scav case window not readable ({e}) and the stash is off, '
+                            f'ending this pass', 1)
+                        return Selection(None, escapes, 'scav')
                     log(f'scav case window not readable ({e}), falling back to the stash', 1)
         else:
             log('picking an item out of the stash')

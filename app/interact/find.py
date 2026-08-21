@@ -33,7 +33,17 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # the button by 0.011. Anywhere in the half point between 0.42 and 0.88 would do; 0.85 keeps
 # the most margin against a false positive while clearing every real one.
 # Put a number here only with both readings behind it, present and absent, off a real screen.
-CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85}
+# scav_case is the same story a third time, and the clearest reading of it: on a 1440p player's
+# frames the case sits dimmed and cross-hatched in the offer creation window and scores 0.852,
+# against 0.752 across 24 frames of the same session with no stash on screen and 0.641 on the
+# flea-filters fixture. What settles the number is that a crop taken from that very frame, put
+# through the 1080p convention and grown back for his screen, still only scores 0.896: 0.9 is
+# unreachable for a target this large and this low contrast once needle() has resized it, so no
+# amount of extra reference crops would have fixed this. 0.8 sits between the two readings.
+# A false positive here is cheap on both sides: open_scav_case still has to find an 'open' entry
+# in the right click menu, and find_sell_pixels only uses a match to skip pixels.
+CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
+               'scav_case': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
