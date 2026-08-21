@@ -9,7 +9,7 @@ Preview the backdrop without opening the GUI:  python -m gui.theme [background.p
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 BACKGROUNDS = Path(__file__).parent / 'backgrounds'
 # One figure per mode, named for its tab key: characters/flea.png, characters/gym.png. A new
@@ -96,21 +96,26 @@ def _cover(image, size):
 
 
 def _trim(image, floor=64):
-    """Crop away the dark painted margin around the character so he fills his panel.
+    """Crop away the margin around the character so he fills his panel.
 
-    The art is a figure on a dark gradient, not a cutout, so there is no alpha to trim
-    against. Anything brighter than floor counts as subject.
+    Alpha decides that when the art has any, brightness when it does not. The three figures
+    shipped today are cutouts, but they still carry colour underneath the transparency, up to
+    (204, 189, 162) on snipe.png, so reading brightness through the alpha put 269k invisible
+    pixels over the floor and stretched the box out to most of the sheet.
     """
-    lit = image.convert('L').point(lambda value: 255 if value > floor else 0)
-    box = lit.getbbox()
+    channel = image.getchannel('A') if 'A' in image.getbands() else image.convert('L')
+    box = channel.point(lambda value: 255 if value > floor else 0).getbbox()
     return image.crop(box) if box else image
 
 
 def _feathered(image, size, fade=90):
     """Fit image into size and fade its edges out, so its rectangle dissolves into the panel.
 
-    The character art has a dark painted background rather than transparency, which would
-    otherwise read as an obvious box sat on the glass.
+    Art with a painted background reads as an obvious box sat on the glass without this. Art
+    that is already a cutout keeps its own transparency: the feather is multiplied into the
+    alpha rather than put in its place. Replacing it made every transparent pixel opaque, and
+    since these files keep real colour under the transparency, the ones that were not quite
+    black came back as a scatter of dots around the figure.
     """
     image = _trim(image).convert('RGBA')
     image.thumbnail(size, Image.LANCZOS)
@@ -119,7 +124,7 @@ def _feathered(image, size, fade=90):
     ImageDraw.Draw(mask).rectangle((inset, inset, image.width - inset, image.height - inset),
                                    fill=255)
     mask = mask.filter(ImageFilter.GaussianBlur(fade / 2))
-    image.putalpha(mask)
+    image.putalpha(ImageChops.multiply(mask, image.getchannel('A')))
     return image
 
 
@@ -167,3 +172,14 @@ if __name__ == '__main__':
     print(f'backgrounds: {", ".join(names)}')
     print(f'characters: {", ".join(sorted(p.stem for p in CHARACTERS.glob("*.png")))}')
     print(f'wrote {out} using {chosen}')
+
+    # A cutout has to come out of the feather still cut out. Putting the feather in place of
+    # the alpha instead of into it made every transparent pixel opaque, and the colour these
+    # files keep under the transparency then showed as dots around the figure.
+    for character in sorted(CHARACTERS.glob('*.png')):
+        source = Image.open(character)
+        if 'A' not in source.getbands() or source.getchannel('A').getextrema()[0] != 0:
+            continue  # painted background rather than a cutout, nothing to preserve
+        faded = _feathered(source, (500, 500))
+        assert faded.getchannel('A').getextrema()[0] == 0,             f'{character.name} went fully opaque through _feathered, so its cutout was lost'
+    print('cutouts survive the feather')
