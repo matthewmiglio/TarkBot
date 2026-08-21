@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from PIL import Image, ImageDraw  # noqa: E402
 
 import screen  # noqa: E402  patches pyautogui.screenshot, so import it before grabbing
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import snipe  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / 'output' / 'ruble_region'
@@ -33,9 +33,9 @@ def from_file(path):
 
 def from_game():
     """The live Tarkov window, clipped to the chosen monitor the way every mode does it."""
-    hwnd = tarkov_window.handle()  # raises WindowError if Tarkov is missing or duplicated
-    window = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
-    region = screen.overlap(window, screen.current().rect) or window
+    hwnd = window.handle()  # raises WindowError if Tarkov is missing or duplicated
+    rect = window.position(hwnd) + window.size(hwnd)
+    region = screen.overlap(rect, screen.current().rect) or rect
     return screen.grab(region), region, 'the live window'
 
 

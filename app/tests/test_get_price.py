@@ -9,12 +9,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import sell  # noqa: E402
 
 if __name__ == '__main__':
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
     print(f'price region {sell.grab_price_region(region)}')
 
     price = sell.get_price(region)

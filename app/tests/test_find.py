@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pyautogui  # noqa: E402
 from PIL import ImageDraw, ImageFont  # noqa: E402
 
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import find  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
@@ -69,8 +69,8 @@ def annotate(shot, results):
 
 
 if __name__ == '__main__':
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
     shot = pyautogui.screenshot(region=region)  # one capture, every target matched against it
     print(f'searching window {region}')
 

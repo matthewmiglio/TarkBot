@@ -132,9 +132,9 @@ def _game_monitor():
     a screenshot: everything here falls back rather than raises.
     """
     try:
-        import tarkov_window
-        hwnd = tarkov_window.handle()
-        (left, top), (width, height) = tarkov_window.position(hwnd), tarkov_window.size(hwnd)
+        import window
+        hwnd = window.handle()
+        (left, top), (width, height) = window.position(hwnd), window.size(hwnd)
         return containing((left + width // 2, top + height // 2))  # centre, not a corner a
     except Exception:  # window rect can share with the neighbouring screen
         return None

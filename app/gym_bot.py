@@ -30,7 +30,7 @@ import pyautogui
 # where the press lands. perf_counter() is the sub-microsecond one.
 
 import screen
-import tarkov_window
+import window
 from gui.settings import APP_DIR
 from interact import find, gym
 from narrate import log
@@ -116,13 +116,13 @@ TINT_STAT = 'reps'
 class HideoutGym:
     def __init__(self, gap=CLICK_GAP, stats=None):
         log('Initalizing Hideout Gym')
-        self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
-        self.position = tarkov_window.position(self.hwnd)
-        self.size = tarkov_window.size(self.hwnd)
+        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
+        self.position = window.position(self.hwnd)
+        self.size = window.size(self.hwnd)
         self.monitor = screen.current()
         self.region = screen.overlap(self.position + self.size, self.monitor.rect)
         if self.region is None:  # same rule as FleaSeller, see the note there
-            raise tarkov_window.WindowError(
+            raise window.WindowError(
                 f'Tarkov is at {self.position + self.size}, which is not on monitor '
                 f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
                 f'the game onto this one.')

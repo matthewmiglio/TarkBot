@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pyautogui  # noqa: E402
 from PIL import ImageDraw  # noqa: E402
 
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import find, sell  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
@@ -23,8 +23,8 @@ DELAY = 3  # ponytail: seconds to alt-tab into Tarkov; the clicks land nowhere u
 
 if __name__ == '__main__':
     dry = '--dry' in sys.argv
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
 
     cases = find.find_all('scav_case', region)
     print(f'{len(cases)} scav case(s): {[tuple(int(v) for v in c) for c in cases]}')

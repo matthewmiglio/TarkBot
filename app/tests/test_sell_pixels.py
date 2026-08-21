@@ -17,14 +17,14 @@ import numpy as np  # noqa: E402
 import pyautogui  # noqa: E402
 from PIL import Image  # noqa: E402
 
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import sell  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
 
 if __name__ == '__main__':
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
     inv = sell.infer_inventory_region(region)
     print(f'window {region}, inventory {inv}')
 

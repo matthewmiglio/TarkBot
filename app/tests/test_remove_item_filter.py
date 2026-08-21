@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from PIL import Image, ImageDraw  # noqa: E402
 
 import screen  # noqa: E402  patches pyautogui.screenshot, so import it before grabbing
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import find, snipe  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / 'output' / 'remove_item_filter'
@@ -35,11 +35,14 @@ def look(shot, region, origin, haystack):
     haystack is the picture to search when it came off disk, or None to search the live screen
     the way the shipping code does.
     """
-    chip = find.find(snipe.FILTER_APPLIED_TARGET, region, haystack=haystack)
+    chips = {target: find.find(target, region, haystack=haystack)
+             for target in snipe.APPLIED_TARGETS}
+    chip = next((box for box in chips.values() if box), None)
     buttons = find.find_all(snipe.CLEAR_FILTER_TARGET, region, haystack=haystack)
     leftmost = min(buttons, key=lambda box: box.left) if buttons else None
 
-    print(f'{snipe.FILTER_APPLIED_TARGET}: ' + (f'found at {tuple(chip)}' if chip else 'not found'))
+    for target, box in chips.items():
+        print(f'{target}: ' + (f'found at {tuple(box)}' if box else 'not found'))
     print(f'{snipe.CLEAR_FILTER_TARGET}: {len(buttons)} found')
     for box in sorted(buttons, key=lambda b: b.left):
         mark = ' <- leftmost, the one that would be clicked' if box is leftmost else ''
@@ -76,9 +79,9 @@ if __name__ == '__main__':
         region, origin, haystack = (0, 0, shot.width, shot.height), (0, 0), shot
         print(f'{Path(paths[0]).name}: {shot.width}x{shot.height}')
     else:
-        hwnd = tarkov_window.handle()  # raises WindowError if Tarkov is missing or duplicated
-        window = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
-        region = screen.overlap(window, screen.current().rect) or window
+        hwnd = window.handle()  # raises WindowError if Tarkov is missing or duplicated
+        rect = window.position(hwnd) + window.size(hwnd)
+        region = screen.overlap(rect, screen.current().rect) or rect
         shot, origin, haystack = screen.grab(region), region[:2], None
         print(f'the live window at {region}')
 
@@ -88,7 +91,8 @@ if __name__ == '__main__':
         print('\n--click: doing it for real')
         cleared = snipe.remove_filter_by_item_filter(region)
         print('cleared' if cleared else 'nothing to clear, or no button to clear it with')
-        after = find.find(snipe.FILTER_APPLIED_TARGET, region)
+        after = next((box for box in (find.find(t, region) for t in snipe.APPLIED_TARGETS)
+                      if box), None)
         print('the chip is gone' if not after else f'the chip is still there at {tuple(after)}')
         sys.exit(0 if cleared and not after else 1)
 

@@ -33,7 +33,7 @@ from pathlib import Path
 
 import screen
 import snipe_report
-import tarkov_window
+import window
 from interact import snipe  # everything this mode does to a screen goes through that module
 from narrate import log
 from sell_bot import Stopped  # shared runner plumbing, see the note on _pause below
@@ -140,16 +140,16 @@ class FleaSniper:
     def __init__(self, margin=MARGINS[DEFAULT_MARGIN], watchlist=None, stats=None,
                  report=False):
         log('Initalizing Flea Sniper')
-        self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
-        self.position = tarkov_window.position(self.hwnd)
-        self.size = tarkov_window.size(self.hwnd)
+        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
+        self.position = window.position(self.hwnd)
+        self.size = window.size(self.hwnd)
         self.monitor = screen.current()
         # The window clipped to the chosen monitor, the same rule and the same reason as
         # FleaSeller.__init__: the window alone is wrong when the user picked a screen the game is
         # not on, the monitor alone is wrong when the game is windowed.
         self.region = screen.overlap(self.position + self.size, self.monitor.rect)
         if self.region is None:
-            raise tarkov_window.WindowError(
+            raise window.WindowError(
                 f'Tarkov is at {self.position + self.size}, which is not on monitor '
                 f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
                 f'the game onto this one.')
@@ -209,12 +209,19 @@ class FleaSniper:
         its own. The button is the only thing on an offer row with a reference crop, the price
         sits at a fixed offset from it (see interact/snipe.PRICE_LEFT), and finding it is
         already needed to click it, so one match does both jobs.
+
+        The three exits that leave without reading a price try to dismiss the game's Error
+        dialog on the way out. While that dialog is up the search box, the board and the price
+        all fail together, and so would every item left in the sweep; a match on the way out of
+        a check that already failed is the cheapest place to notice. The fourth exit, an offer
+        that is simply not cheap enough, read the board fine and asks nothing.
         """
         self.stats['checked'] += 1
         # Remembered across items on purpose: the box only matches while it is empty, so a
         # clear that did not take would otherwise end the sweep. See snipe.find_search_box.
         box = snipe.find_search_box(self.region, self._search_box)
         if box is None:
+            snipe.dismiss_error_popup(self.region)
             return False
         self._search_box = box
         if snipe.search_for(name, box, self.region) is None:
@@ -226,12 +233,14 @@ class FleaSniper:
         buttons = snipe.purchase_buttons(self.region)
         if not buttons:
             log(f'{name}: no offers on the board', 1)
+            snipe.dismiss_error_popup(self.region)
             return False
         top = buttons[0]  # topmost, which is the cheapest once the board is sorted by price
         asking = snipe.read_price(top)
         if asking is None:
             self.stats['price_missing'] += 1
             log(f'{name}: no readable price on the top offer', 1)
+            snipe.dismiss_error_popup(self.region)
             return False
 
         under = trader_price - asking

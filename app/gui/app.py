@@ -24,7 +24,7 @@ import screen  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
 import snipe_bot  # noqa: E402
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
 from sell_bot import DEFAULT_STALE, DEFAULT_UNDERCUT, MODES, STALE_THRESHOLDS, UNDERCUTS  # noqa: E402
 from snipe_bot import DEFAULT_MARGIN, MARGINS  # noqa: E402
@@ -660,12 +660,12 @@ class App:
         window can sit a pixel over the edge onto the screen next door.
         """
         try:
-            hwnd = tarkov_window.handle()
-            (x, y), (width, height) = tarkov_window.position(hwnd), tarkov_window.size(hwnd)
+            hwnd = window.handle()
+            (x, y), (width, height) = window.position(hwnd), window.size(hwnd)
             found = screen.containing((x + width // 2, y + height // 2))
             narrate.log(f'Tarkov is on monitor {found.label}, starting there')
             return found
-        except tarkov_window.WindowError:
+        except window.WindowError:
             return screen.current()  # the game is not running, so there is nothing to follow
 
     def _pick_monitor(self, label):
@@ -737,7 +737,7 @@ class App:
         # branch here on which one it is.
         try:
             self.bot = self.modules[self.tab].build(self.prefs, self.stats[self.tab])
-        except tarkov_window.WindowError as e:
+        except window.WindowError as e:
             self.bot = None
             self._set_status(str(e), theme.ERROR)
             return

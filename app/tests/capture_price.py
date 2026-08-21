@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pyautogui  # noqa: E402
 
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import ocr, sell  # noqa: E402
 
 PRICES = Path(__file__).parent / 'fixtures' / 'prices'
@@ -34,8 +34,8 @@ if __name__ == '__main__':
         sys.exit('usage: python tests/capture_price.py <the number shown on screen>')
     value = int(sys.argv[1])
 
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
     crop = pyautogui.screenshot(region=sell.grab_price_region(region))
 
     path = fixture_path(value)

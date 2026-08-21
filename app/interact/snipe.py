@@ -29,10 +29,14 @@ PURCHASE_TARGET = 'flea_purchase_button'  # one per offer row, so there are many
 # _item_search_testing): searching the whole window would find a padlock anywhere in the UI,
 # and searching a box around one row would have to know how many rows there are first.
 LOCKED_TARGET = 'flea_item_locked_icon'
-# The chip the flea shows above the board when it is filtered to one item, and the little x that
-# clears a chip. There is an x per chip, so they are found together and the leftmost one is
-# taken: the chips read left to right and the item filter is the first of them.
-FILTER_APPLIED_TARGET = 'filter_by_item_filter_applied'
+# The chips the flea shows above the board when it is filtered to one item, and the little x
+# that clears a chip. There is an x per chip, so they are found together and the leftmost one is
+# taken: the chips read left to right and an item filter is the first of them.
+# Two chips filter the board down to one item and both have to be cleared for the same reason:
+# the right-click menu's 'Filter by item', and its 'Linked search', which reads as a chip
+# saying 'Linked search' rather than the item's name. Either one answers every search the
+# sniper makes with the same handful of offers.
+APPLIED_TARGETS = ('filter_by_item_filter_applied', 'filter_by_item_linked_applied')
 CLEAR_FILTER_TARGET = 'clear_filter_button'
 
 # Where the first suggestion under the search box lands, in heights of the box itself. The box
@@ -52,6 +56,19 @@ SUGGESTION_DROP = 1.5
 # (2284, 226) 161x32 and the price block spans x 1819-1960 on rows y 214-247, which is
 # -484,-14 from the button's corner at 1440p and these numbers once divided by find.scale().
 # Every row on every frame read back the price the board was showing.
+# The currency glyph beside that number, which is the only thing on the row saying what the
+# number counts. A dollar offer read as roubles is the one misread that makes an item look
+# cheaper the dearer it really is: 48 $ reads as 48, against a trader value in the tens of
+# thousands, which is a bargain that does not exist and a purchase nothing downstream refuses.
+# Looked for in the price box grown by CURRENCY_PAD, because the glyph stands a couple of
+# pixels taller than the box and a needle clipped at its top does not match at all.
+# Measured over the frame recorder's saved boards: the icon lands 289 to 290 px left of its
+# row's PURCHASE button and 13 px above it at 1080p, so the grown box holds it at any
+# resolution. It scored 0.980 to 0.998 across 9 dollar rows and never above 0.672 across 147
+# rouble ones (the rouble glyph itself is the 0.672), so the 0.9 default sits in that gap and
+# this wants no entry in find.CONFIDENCES.
+DOLLARS_TARGET = 'dollars_icon'
+CURRENCY_PAD = 8     # px at 1080p, added to every edge of the price box
 PRICE_LEFT = -363    # left edge of the price box, from the button's left edge
 PRICE_TOP = -11      # top edge, from the button's top edge
 PRICE_WIDTH = 128
@@ -119,6 +136,12 @@ def apply_flea_filters(region=None):
     return sell.apply_flea_filters(region, reset=True)
 
 
+# The game's Error dialog is the game's, not the seller's, so both modes want the same one.
+# Re-exported rather than wrapped: snipe_bot reaches the screen through this module and nothing
+# else, and there is no buyer's half of this to grow into a wrapper later.
+dismiss_error_popup = sell.dismiss_error_popup
+
+
 def open_flea(region=None):
     """Open the flea, shut it, open it again. True once it is open.
 
@@ -143,7 +166,7 @@ def open_clean_board(region=None):
     """Get the flea up with nothing filtering it by item. True once the board is ready.
 
     The whole opening: open, escape, open again, let the header draw, and clear a leftover
-    filter-by-item if one is showing. Only then is the board the sniper searches against the
+    filter-by-item or linked-search chip if one is showing. Only then is the board the sniper searches against the
     whole board rather than one item's worth of it.
 
     The wait after clearing is the board reloading, and it only happens when something was
@@ -163,8 +186,10 @@ def remove_filter_by_item_filter(region=None):
 
     Three steps and it gives up at the first one that comes back empty:
 
-      1. is the board filtered to an item at all (FILTER_APPLIED_TARGET)? If not, there is
-         nothing to remove and False is the honest answer, not a failure.
+      1. is the board filtered to an item at all? Either chip in APPLIED_TARGETS counts, since
+         'Filter by item' and 'Linked search' narrow the board the same way and are cleared the
+         same way. If neither is up there is nothing to remove and False is the honest answer,
+         not a failure.
       2. find every clear-filter x on screen (CLEAR_FILTER_TARGET). There is one per chip.
       3. click the centre of the leftmost. The chips read left to right and the item filter is
          the first of them, so leftmost is the one asked for.
@@ -173,21 +198,27 @@ def remove_filter_by_item_filter(region=None):
     point of the function. CLEAR_FILTER_TARGET is a 12 to 14 pixel crop of a small plain glyph,
     which is exactly the shape of target CLAUDE.md warns has no false-positive headroom, so
     something bigger and more distinctive has to say the chip is there before its x is trusted.
+
+    ponytail: one chip cleared per call, so a board carrying both at once needs two calls. The
+    loop already makes two (open_clean_board at Start, sweep_once after each filter pass) and
+    the two chips have not been seen together. Loop here if they ever are.
     """
-    if not find.find(FILTER_APPLIED_TARGET, region):
-        log('no filter-by-item chip on the board, so there is nothing to clear', 1)
+    applied = next((target for target in APPLIED_TARGETS if find.find(target, region)), None)
+    if not applied:
+        log('no filter-by-item or linked-search chip on the board, so there is nothing to '
+            'clear', 1)
         return False
 
     buttons = find.find_all(CLEAR_FILTER_TARGET, region)
     if not buttons:
-        log(f'the board says it is filtered by item but no {CLEAR_FILTER_TARGET} is on screen '
-            f'to clear it', 1)
+        log(f'the board says it is filtered ({applied}) but no {CLEAR_FILTER_TARGET} is on '
+            f'screen to clear it', 1)
         return False
 
     leftmost = min(buttons, key=lambda box: box.left)
     point = sell.jitter(pyautogui.center(leftmost))
-    log(f'{len(buttons)} clear-filter button(s), clicking the leftmost at {point} '
-        f'(box {tuple(leftmost)})', 1)
+    log(f'{applied} is up: {len(buttons)} clear-filter button(s), clicking the leftmost at '
+        f'{point} (box {tuple(leftmost)})', 1)
     pyautogui.click(*point)
     time.sleep(sell.MENU_DELAY)
     return True
@@ -376,15 +407,50 @@ def price_region(button):
             round(PRICE_HEIGHT * factor))
 
 
+def currency_region(button):
+    """The price box on `button`'s row, grown by CURRENCY_PAD on every edge.
+
+    The currency glyph sits beside the number and stands slightly taller than the box the
+    number is read from, so it has to be looked for in a box a little bigger than that one.
+    """
+    left, top, width, height = price_region(button)
+    pad = round(CURRENCY_PAD * find.scale())
+    return (left - pad, top - pad, width + 2 * pad, height + 2 * pad)
+
+
+def priced_in_dollars(button):
+    """Is the offer on `button`'s row priced in dollars rather than roubles?
+
+    Nothing else on the row says so. The number itself reads the same either way, and it reads
+    small, which is the direction that makes the sniper spend.
+    """
+    return find.find(DOLLARS_TARGET, currency_region(button)) is not None
+
+
 def read_price(button):
     """The asking price on `button`'s row as an int, or None if it cannot be read safely.
 
-    Two ways to come back None, and they mean different things. Nothing matched means the
-    glyphs were not the price font, which is ocr.read_number being all or nothing about it.
-    Something lit in the gutter means the number is wider than its box, so its leading digits
-    are outside the crop: a six figure price read as its last three is a bargain that is not
-    there, and this is a function whose answer gets money spent on it.
+    Three ways to come back None, and they mean different things. A dollars icon beside the
+    number means the number is not roubles, and every comparison after this one is against a
+    rouble trader price. Nothing matched means the glyphs were not the price font, which is
+    ocr.read_number being all or nothing about it. Something lit in the gutter means the number
+    is wider than its box, so its leading digits are outside the crop: a six figure price read
+    as its last three is a bargain that is not there, and this is a function whose answer gets
+    money spent on it.
+
+    None is what the caller already does the right thing with, so a dollar offer needs no new
+    path through snipe_bot: it counts as an unreadable price, the item is left alone, and the
+    next sweep looks at it again.
+
+    Pack offers are deliberately not refused here, unlike sell.get_price, which does refuse
+    them. A pack is a bargain to a buyer and a giveaway to a seller, so the two modes want
+    opposite answers to the same board. The board would not support the check anyway: it
+    truncates a long item name with an ellipsis, and '- pack' is on the end that gets cut.
     """
+    if priced_in_dollars(button):
+        log(f'the top offer is priced in dollars, and every price here is compared against a '
+            f'rouble trader value, so it will not be read', 1)
+        return None
     rect = price_region(button)
     crop = screen.grab(rect)
     if _clipped(crop):
@@ -485,6 +551,15 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert price_region(Box(2284, 226, 161, 32)) == (1921, 215, 128, 29)
     find.scale = lambda: 1440 / 1080  # the board these numbers were measured on
     assert price_region(Box(2284, 226, 161, 32)) == (1800, 211, 171, 39)
+
+    # The grown box the currency glyph is looked for in has to hold it. Measured at 1080p, the
+    # glyph lands 290 px left of the button and 13 px above it, and is at most 20x28.
+    find.scale = lambda: 1.0
+    left, top, width, height = currency_region(Box(2284, 226, 161, 32))
+    glyph = (2284 - 290, 226 - 13, 20, 28)
+    assert left <= glyph[0] and top <= glyph[1], 'the dollars icon starts inside the box'
+    assert left + width >= glyph[0] + glyph[2], 'and ends inside it'
+    assert top + height >= glyph[1] + glyph[3], 'including its extra height'
     find.scale = scale
 
     # The quarter the padlock is looked for in. Screen coords in, screen coords out, and the
@@ -520,5 +595,5 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert not purchase_landed(plain, box(digits_at=8, dim=0.5)), 'dimmed means a live dialog'
     assert not purchase_landed(plain, box(dim=0.5)), 'dimmed and unchanged, still a live dialog'
 
-    print('ok, the suggestion point, the price box and the purchase check all agree with '
-          'what was measured')
+    print('ok, the suggestion point, the price box, the currency box and the purchase check '
+          'all agree with what was measured')

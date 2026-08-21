@@ -91,6 +91,18 @@ PLACE_OFFER_TARGET = 'place_offer_button'
 # never made and then clicks the next pass into a modal that is still sat there.
 CHEAP_OFFER_POPUP_TARGET = 'cheap_offer_popup'
 CHEAP_OFFER_POPUP_DELAY = 1.0  # seconds after place offer for the popup to draw, if it is coming
+# The game's plain "Error / 0" dialog. Nothing about it is ours: it lands over the flea on its
+# own schedule, and while it is up every read underneath it fails, which is what the mode's
+# usual failure paths report instead. Dismissing it is the one thing that unsticks a run that
+# would otherwise fail item after item until Stop.
+ERROR_POPUP_TARGET = 'error_0_popup'
+# How far down the matched box OK sits, as a fraction of its height. The OK glyphs span rows
+# 77-96 across the five crops in that folder at their stored 1080p size, putting their centre at
+# 0.740 to 0.752, so the button itself covers a range wider than either number. 0.77 is the top
+# of that range and lands inside the glyphs on all five with room for CLICK_JITTER either way;
+# tests/test_error_popup.py is what says so, and is where to check a new crop that sits taller.
+ERROR_POPUP_OK_FRACTION = 0.77
+ERROR_POPUP_DELAY = 2.0  # seconds after clicking OK for the dialog to go and the screen to settle
 MORE_OFFERS_BRIGHTNESS = 190  # max channel in the add offer button: measured 255 lit, 123 greyed
 OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
 # Everything belonging to the flea's filter window shares a flea_filters_ prefix, so the
@@ -634,6 +646,34 @@ def cheap_offer_popup(region=None):
     log('the cheap offer confirmation is up, the offer was not placed' if up
         else 'no cheap offer confirmation, the offer went through', 2)
     return up
+
+
+def dismiss_error_popup(region=None):
+    """Click OK on the game's Error dialog if it is on screen. True if one was dismissed.
+
+    Called from a mode's failure paths rather than on a schedule, because that is when it is
+    worth the match: a step that failed for no reason we can name is the symptom this dialog
+    produces, and a step that succeeded proves the screen was readable.
+
+    Aimed off the matched box rather than off a reference crop of the OK button itself. The
+    button is two plain glyphs on flat black, the shape of target that has no false-positive
+    headroom (see the note on CONFIDENCES in find.py), while the dialog around it is wide, has
+    a title bar and matches at the default 0.9. So the thing that is safe to find is the thing
+    we find, and the button is a fixed fraction down it.
+
+    False when nothing is up, which is the answer on almost every call and is not a problem:
+    the caller was already failing and this is only ever an attempt to explain why.
+    """
+    box = find.find(ERROR_POPUP_TARGET, region)
+    if box is None:
+        return False
+    point = jitter((box.left + box.width // 2,
+                    box.top + round(box.height * ERROR_POPUP_OK_FRACTION)))
+    log(f'the game put an Error dialog up; clicking its OK at {point} and waiting '
+        f'{ERROR_POPUP_DELAY:.0f}s', 1)
+    pyautogui.click(*point)
+    time.sleep(ERROR_POPUP_DELAY)
+    return True
 
 
 def is_item_selected(region=None):

@@ -15,15 +15,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np  # noqa: E402
 import pyautogui  # noqa: E402
 
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import find, sell  # noqa: E402
 
 OUT = Path(__file__).parent / 'output'
 
 if __name__ == '__main__':
     state = sys.argv[1] if len(sys.argv) > 1 else 'unlabelled'
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
 
     box = find.find(sell.ADD_OFFER_TARGET, region)
     if not box:

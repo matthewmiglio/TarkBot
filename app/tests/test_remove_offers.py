@@ -23,7 +23,7 @@ from PIL import ImageDraw  # noqa: E402
 
 import frames  # noqa: E402
 import session_log  # noqa: E402
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import find, sell  # noqa: E402
 from narrate import log  # noqa: E402
 
@@ -43,8 +43,8 @@ if __name__ == '__main__':
     session_log.start()  # the console scrolls past; the file is what gets read afterwards
     frames.start()  # a screenshot either side of every click this sweep makes
 
-    hwnd = tarkov_window.handle()
-    region = tarkov_window.position(hwnd) + tarkov_window.size(hwnd)
+    hwnd = window.handle()
+    region = window.position(hwnd) + window.size(hwnd)
     OUT.mkdir(exist_ok=True)
     log(f'tarkov window hwnd {hwnd}, region {region}, screen {tuple(pyautogui.size())}, '
         f'reference scale {find.scale():.3f}x')

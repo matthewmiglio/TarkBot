@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sell_bot  # noqa: E402
-import tarkov_window  # noqa: E402
+import window  # noqa: E402
 from interact import sell  # noqa: E402
 from sell_bot import FleaSeller  # noqa: E402
 
@@ -40,7 +40,7 @@ def run_open(window_open):
     original = {name: getattr(sell, name) for name in
                 ('open_flea', 'apply_flea_filters', 'click_add_offer', 'wait_for',
                  'disable_autoselect_similar', 'orientate_offer_creation')}
-    real_handle = tarkov_window.handle
+    real_handle = window.handle
     sell.open_flea = lambda region=None: True
     sell.apply_flea_filters = lambda region=None: True
     sell.click_add_offer = lambda region=None: clicks.append('add offer') or (1, 2)
@@ -48,12 +48,12 @@ def run_open(window_open):
     sell.disable_autoselect_similar = lambda region=None: True
     sell.orientate_offer_creation = lambda region=None: (1, 2)
 
-    def fake_handle(title=tarkov_window.TITLE):
+    def fake_handle(title=window.TITLE):
         if not window_open:
-            raise tarkov_window.WindowError(f'No window titled {title!r} (is the game running?)')
+            raise window.WindowError(f'No window titled {title!r} (is the game running?)')
         return 1234
 
-    tarkov_window.handle = fake_handle
+    window.handle = fake_handle
     try:
         raised = None
         try:
@@ -64,12 +64,12 @@ def run_open(window_open):
     finally:
         for name, func in original.items():
             setattr(sell, name, func)
-        tarkov_window.handle = real_handle
+        window.handle = real_handle
 
 
 print('Tarkov closed before the add offer click')
 raised, clicks = run_open(window_open=False)
-check(isinstance(raised, tarkov_window.WindowError), f'it raised WindowError, not {raised!r}')
+check(isinstance(raised, window.WindowError), f'it raised WindowError, not {raised!r}')
 check(clicks == [], 'and clicked nothing, so nothing landed on whatever is behind the game')
 check('running' in str(raised), f'the message says the game is gone: {raised}')
 

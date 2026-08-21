@@ -6,7 +6,7 @@ from collections import namedtuple
 import pyautogui
 
 import screen
-import tarkov_window
+import window
 from interact import sell, snipe
 from narrate import log
 
@@ -80,16 +80,16 @@ class FleaSeller:
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
                  undercut=UNDERCUTS[DEFAULT_UNDERCUT], stats=None):
         log('Initalizing Flea Seller')
-        self.hwnd = tarkov_window.handle()  # raises WindowError if missing or duplicated
-        self.position = tarkov_window.position(self.hwnd)
-        self.size = tarkov_window.size(self.hwnd)
+        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
+        self.position = window.position(self.hwnd)
+        self.size = window.size(self.hwnd)
         self.monitor = screen.current()
         # What gets searched is the window clipped to the chosen monitor. The window alone is
         # wrong when the user has picked a screen the game is not on, and the monitor alone is
         # wrong when the game is windowed; the part they share is right either way.
         self.region = screen.overlap(self.position + self.size, self.monitor.rect)
         if self.region is None:
-            raise tarkov_window.WindowError(
+            raise window.WindowError(
                 f'Tarkov is at {self.position + self.size}, which is not on monitor '
                 f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
                 f'the game onto this one.')
@@ -167,7 +167,7 @@ class FleaSeller:
         # of that rectangle, so a game closed mid-run is invisible to template matching: it
         # photographs whatever is behind it now and reports the add offer button missing, which
         # points at the flea instead of at the game being gone. handle() raises WindowError.
-        tarkov_window.handle()
+        window.handle()
         if not sell.click_add_offer(self.region):
             raise RuntimeError('no add offer button on screen')
         self._pause()
@@ -342,6 +342,11 @@ class FleaSeller:
                     self.sell_one()
                 except Retry as e:  # recoverable, the screen has already been backed out of
                     log(f'{e}, starting a fresh pass')
+                    # Here rather than in sell_one, because a pass has many ways to fail and the
+                    # Error dialog is the one that fails all of them at once. Costs one match on
+                    # a pass that was already lost, and a run stuck behind that dialog would
+                    # otherwise lose every pass after it until Stop.
+                    sell.dismiss_error_popup(self.region)
         except Stopped:
             log('stopped part way through a pass')
         finally:
