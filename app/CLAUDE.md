@@ -197,8 +197,9 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      for the millisecond (1754702835123-pre.png) and logged by name, which is
                      what lines a frame up against the narration. Not a recording: only
                      changes are captured. 250 frames across all sessions, oldest deleted as
-                     new ones arrive. Whole screen, native resolution, lossless.
-                     Self-check: python -m frames
+                     new ones arrive. Whole screen, native resolution, lossless. The bot thread
+                     only grabs; a saver thread does the encoding, the writing and the deleting,
+                     so flush() before reading the folder. Self-check: python -m frames
 crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame from before the
                      last click and the screen as it is now. Was report.py, which read like a
                      run report sitting beside session_log.py and frames.py; crashes are all it

@@ -59,6 +59,7 @@ def _newest_frame():
     on, and the frame taken around the last click is the one showing what the bot was looking at.
     """
     try:
+        frames.flush()  # frames are written by a worker thread; the newest may still be in flight
         pngs = sorted(frames.FRAME_DIR.glob('*.png'), key=lambda path: path.stat().st_mtime)
         return pngs[-1].read_bytes() if pngs else None
     except OSError:

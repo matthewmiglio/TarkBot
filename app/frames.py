@@ -17,13 +17,14 @@ sites in interact/sell.py each learning to take a frame. It buys frames around c
 not exist yet, and it costs the surprise of a patched module. Unpick it into explicit calls
 the day something needs frames somewhere that is not an input.
 
-ponytail: the grab and the save both happen on the bot thread, roughly 0.1s per frame, so an
-input costs about 0.2s more than it did. That is invisible next to the delays sell.py already
-sleeps, except in the 50 click select loop. Hand the save to a worker thread if that ever
-starts mattering.
+The grab has to happen on the bot thread, at the moment the frame is of. The save does not, so
+it does not: a worker thread does the PNG encoding and the writing, and the pruning behind it.
+An input now costs the bot two grabs rather than two grabs and two encodes.
 
 Self-check (writes to a temp dir, not your real frames):  python -m frames
 """
+import queue
+import threading
 import time
 from collections import deque
 from pathlib import Path
@@ -53,6 +54,34 @@ _kept = deque()  # frame paths, oldest first, so pruning is a popleft rather tha
 # the typewrite. Only the outermost call takes frames now.
 # ponytail: one flag, not threading.local, because only ever one bot thread clicks at a time.
 _busy = False
+# Work for the saver thread, in the order it was asked for: (path, image) writes that image,
+# (path, None) deletes that file. Both go through the one queue so a frame is always written
+# before the prune that drops it, whatever the timing.
+# The cap is small and put() blocks: a screenshot is megabytes, and a saver that has fallen
+# eight frames behind should slow the bot down rather than fill memory up. Falling behind at
+# all takes a burst of inputs with no sleeps between them.
+_saves = queue.Queue(maxsize=8)
+_saver = None  # the thread, started by the first start() and left running
+
+
+def _save_loop():
+    """Write and delete whatever capture() and _prune() ask for, off the bot thread."""
+    while True:
+        path, image = _saves.get()
+        try:
+            if image is None:
+                path.unlink()
+            else:
+                image.save(path, compress_level=COMPRESS)
+        except OSError:
+            pass  # a full disk, or a frame open in a viewer; the next one is not this one's problem
+        finally:
+            _saves.task_done()
+
+
+def flush():
+    """Block until every queued frame is on disk. For anything that reads the folder."""
+    _saves.join()
 
 
 def start(directory=FRAME_DIR, keep=KEEP):
@@ -61,10 +90,13 @@ def start(directory=FRAME_DIR, keep=KEEP):
     Existing frames are counted rather than cleared: the cap is KEEP frames in total, not KEEP
     per boot, and the run worth looking at is often the one before the restart.
     """
-    global _dir, _keep
+    global _dir, _keep, _saver
     _dir = Path(directory)
     _keep = keep
     _dir.mkdir(parents=True, exist_ok=True)
+    if _saver is None:
+        _saver = threading.Thread(target=_save_loop, name='frames', daemon=True)
+        _saver.start()
     _kept.clear()
     _kept.extend(sorted(_dir.glob(f'*{SUFFIX}')))  # millisecond stamps sort chronologically
     dropped = _prune()
@@ -78,18 +110,15 @@ def stop():
     """Stop capturing. The wrappers stay on pyautogui; with no directory they just pass through."""
     global _dir
     _dir = None
+    flush()  # whatever the last pass took is worth having on disk before anyone looks
 
 
 def _prune():
-    """Delete oldest frames until at most `_keep` are left. Returns how many went."""
+    """Queue the oldest frames for deletion until at most `_keep` are left. Returns how many."""
     dropped = 0
     while len(_kept) > _keep:
-        path = _kept.popleft()
-        try:
-            path.unlink()
-            dropped += 1
-        except OSError:
-            pass  # open in a viewer, or already gone; the next capture tries the next one
+        _saves.put((_kept.popleft(), None))
+        dropped += 1
     return dropped
 
 
@@ -109,7 +138,8 @@ def capture(label='', image=None):
     path = _dir / (f'{stamp}-{label}{SUFFIX}' if label else f'{stamp}{SUFFIX}')
     # The working monitor, not the primary and not the whole desk: the point of a frame is what
     # the game was showing, and screen.py is the only thing that knows which screen that is.
-    (image if image is not None else screen.grab()).save(path, compress_level=COMPRESS)
+    # The grab is the bot thread's; the encode and the write belong to the saver.
+    _saves.put((path, image if image is not None else screen.grab()))
     _kept.append(path)
     _prune()
     return path
@@ -160,10 +190,14 @@ if __name__ == '__main__':
         assert first.parent == directory and first.suffix == SUFFIX
         assert first.stem.endswith('-pre') and first.stem[:-4].isdigit(), first.name
         assert abs(int(first.stem[:-4]) / 1000 - time.time()) < 5, 'stamped in unix milliseconds'
+        # Every look at the folder from here down flushes first: capture() returns as soon as
+        # the frame is queued, so without this the checks race the saver thread.
+        flush()
         assert Image.open(first).size == (4, 4), 'saved at the size it was given, unscaled'
 
         for n in range(9):
             capture(f'post{n}', blank)
+        flush()
         left = sorted(p.name for p in directory.glob(f'*{SUFFIX}'))
         assert len(left) == 5, f'the cap holds, {len(left)} frames left'
         assert not first.exists(), 'and it is the oldest that goes'
@@ -173,6 +207,7 @@ if __name__ == '__main__':
         start(directory, keep=5)
         assert len(_kept) == 5, f'adopted {len(_kept)} of the 5 already there'
         start(directory, keep=3)
+        flush()
         assert len(list(directory.glob(f'*{SUFFIX}'))) == 3, 'a lower cap trims on start'
 
         # The wrapper takes its two frames around whatever it is given, and only once.
@@ -187,8 +222,10 @@ if __name__ == '__main__':
         start(directory, keep=KEEP)  # room for the pair, rather than pruning it as it lands
         watch(fake, ('click',))
         watch(fake, ('click',))  # a second watch must not double wrap
+        flush()
         before = len(list(directory.glob(f'*{SUFFIX}')))
         fake.click(7, 9)
+        flush()
         pair = [p.name for p in list(_kept)[-2:]]  # capture order, which sorting by name is not
         assert calls == [(7, 9)], f'the real click still ran with its arguments, {calls}'
         assert len(list(directory.glob(f'*{SUFFIX}'))) == before + 2, 'one click, two frames'
