@@ -166,10 +166,22 @@ gym_bot.py           HideoutGym: the third mode, hitting the workout skill check
                      30% error in the speed. And the aimed wait is time.sleep via _sleep(), not
                      Event.wait via _pause(): Event.wait rounds up to that same tick, 45ms for
                      a 31ms ask, which is a press landing 4 columns late at speed.
-tarkov_window.py     Locates the Tarkov window via ctypes/user32. Load bearing: bot, gui and
-                     every test import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h).
-                     Raises WindowError if the window is missing or ambiguous.
-                     Run directly to print the window's hwnd/pos/size.
+window.py            Locates windows via ctypes/user32. Load bearing: bot, gui and every test
+                     import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h),
+                     bounds() -> (l,t,r,b). Raises WindowError if the window is missing or
+                     ambiguous. Was tarkov_window.py, which stopped being the whole truth when
+                     it learned to find our own control panel too: gui_handle() is that window,
+                     matched on the title gui/app.py sets.
+                     overlap_state() says how the two are sitting, one of CLEAR, GUI_ON_TOP or
+                     GAME_ON_TOP. Tarkov is fullscreen, so a control panel in front of it is a
+                     hole in anything read off the game, and the same panel behind it is
+                     invisible rather than harmless. state() is the decision on its own, taking
+                     two rects and a focus flag, so it can be checked with neither window open:
+                     tests/test_window_overlap.py.
+                     Only the GUI's focus is asked about. Any third window in front reports
+                     GAME_ON_TOP, which is what a caller wanting to know if the panel is drawn
+                     there needs; ask about the game's hwnd too if that ever stops being enough.
+                     Run directly to print both windows and the state.
 main.py              Entry point for the frozen build only. Calls session_log.start() before
                      anything else, since a windowed exe has no console and sell_bot.py's first
                      print() would otherwise kill the run. From source, still run
@@ -410,6 +422,18 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      read_price refuses a crop with anything lit in its left gutter. A price
                      wider than its box has had its leading digits cut off, and a cut price reads
                      low, which is the direction that makes the sniper buy.
+                     It also refuses a row priced in dollars, found by looking for dollars_icon
+                     in currency_region, which is the price box grown by CURRENCY_PAD so the
+                     glyph beside the number is not clipped by the box's edge. Nothing else on
+                     the row says what the number counts, and 48 $ against a rouble trader value
+                     in the tens of thousands is a bargain that does not exist. Measured over the
+                     saved frames: 0.980 to 0.998 on 9 dollar rows, never above 0.672 on 147
+                     rouble ones, so the 0.9 default sits in the gap.
+                     Pack offers are deliberately not refused here, though sell.get_price does
+                     refuse them. The same board means opposite things to the two modes: a pack
+                     is a giveaway to a seller undercutting it and a bargain to a buyer. The
+                     board could not support the check anyway, since it truncates a long item
+                     name with an ellipsis and '- pack' is on the end that gets cut.
                      buy() checks that the money left rather than that the click went out, by
                      photographing ruble_region either side of itself and handing the pair to
                      purchase_landed. It has to: Tarkov's confirmation sometimes does not take
@@ -429,12 +453,15 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      balance sits at x 1943-2112, y 93-131. Tune it with
                      tests/test_ruble_region.py, which draws the box on the screen it cut it
                      from.
-                     remove_filter_by_item_filter clears a filter-by-item chip: check the board
-                     reads as filtered (filter_by_item_filter_applied), find every
-                     clear_filter_button, click the leftmost. Called twice per run of the loop:
-                     once from open_clean_board at Start, and again from snipe_bot.sweep_once
-                     after every filter pass, since the filter window's reset can bring a saved
-                     filter set back with it.
+                     remove_filter_by_item_filter clears a chip that has the board narrowed to
+                     one item: check the board reads as filtered (either of APPLIED_TARGETS,
+                     which is the right-click menu's 'Filter by item' chip and its 'Linked
+                     search' one), find every clear_filter_button, click the leftmost. Both
+                     chips answer every search with the same handful of offers, so both have to
+                     go. Called twice per run of the loop: once from open_clean_board at Start,
+                     and again from snipe_bot.sweep_once after every filter pass, since the
+                     filter window's reset can bring a saved filter set back with it. One chip
+                     is cleared per call, which those two calls cover.
                      The applied check first is the whole design. clear_filter_button is a 12 to
                      14 pixel crop of a small plain glyph, the shape of target that has no
                      false-positive headroom, and every other filter chip carries the same x: on
@@ -537,6 +564,15 @@ interact/reference_images/<target>/*.png
   `wait_for` (poll for a target until it shows, rather than sleeping a guess at the worst
   case; `open_scav_case` uses it for the case window, which loads for seconds and used to be
   missed by a flat `WINDOW_DELAY`),
+  `dismiss_error_popup` (the game's plain Error/0 dialog: find it, click OK at
+  `ERROR_POPUP_OK_FRACTION` down the matched box, wait `ERROR_POPUP_DELAY`, and say whether one
+  was there). Aimed off the dialog rather than off a crop of OK, because two plain glyphs on
+  flat black have no false-positive headroom and the dialog around them matches at 0.9. Both
+  flea modes call it, and only from a failure path: `sell_bot.start` on a `Retry`, and
+  `snipe_bot.check_one` at each of the three exits that leave without reading a price. While
+  that dialog is up every read underneath it fails, so it shows up as a run losing pass after
+  pass for no nameable reason, and a match on the way out of something that already failed is
+  the cheapest place to notice,
   `disable_autoselect_similar`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
@@ -563,7 +599,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_drag_failsafe.py`, `test_click_jitter.py`, `test_dropdown_no_retry.py`,
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
 `test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
-`test_hotkey_bind.py`,
+`test_hotkey_bind.py`, `test_window_overlap.py`, `test_error_popup.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -618,8 +654,19 @@ test_recover_on_start.py     What Start backs out of before it looks for the fle
 test_window_gone.py          A game closed mid-run stops the pass before the add offer click
                              rather than clicking where the button used to be, and an open one
                              still goes through. No game needed.
+test_window_overlap.py       window.state() told the control panel and the game apart: over the
+                             game with the panel focused, over it with the game focused, and not
+                             overlapping at all, plus touching edges, a minimised panel and a
+                             monitor left of the primary. Made up rectangles, so no game and no
+                             GUI needed; --live prints what the two real windows are doing.
 test_pack_offer.py           A suggested price quoted against a pack is refused before the OCR
                              is ever reached, and a normal offer still reads. No game needed.
+test_error_popup.py          Where sell.dismiss_error_popup clicks: on OK for every crop in
+                             error_0_popup/, every draw the jitter can make, at a positive and a
+                             negative screen origin, and nothing at all when no dialog is up.
+                             The OK rows are measured off the crops rather than assumed, so a
+                             sixth crop framed differently belongs in its CROPS list. No game
+                             needed, nothing is clicked.
 test_first_offer_region.py   Where sell.grab_first_offer_region lands, drawn on the screen it was
                              cut from: the window with the box on it in yellow and the crop at
                              2x, both to tests/output/first_offer_region/. The tuning loop for
@@ -722,13 +769,13 @@ test_click_all_button.py     The individual steps, one script each.
 add_offer_color.py, flea_icon_color.py    Measure a UI element's color in one state, so a
                              brightness threshold can be picked. Run once per state.
 view_screenshot.py           matplotlib viewer with grid, coordinates and colors.
-find_tarkov_window.py        Dead: a standalone spike that predates tarkov_window.py.
+find_tarkov_window.py        Dead: a standalone spike that predates window.py.
 ```
 
 ## Conventions
 
 - Regions are `(left, top, width, height)` in screen coords. The Tarkov window rect comes from
-  `tarkov_window.position(hwnd) + tarkov_window.size(hwnd)`, gets clipped to the chosen monitor
+  `window.position(hwnd) + window.size(hwnd)`, gets clipped to the chosen monitor
   by `screen.overlap()`, and is passed into `find` so matching stays inside the game window.
   The game runs fullscreen, so image coords == screen coords.
 - Screen coords are the whole desktop's, not one monitor's, so `left` and `top` are negative on
@@ -760,7 +807,7 @@ find_tarkov_window.py        Dead: a standalone spike that predates tarkov_windo
   root on `sys.path` (scripts under `gui/` and `tests/` insert it themselves).
 - `(0, 0)` is pyautogui's panic corner. Any drag ending there sets `FAILSAFE = False` first and
   moves the cursor back to centre screen *before* restoring it.
-- Windows-only: `tarkov_window.py` calls user32 directly.
+- Windows-only: `window.py` calls user32 directly.
 - `ponytail:` comments mark deliberate shortcuts and name the upgrade path.
 
 ## Deps
