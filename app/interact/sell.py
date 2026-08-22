@@ -72,10 +72,31 @@ PRICE_FRACTIONS = (1339 / 1920, 147 / 1080, 1498 / 1920, 186 / 1080)
 # Measured at 2560x1440: left 1109, top 190, right 1774, bottom 284, window relative. Read off
 # the viewer's screen coords (3029/3694) with the game on a monitor starting at x 1920.
 FIRST_OFFER_FRACTIONS = (1109 / 2560, 190 / 1440, 1774 / 2560, 284 / 1440)
+# The asking price on that same row, cut narrow enough to hold the number and the currency glyph
+# beside it and nothing from the row either side. Same (left, top, right, bottom) fractions and
+# the same scaling, measured on the same 2560x1440 window: left 1778, top 191, right 2004,
+# bottom 284. A region of its own rather than a slice of FIRST_OFFER_FRACTIONS, because that one
+# is framed around the offer's title for first_offer_is_a_pack and moving either edge of it to
+# suit a price read would break the pack check that has to keep working.
+FIRST_ITEM_PRICE_FRACTIONS = (1778 / 2560, 191 / 1440, 2004 / 2560, 284 / 1440)
 SCAV_TOP_PAD = 5  # px below the scav window title before its grid starts
 SCAV_HEIGHT_FRACTION = 0.81  # of the monitor height
+OFFER_CORNER = 'bottom left'  # where orientate_offer_creation parks the window by default
+SCAV_CORNER = 'top left'  # and where orientate_scav_box parks its window, above and beside it
+FILTERS_CORNER = 'top left'  # where orientate_filters_window parks the flea's filter window
+# Where those two go while the flea filter window is open. The filter window is drawn over the
+# left of the board, which is exactly where the pair sit for the rest of a pass, so the gear and
+# every control inside it would be under them. The offer window goes to the opposite corner and
+# the scav case follows it across, then both come back afterwards.
+FILTERING_OFFER_CORNER = 'bottom right'
+FILTERING_SCAV_CORNER = 'top right'
 DRAG_SECONDS = 0.4  # fast, but not a teleport; an instant drag gets dropped by the UI
 DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of the corner
+# These two are slow on purpose and were tried faster on 2026-08-22: 0.2s drags, pyautogui's
+# between-call pause halved for the trip, and passes cut short once a window stopped moving or
+# came within 80px of the corner. It worked out at 54% off the drag time and was reverted whole,
+# because landing a window beats landing it quickly. Do not shave them again without a run that
+# shows the windows still arriving.
 LEFT_PAD = 20  # px right of the All button's right edge, and so the grid's left edge. Was 10
 # px right of the autoselect similar button's right edge, which is also the grid's right edge.
 # Was 10, then 0, now -20: negative pulls that edge back inside the grid, short of the button.
@@ -245,6 +266,21 @@ def grab_first_offer_region(region=None):
     primary.
     """
     return grab_price_region(region, FIRST_OFFER_FRACTIONS)
+
+
+def grab_first_item_price_region(region=None):
+    """The topmost offer's asking price as (left, top, width, height) in screen coords.
+
+    FIRST_ITEM_PRICE_FRACTIONS through the same scaling as grab_price_region, so it lands in the
+    same place at any resolution and keeps a negative left edge on a monitor left of the primary.
+
+    Narrower than grab_first_offer_region, and deliberately not carved out of it: that region is
+    the whole row and is framed for first_offer_is_a_pack, which reads the offer's title.
+
+    tests/test_find_first_offer_dollar.py draws this box on the screen it was cut from, which is
+    the tuning loop for the four numbers above.
+    """
+    return grab_price_region(region, FIRST_ITEM_PRICE_FRACTIONS)
 
 
 def first_offer_is_a_pack(region=None):
@@ -999,10 +1035,15 @@ def _corner_point(corner, bounds):
     one more than that is the first row of whatever is below, or off the desktop entirely.
     """
     left, top, width, height = bounds
+    corners = {'top left': (left, top),
+               'top right': (left + width - 1, top),
+               'bottom left': (left, top + height - 1),
+               'bottom right': (left + width - 1, top + height - 1)}
     try:
-        return {'top left': (left, top), 'bottom left': (left, top + height - 1)}[corner]
+        return corners[corner]
     except KeyError:
-        raise ValueError(f"unknown corner {corner!r}, want 'top left' or 'bottom left'") from None
+        raise ValueError(f'unknown corner {corner!r}, want one of '
+                         f'{", ".join(sorted(corners))}') from None
 
 
 def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECONDS,
@@ -1012,6 +1053,9 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     Dragged repeats times over: the window trails the cursor, so one pass stops short and each
     following pass re-finds it wherever it settled. Stops early if it goes missing, which is
     also how a single failed find still returns None.
+
+    Every pass runs, including ones that look wasted. A pass that moves the window nothing is
+    not proof it has arrived, and cutting those was tried and taken back out on 2026-08-22.
 
     Parks the cursor mid screen afterwards. Every screen corner is one of pyautogui's panic
     points, so the fail-safe comes off for the drag and only goes back on once the cursor is
@@ -1072,14 +1116,20 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     return grabbed
 
 
-def orientate_offer_creation(region=None, duration=DRAG_SECONDS, repeats=DRAG_REPEATS):
-    """Drag the offer creation window to the bottom left of the monitor, into a known place.
+def orientate_offer_creation(region=None, corner=OFFER_CORNER, duration=DRAG_SECONDS,
+                             repeats=DRAG_REPEATS):
+    """Drag the offer creation window into a corner of the monitor, into a known place.
 
     Grabs it by the centre of its bbox, repeats times over like the scav box. Returns the last
     point it grabbed, or None if not found.
+
+    corner: any name _corner_point knows. The bottom left is the default and what the bot has
+    always used, but the window covers a different part of the board in each corner, so which
+    one is out of the way depends on the layout. region stays the first argument because
+    sell_bot calls this positionally.
     """
-    point = _drag_to_corner(OFFER_TARGET, 'bottom left', region, duration, repeats)
-    log(f'dragged the offer window to the bottom left by {point}' if point
+    point = _drag_to_corner(OFFER_TARGET, corner, region, duration, repeats)
+    log(f'dragged the offer window to the {corner} by {point}' if point
         else 'offer creation window not on screen to drag', 1)
     return point
 
@@ -1207,8 +1257,24 @@ def _set_condition_from(region=None):
     return True
 
 
+def orientate_filters_window(region=None, corner=FILTERS_CORNER, duration=DRAG_SECONDS,
+                             repeats=DRAG_REPEATS):
+    """Drag the flea's filter window into a corner of the monitor, by its title bar.
+
+    Returns the last point it grabbed, or None if the title bar was never found.
+
+    The top left by default, which is the one corner the rest of a pass keeps clear: while the
+    filters are being set the offer creation window is parked bottom right and the scav case
+    top right. Any name _corner_point knows works if that ever changes.
+    """
+    point = _drag_to_corner(FILTERS_WINDOW_TARGET, corner, region, duration, repeats)
+    log(f'dragged the filter window to the {corner} by {point}' if point
+        else 'filter window not on screen to drag', 1)
+    return point
+
+
 def open_filters(region=None):
-    """Click the flea's filter gear and wait for the window. True once its title bar is up.
+    """Click the flea's filter gear, wait for the window, park it. True once all three are done.
 
     The wait is the point. Clicking the gear is not the same as the window opening: the game
     can put something else in front of the flea (a plain Error dialog, for one, which is what
@@ -1228,6 +1294,20 @@ def open_filters(region=None):
     if not wait_for(FILTERS_WINDOW_TARGET, region, timeout=FILTERS_WINDOW_TIMEOUT):
         log('the filter window did not open. Something else is in front of the flea: check the '
             'frame saved around that click', 1)
+        return False
+    # Parked here rather than by the caller, so every route to this window ends with it in the
+    # same place: the sniper's reset path opens it twice, and apply_flea_filters reads controls
+    # off it either way.
+    #
+    # A failed drag fails the whole open. The title bar was matched a moment ago by the wait
+    # above, so not finding it now is not a window sat somewhere awkward, it is the window
+    # having gone or something having been drawn over it between the two reads. Carrying on
+    # from there means clicking dropdowns by template match on a screen that has already
+    # disagreed with itself once, and the first thing to fail would be a dropdown read blaming
+    # a reference crop.
+    if not orientate_filters_window(region):
+        log('the filter window opened but its title bar would not grab, so it cannot be moved '
+            'clear of the offer creation window', 1)
         return False
     return True
 
@@ -1296,13 +1376,17 @@ def apply_flea_filters(region=None, reset=False):
     return True
 
 
-def orientate_scav_box(region=None, duration=DRAG_SECONDS, repeats=DRAG_REPEATS):
-    """Drag the opened scav case window to the top left of the monitor, by its title bar.
+def orientate_scav_box(region=None, corner=SCAV_CORNER, duration=DRAG_SECONDS,
+                       repeats=DRAG_REPEATS):
+    """Drag the opened scav case window into a corner of the monitor, by its title bar.
 
     Returns the last point it grabbed, or None if the title bar was never found.
+
+    corner: any name _corner_point knows, the top left by default. It moves to the top right
+    for the filter step and back afterwards, the same way the offer window does.
     """
-    point = _drag_to_corner(SCAV_WINDOW_TARGET, 'top left', region, duration, repeats)
-    log(f'dragged the scav case window to the top left by {point}' if point
+    point = _drag_to_corner(SCAV_WINDOW_TARGET, corner, region, duration, repeats)
+    log(f'dragged the scav case window to the {corner} by {point}' if point
         else 'scav case window not on screen to drag', 1)
     return point
 
@@ -1436,6 +1520,10 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     # And on the monitor to the left, the corners are that monitor's, not the primary's.
     assert _corner_point('top left', LEFT_OF_IT) == (-1920, 0)
     assert _corner_point('bottom left', LEFT_OF_IT) == (-1920, 1079)
+    assert _corner_point('bottom right', PRIMARY) == (1919, 1079), 'last column and last row'
+    assert _corner_point('bottom right', LEFT_OF_IT) == (-1, 1079), 'the column left of the primary'
+    assert _corner_point('top right', PRIMARY) == (1919, 0), 'last column, first row'
+    assert _corner_point('top right', LEFT_OF_IT) == (-1, 0)
     try:
         _corner_point('middle', PRIMARY)
         raise AssertionError('expected ValueError')
