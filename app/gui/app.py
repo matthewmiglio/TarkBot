@@ -717,10 +717,18 @@ class App:
         try:
             self.bot.start()
         except Exception as e:  # a wrong screen raises RuntimeError or LookupError mid pass
+            # First, before anything else runs: a frame of the screen that caused this. Every
+            # raise the three bots have is some version of 'X is not on screen', and frames are
+            # otherwise only taken around inputs, so a read that finds nothing leaves no picture
+            # of what it was reading. On 2026-08-21 a run died on all three inventory landmarks
+            # missing at once and the newest frame was 2.4s old, from the drag before it, with
+            # all three plainly there. Nothing said what the screen did in between.
+            shot = frames.capture('error')
             # The lamp only has room for 60 characters, so the log is the only place the whole
             # message and the line that raised it survive. Without this a crash just stops the
             # log dead mid pass, with no reason on the last line.
-            narrate.log(f'run ended on {type(e).__name__}: {e}')
+            narrate.log(f'run ended on {type(e).__name__}: {e}'
+                        + (f', screen at {shot.name}' if shot else ''))
             narrate.log(traceback.format_exc().rstrip(), 1)
             self.error = e
             # Off to the website too, on its own thread, so a crash on someone else's setup can

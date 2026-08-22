@@ -55,8 +55,9 @@ def machine_id():
 def _newest_frame():
     """The last png frames.py wrote, as bytes, or None if it wrote none.
 
-    Read rather than captured: by the time a pass has raised, the screen has often already moved
-    on, and the frame taken around the last click is the one showing what the bot was looking at.
+    Read rather than captured, because the newest one is already the right one: gui/app.py takes
+    a frame labelled 'error' the moment a run raises, before it logs or reports. Grabbing again
+    here would only add the delay between those two points.
     """
     try:
         frames.flush()  # frames are written by a worker thread; the newest may still be in flight
