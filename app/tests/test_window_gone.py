@@ -38,11 +38,10 @@ def run_open(window_open):
 
     clicks = []
     original = {name: getattr(sell, name) for name in
-                ('open_flea', 'apply_flea_filters', 'click_add_offer', 'wait_for',
+                ('open_flea', 'click_add_offer', 'wait_for',
                  'disable_autoselect_similar', 'orientate_offer_creation')}
     real_handle = window.handle
     sell.open_flea = lambda region=None: True
-    sell.apply_flea_filters = lambda region=None: True
     sell.click_add_offer = lambda region=None: clicks.append('add offer') or (1, 2)
     sell.wait_for = lambda target, region=None, **kw: True
     sell.disable_autoselect_similar = lambda region=None: True

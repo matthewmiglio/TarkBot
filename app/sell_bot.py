@@ -148,7 +148,7 @@ class FleaSeller:
             self._pause()
 
     def open_offer_creation(self):
-        """Get from wherever we are to an offer creation window sat in the top left corner."""
+        """Get from wherever we are to an offer creation window sat in the bottom left corner."""
         log('opening the flea market')
         # snipe's opening, not sell.open_flea: open, escape, open again, then clear a
         # leftover filter-by-item chip. A stash item filtered by last pass survives into
@@ -157,10 +157,6 @@ class FleaSeller:
             raise RuntimeError('could not open the flea market')
         self._pause()
         self._await_offer_slot()  # can block for hours, minus the odd stale-offer sweep
-        log('applying the flea filters')
-        if not sell.apply_flea_filters(self.region):
-            raise RuntimeError('could not apply the flea filters')
-        self._pause()
         log('opening the offer creation window')
         # The last thing between here and a click, and the only one that asks Windows rather
         # than the screen. self.region was measured once at Start and every grab since has been
@@ -225,6 +221,37 @@ class FleaSeller:
         return Selection(sell.select_item_from_inventory(self.region, stop=self._stop),
                          escapes, 'inventory')
 
+    def _park_windows(self, picked, offer_corner, scav_corner, scav_first):
+        """Move whatever this pass has open into the named corners.
+
+        Called twice: once to clear the left of the board for the filter window, and once to
+        put everything back where the rest of the pass expects it. Whether there is a scav case
+        window to move is read off picked.escapes rather than picked.source, since the fallback
+        path leaves the case open while taking its item from the stash.
+
+        scav_first is the whole subtlety. The case window is drawn on top of the offer creation
+        window and runs a good 1100px down and across from its own title bar, so whichever side
+        it is parked on, it covers the offer window's title bar on that side and find() has
+        nothing to grab. Both windows travel together, so on each leg the one that has to move
+        first is the one currently sat over the other:
+
+          going right  scav_first=True   the case is on the left, over the offer title bar
+          coming back  scav_first=False  the case is on the right, over it again
+
+        Both halves of that were watched failing on 2026-08-22. Offer first on the way out left
+        it where it opened; case first on the way back logged 'offer_creation_window_title not
+        on screen' and left it parked on the right, where the fixed price region does not read
+        the price box.
+
+        Neither drag is fatal here. A window that would not grab costs a covered control at
+        worst, and the filter step checks its own window and says so in better words.
+        """
+        moves = [(sell.orientate_offer_creation, offer_corner)]
+        if picked.escapes == SCAV_ESCAPES:
+            moves.insert(0 if scav_first else 1, (sell.orientate_scav_box, scav_corner))
+        for move, corner in moves:
+            move(self.region, corner)
+
     def _escape(self, presses):
         """Back out of whatever is on screen, so the next pass starts somewhere known."""
         log(f'escaping {presses}x back to a clean screen', 1)
@@ -233,7 +260,17 @@ class FleaSeller:
             time.sleep(sell.MENU_DELAY)
 
     def sell_one(self):
-        """One full pass: open the offer window, pick something, price it, list it, refresh."""
+        """One full pass, in order:
+
+        1. open the flea and wait for a free offer slot
+        2. click add offer
+        3. drag the offer creation window to the bottom left
+        4. pick a source, and on the scav path open a case and drag it to the top left
+        5. click an item and check something actually got selected
+        6. swing both windows over to the right, clear of the filter window
+        7. set the flea filters
+        8. put both windows back on the left, then price it, list it and refresh
+        """
         started = time.monotonic()
         self.open_offer_creation()
         picked = self.select_item()
@@ -247,6 +284,24 @@ class FleaSeller:
             raise Retry('nothing selectable after every attempt')
         self.stats['selected'] += 1
         log(f'selected item at {picked.point} ({picked.source})')
+        self._pause()
+
+        # The filters go on after the item, not before the offer window. The board the filters
+        # narrow is the one the suggested price is read off, so the only thing that has to be
+        # true is that they are set before that read. Doing it here means the offer window is
+        # already up and can be swung out of the way, where doing it first meant setting them on
+        # a board that the filter-by-item chip then re-filtered anyway.
+        log('moving the open windows off the left of the board for the filter window')
+        self._park_windows(picked, sell.FILTERING_OFFER_CORNER, sell.FILTERING_SCAV_CORNER,
+                           scav_first=True)  # the case is on the left, over the offer title bar
+        self._pause()
+        log('applying the flea filters')
+        if not sell.apply_flea_filters(self.region):
+            raise RuntimeError('could not apply the flea filters')
+        self._pause()
+        log('putting the open windows back')
+        self._park_windows(picked, sell.OFFER_CORNER, sell.SCAV_CORNER,
+                           scav_first=False)  # now it is on the right, over it again
         self._pause()
 
         log(f'waiting {PRICE_DELAY:.0f}s for the suggested price to populate')
