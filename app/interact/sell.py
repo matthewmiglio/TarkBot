@@ -97,12 +97,15 @@ DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of
 # came within 80px of the corner. It worked out at 54% off the drag time and was reverted whole,
 # because landing a window beats landing it quickly. Do not shave them again without a run that
 # shows the windows still arriving.
-LEFT_PAD = 10  # px right of the All button's right edge, and so the grid's left edge. Was 20
+LEFT_PAD = 30  # px right of the All button's right edge, and so the grid's left edge. Was 20
 # px right of the autoselect similar button's right edge, which is also the grid's right edge.
-# Was 10, then 0, now -20: negative pulls that edge back inside the grid, short of the button.
+# Was 10, then 0, now -30: negative pulls that edge back inside the grid, short of the button.
 # Only this edge moves. The left edge and the two pads above are not affected.
-RIGHT_PAD = -20
-TOP_PAD = 20  # px below the autoselect similar button, and so the grid's top edge. Was 10
+RIGHT_PAD = -30
+TOP_PAD = 30  # px below the autoselect similar button, and so the grid's top edge. Was 20
+# px below auto-sort's bottom edge, and so the grid's bottom edge. Negative like RIGHT_PAD, and
+# for the same reason: it lifts that edge back up inside the grid, clear of the button's row.
+BOTTOM_PAD = -10
 UNDERCUT_FRACTION = 0.90  # of the suggested price
 UNDERCUT_FLAT = 2000  # roubles off the suggested price
 PRICE_INPUT_TARGET = 'price_rubles_input'
@@ -198,7 +201,7 @@ def _region_from(all_btn, similar, sort_btn):
     left = int(all_btn.left + all_btn.width) + LEFT_PAD
     top = int(similar.top + similar.height) + TOP_PAD
     width = int(similar.left + similar.width) + RIGHT_PAD - left
-    height = int(sort_btn.top + sort_btn.height) - top
+    height = int(sort_btn.top + sort_btn.height) + BOTTOM_PAD - top
     if width <= 0 or height <= 0:
         raise LookupError(f'degenerate inventory region {(left, top, width, height)}; did the layout change?')
     return left, top, width, height
@@ -1485,9 +1488,10 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     from pyscreeze import Box
     # All button ends at 1258, autoselect similar spans 1600-1620 and ends at y 80, auto-sort
     # ends at y 920. Every number below is those edges plus the three pads, so retuning a pad
-    # moves this line too: left 1258+LEFT_PAD, top 80+TOP_PAD, right 1620+RIGHT_PAD.
+    # moves this line too: left 1258+LEFT_PAD, top 80+TOP_PAD, right 1620+RIGHT_PAD,
+    # bottom 920+BOTTOM_PAD.
     assert _region_from(Box(1232, 82, 26, 24), Box(1600, 60, 20, 20),
-                        Box(1200, 900, 30, 20)) == (1268, 100, 332, 820)
+                        Box(1200, 900, 30, 20)) == (1288, 110, 302, 800)
     try:  # autoselect similar left of the grid's left edge would invert it
         _region_from(Box(1232, 82, 26, 24), Box(100, 60, 20, 20), Box(1200, 900, 30, 20))
         raise AssertionError('expected LookupError')
