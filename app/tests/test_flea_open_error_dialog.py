@@ -5,17 +5,21 @@ Run:  python tests/test_flea_open_error_dialog.py
 No game needed, nothing is clicked: snipe.open_clean_board and sell.dismiss_error_popup are
 stubbed, so this is about the order open_offer_creation tries things in, not about pixels.
 
-Why this step and not the others. Tarkov dims the whole screen behind its "Error / 0 / OK"
-dialog, and sell.is_flea_open decides open-or-shut off the mean brightness of the flea taskbar
-icon. Dimmed, an open flea reads as shut (measured 89 against a threshold of 90, where the two
-real states are 56 and 119), and the click that would open a genuinely shut flea lands on a
-modal that swallows it, so the second read says shut too. That is the one failure the dialog
-disguises as something else, which is why the dismiss belongs here and not only on the Retry
-path in start().
+Two halves. The first drives open_offer_creation, which is the step the dialog hides itself from
+best: Tarkov dims the whole screen behind its "Error / 0 / OK" dialog, and sell.is_flea_open
+decides open-or-shut off the mean brightness of the flea taskbar icon. Dimmed, an open flea reads
+as shut (measured 89 against a threshold of 90, where the two real states are 56 and 119), and
+the click that would open a genuinely shut flea lands on a modal that swallows it, so the second
+read says shut too. The run of 2026-08-22 died this way 27 passes in, with the OK button sat on
+screen unclicked: the dialog appeared in the half second between the previous pass's dismiss and
+this pass's first look at the flea, so the dismiss already in the code found a clean screen.
 
-The run of 2026-08-22 died this way 27 passes in, with the OK button sat on screen unclicked:
-the dialog appeared in the half second between the previous pass's dismiss and this pass's first
-look at the flea, so the dismiss already in the code looked at a clean screen and found nothing.
+The second half drives FleaSeller._past_error_dialog on its own. Every screen-reading step of a
+pass now goes through it, not just this one, because the dialog is the game's to raise whenever
+it likes: the run of 2026-08-23 died applying the flea filters, 154 passes in, on the same
+unclicked OK button. What is worth pinning down is that the wrapper offers the retry once and
+only when the dialog was really there, so a step failing on a clean screen still raises its own
+message rather than one about a dialog nobody saw.
 """
 import sys
 import threading
@@ -85,4 +89,54 @@ assert outcome == 'could not open the flea market after clearing the error dialo
 assert calls == {'open': 2, 'dismiss': 1}, calls
 print(f'  ok  {calls}')
 
-print('ok, the flea gets a second look once the Error dialog is gone, and one only')
+
+def wrapper_with(steps, dialog):
+    """_past_error_dialog over a step answering `steps` in turn. Returns (outcome, calls).
+
+    A bare lambda rather than a sell.* call, because the point of the wrapper is that it does
+    not care which step it was handed: the same two calls guard the flea, the filters, the
+    price field and the place offer button.
+    """
+    answers, calls = list(steps), {'step': 0, 'dismiss': 0}
+    bot = object.__new__(sell_bot.FleaSeller)
+    bot.region = None
+    original = sell.dismiss_error_popup
+
+    def step():
+        calls['step'] += 1
+        return answers.pop(0)
+
+    def fake_dismiss(region=None, **kw):
+        calls['dismiss'] += 1
+        return dialog
+
+    sell.dismiss_error_popup = fake_dismiss
+    try:
+        bot._past_error_dialog(step, 'could not do the thing')
+        return 'done', calls
+    except RuntimeError as e:
+        return str(e), calls
+    finally:
+        sell.dismiss_error_popup = original
+
+
+print('the wrapper on its own: any step, any message')
+outcome, calls = wrapper_with([True], dialog=False)
+assert (outcome, calls) == ('done', {'step': 1, 'dismiss': 0}), (outcome, calls)
+print(f'  ok  a step that works is never charged a match for the dialog  {calls}')
+
+outcome, calls = wrapper_with([False, True], dialog=True)
+assert (outcome, calls) == ('done', {'step': 2, 'dismiss': 1}), (outcome, calls)
+print(f'  ok  cleared the dialog and the second go worked  {calls}')
+
+outcome, calls = wrapper_with([False], dialog=False)
+assert outcome == 'could not do the thing', outcome
+assert calls == {'step': 1, 'dismiss': 1}, calls
+print('  ok  failed on a clean screen, so it raises the step\'s own message')
+
+outcome, calls = wrapper_with([False, False], dialog=True)
+assert outcome == 'could not do the thing after clearing the error dialog', outcome
+assert calls == {'step': 2, 'dismiss': 1}, calls
+print('  ok  failed twice, and the message says the dialog was not the reason')
+
+print('ok, every step gets a second look once the Error dialog is gone, and one only')

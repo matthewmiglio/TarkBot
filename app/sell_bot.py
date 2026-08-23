@@ -132,6 +132,36 @@ class FleaSeller:
             log(f'stop seen at the {seconds:.1f}s checkpoint, unwinding this pass', 1)
             raise Stopped()
 
+    def _past_error_dialog(self, step, failed):
+        """Run `step`; if it comes back false, clear a Tarkov Error dialog and run it once more.
+
+        Tarkov's "Error / 0 / OK" dialog breaks every step of a pass the same two ways, which
+        is why one wrapper covers all of them rather than each step growing its own check. It
+        is modal, so a click lands on it instead of on whatever was aimed at, and it dims the
+        whole screen behind it, so template matches and brightness reads come back under
+        threshold. Any step that just failed is therefore worth one look at whether the dialog
+        is the reason, and one more go once it is gone.
+
+        The dialog is the game's to raise whenever it likes, usually a moment after some
+        request it did not like, so there is no one step to guard: the run of 2026-08-22 died
+        opening the flea, the run of 2026-08-23 died applying the filters, and both screens had
+        the OK button sat on them unclicked.
+
+        One retry, and only when the dialog was really there. A step that fails on a clean
+        screen has a real problem and raises exactly the message it always did; a step that
+        fails again with the dialog cleared says so in its message, so the log never blames the
+        dialog for something that was never about the dialog. Every step passed in here has to
+        be safe to run twice, which they are: each one gives up on a target it could not find,
+        so a failed attempt has typed and clicked nothing.
+        """
+        if step():
+            return
+        if not sell.dismiss_error_popup(self.region):
+            raise RuntimeError(failed)
+        log(f'{failed}: trying once more now the error dialog is gone', 1)
+        if not step():
+            raise RuntimeError(f'{failed} after clearing the error dialog')
+
     def _await_offer_slot(self):
         """Block until there is a slot to sell into, cancelling stale offers to make one.
 
@@ -150,6 +180,15 @@ class FleaSeller:
             if sell.more_offers_available(self.region):  # returning is not proof one opened
                 log('a slot is free', 1)
                 return
+            # Not _past_error_dialog: the loop is already the retry. The dialog dims the add
+            # offer button along with everything else, so a slot that is genuinely free reads
+            # as full and the wait above times out with nothing actually wrong. Left there,
+            # this is the worst of the dialog's hiding places, because it never raises: the
+            # sweep below cannot cancel anything through a modal that eats every click, so the
+            # loop waits stale_minutes, removes nothing, and goes round again until Stop.
+            if sell.dismiss_error_popup(self.region):
+                log('the wait was behind an error dialog, not a full board, so waiting again', 1)
+                continue
             log(f'no slot after {self.stale_minutes}m, clearing out the offers that never sold')
             removed = sell.remove_stale_offers(self.region, stop=self._stop)
             self.stats['stale_removed'] += removed
@@ -162,22 +201,14 @@ class FleaSeller:
         # snipe's opening, not sell.open_flea: open, escape, open again, then clear a
         # leftover filter-by-item chip. A stash item filtered by last pass survives into
         # this one and narrows the board the offer window reads.
-        if not snipe.open_clean_board(self.region):
-            # The Error dialog, checked here as well as on the Retry path in start(), because
-            # this is the one step it can hide itself from. Tarkov dims the whole screen behind
-            # the dialog, which drops the flea taskbar icon's mean brightness below
-            # FLEA_OPEN_BRIGHTNESS, so an open flea reads as shut; the click that would fix a
-            # shut flea then lands on a modal that eats it, and the second read says shut again.
-            # The run of 2026-08-22 ended exactly here, 27 passes in: the dialog arrived in the
-            # half second between the previous pass's dismiss and this pass's first look, so
-            # the dismiss that was already in the code found nothing and this raised into a
-            # screen with the OK button sat on it, unclicked.
-            if not sell.dismiss_error_popup(self.region):
-                raise RuntimeError('could not open the flea market')
-            log('retrying the flea now the error dialog is gone', 1)
-            if not snipe.open_clean_board(self.region):
-                raise RuntimeError('could not open the flea market after clearing the error '
-                                   'dialog')
+        #
+        # Through _past_error_dialog, like every screen-reading step below it. This is the step
+        # the dialog hides itself from best: the dimmed screen drops the flea taskbar icon's
+        # mean brightness below FLEA_OPEN_BRIGHTNESS, so an open flea reads as shut, and the
+        # click that would fix a shut flea lands on the modal that eats it, so the second read
+        # says shut too. The run of 2026-08-22 ended here, 27 passes in.
+        self._past_error_dialog(lambda: snipe.open_clean_board(self.region),
+                                'could not open the flea market')
         self._pause()
         self._await_offer_slot()  # can block for hours, minus the odd stale-offer sweep
         log('opening the offer creation window')
@@ -187,21 +218,32 @@ class FleaSeller:
         # photographs whatever is behind it now and reports the add offer button missing, which
         # points at the flea instead of at the game being gone. handle() raises WindowError.
         window.handle()
-        if not sell.click_add_offer(self.region):
-            raise RuntimeError('no add offer button on screen')
-        self._pause()
-        # Waited for, not slept through. Everything below assumes this window is up: the
-        # autoselect tick and the drag both live on it, and a flat WINDOW_DELAY that lands
-        # early turns into 'could not switch autoselect similar off', which points at the
-        # wrong thing entirely.
-        if not sell.wait_for(sell.OFFER_TARGET, self.region):
-            raise RuntimeError('offer creation window never opened')
+
+        def add_offer_window():
+            """The click and the window it raises, retried as one rather than separately.
+
+            A dialog that ate the click leaves nothing for a second wait to find, so retrying
+            only the wait would time out again for a reason that had already been fixed. The
+            cost is that the two no longer raise separately, and 'no add offer button on
+            screen' is now a log line inside click_add_offer rather than its own message.
+
+            Waited for, not slept through. Everything below assumes this window is up: the
+            autoselect tick and the drag both live on it, and a flat WINDOW_DELAY that lands
+            early turns into 'could not switch autoselect similar off', which points at the
+            wrong thing entirely.
+            """
+            if not sell.click_add_offer(self.region):
+                return False
+            self._pause()
+            return sell.wait_for(sell.OFFER_TARGET, self.region)
+
+        self._past_error_dialog(add_offer_window, 'offer creation window never opened')
         want = 'on' if self.autoselect else 'off'
-        if not sell.set_autoselect_similar(self.autoselect, self.region):
-            raise RuntimeError(f'could not switch autoselect similar {want}')
+        self._past_error_dialog(lambda: sell.set_autoselect_similar(self.autoselect, self.region),
+                                f'could not switch autoselect similar {want}')
         self._pause()
-        if not sell.orientate_offer_creation(self.region):
-            raise RuntimeError('offer creation window never appeared')
+        self._past_error_dialog(lambda: sell.orientate_offer_creation(self.region),
+                                'offer creation window never appeared')
         log('offer creation ready')
 
     def select_item(self):
@@ -320,8 +362,13 @@ class FleaSeller:
                            scav_first=True)  # the case is on the left, over the offer title bar
         self._pause()
         log('applying the flea filters')
-        if not sell.apply_flea_filters(self.region):
-            raise RuntimeError('could not apply the flea filters')
+        # Where the run of 2026-08-23 died, 154 passes in. The dialog arrived during the drag
+        # just above that swings the offer window off the board, so the gear click half a
+        # second later landed on the modal and the filter window never came up. Safe to run
+        # twice: it only touches a dropdown while that dropdown still says 'any', so a board
+        # already filtered gets the window opened and OK'd straight back out.
+        self._past_error_dialog(lambda: sell.apply_flea_filters(self.region),
+                                'could not apply the flea filters')
         self._pause()
         log('putting the open windows back')
         self._park_windows(picked, sell.OFFER_CORNER, sell.SCAV_CORNER,
@@ -352,10 +399,12 @@ class FleaSeller:
         self._pause()
 
         log('placing the offer')
-        if not sell.enter_price(listing, self.region):
-            raise RuntimeError('no roubles price field on screen')
-        if not sell.click_place_offer(self.region):
-            raise RuntimeError('no place offer button on screen')
+        # enter_price selects all before it types, so even a retry that somehow ran on top of a
+        # field it had already filled replaces the number rather than appending to it.
+        self._past_error_dialog(lambda: sell.enter_price(listing, self.region),
+                                'no roubles price field on screen')
+        self._past_error_dialog(lambda: sell.click_place_offer(self.region),
+                                'no place offer button on screen')
 
         # Some items get a "below market value, are you sure" confirmation instead of being
         # listed. Everything below this point assumes the offer went up, so it is checked before

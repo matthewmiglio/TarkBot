@@ -18,6 +18,23 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a FleaSeller
                      built without one keeps its own.
+                     _past_error_dialog(step, failed) wraps every screen-reading step that used
+                     to raise a RuntimeError on its own: run the step, and if it fails, look for
+                     the game's Error/0 dialog, and only if one was there clear it and run the
+                     step once more. Tarkov raises that dialog whenever it likes, usually a
+                     moment after a request it did not like, so there is no one step to guard:
+                     2026-08-22 died opening the flea, 2026-08-23 died applying the filters, both
+                     with the OK button on screen unclicked. A step that fails on a clean screen
+                     raises exactly the message it always did, and one that fails again with the
+                     dialog gone gets 'after clearing the error dialog' on the end, so the log
+                     never blames the dialog for something that was never about it. Everything
+                     passed in has to be safe to run twice, which they all are: each gives up on
+                     a target it could not find, so a failed attempt typed and clicked nothing.
+                     _await_offer_slot is the one that dismisses without retrying, since its own
+                     loop is the retry: the dimmed screen drags the add offer button's brightness
+                     under threshold, so a free slot reads as full, and left alone that never
+                     raises at all, it just waits stale_minutes, cancels nothing through the
+                     modal, and goes round again until Stop.
                      UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown,
                      STALE_THRESHOLDS its STALE OFFER THRESHOLD one and AUTOSELECT its
                      AUTOSELECT SIMILAR one: ON leaves the offer window's checkbox ticked, so
@@ -575,17 +592,12 @@ interact/reference_images/<target>/*.png
   was there). Aimed off the dialog rather than off a crop of OK, because two plain glyphs on
   flat black have no false-positive headroom and the dialog around them matches at 0.9. Both
   flea modes call it, and only from a failure path: `sell_bot.start` on a `Retry`,
-  `sell_bot.open_offer_creation` when the flea will not open, and `snipe_bot.check_one` at each
-  of the three exits that leave without reading a price. While
+  `sell_bot._await_offer_slot` when no slot ever comes free, `snipe_bot.check_one` at each of
+  the three exits that leave without reading a price, and, in the seller, every step that used
+  to raise a `RuntimeError`, through the `FleaSeller._past_error_dialog` wrapper below. While
   that dialog is up every read underneath it fails, so it shows up as a run losing pass after
   pass for no nameable reason, and a match on the way out of something that already failed is
-  the cheapest place to notice. The flea-open call is the one that is not just cheap noticing:
-  Tarkov dims the screen behind the dialog, which drags the flea taskbar icon's mean brightness
-  under `FLEA_OPEN_BRIGHTNESS` (89 against a threshold of 90, where the real states are 56 and
-  119), so an open flea reads as shut and the click that would open a shut one is swallowed by
-  the modal. The dismiss on the `Retry` path cannot cover it, because the dialog can arrive in
-  the gap between that dismiss and the next pass's first look, which is how the run of
-  2026-08-22 ended 27 passes in with the OK button on screen unclicked,
+  the cheapest place to notice,
   `set_autoselect_similar(on)`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
@@ -682,11 +694,13 @@ test_error_popup.py          Where sell.dismiss_error_popup clicks: on OK for ev
                              sixth crop framed differently belongs in its CROPS list. No game
                              needed, nothing is clicked.
 test_flea_open_error_dialog.py
-                             A flea that will not open gets one retry, and only one, once the
-                             Error dialog has been clicked away. The dimmed screen behind that
-                             dialog is the one failure it disguises as a shut flea, so this is
-                             the step where the dismiss has to happen rather than only on the
-                             way out of a pass. Guards the run of 2026-08-22. No game needed.
+                             A step that fails gets one retry, and only one, once the Error
+                             dialog has been clicked away. Two halves: open_offer_creation
+                             driven end to end, since the dimmed screen behind that dialog is
+                             the failure it disguises best (an open flea reads as shut), and
+                             FleaSeller._past_error_dialog on its own with a bare lambda, since
+                             every screen-reading step of a pass now goes through it. Guards the
+                             runs of 2026-08-22 and 2026-08-23. No game needed.
 test_first_offer_region.py   Where sell.grab_first_offer_region lands, drawn on the screen it was
                              cut from: the window with the box on it in yellow and the crop at
                              2x, both to tests/output/first_offer_region/. The tuning loop for
