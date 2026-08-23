@@ -154,7 +154,21 @@ class FleaSeller:
         # leftover filter-by-item chip. A stash item filtered by last pass survives into
         # this one and narrows the board the offer window reads.
         if not snipe.open_clean_board(self.region):
-            raise RuntimeError('could not open the flea market')
+            # The Error dialog, checked here as well as on the Retry path in start(), because
+            # this is the one step it can hide itself from. Tarkov dims the whole screen behind
+            # the dialog, which drops the flea taskbar icon's mean brightness below
+            # FLEA_OPEN_BRIGHTNESS, so an open flea reads as shut; the click that would fix a
+            # shut flea then lands on a modal that eats it, and the second read says shut again.
+            # The run of 2026-08-22 ended exactly here, 27 passes in: the dialog arrived in the
+            # half second between the previous pass's dismiss and this pass's first look, so
+            # the dismiss that was already in the code found nothing and this raised into a
+            # screen with the OK button sat on it, unclicked.
+            if not sell.dismiss_error_popup(self.region):
+                raise RuntimeError('could not open the flea market')
+            log('retrying the flea now the error dialog is gone', 1)
+            if not snipe.open_clean_board(self.region):
+                raise RuntimeError('could not open the flea market after clearing the error '
+                                   'dialog')
         self._pause()
         self._await_offer_slot()  # can block for hours, minus the odd stale-offer sweep
         log('opening the offer creation window')

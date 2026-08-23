@@ -601,6 +601,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
 `test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
 `test_hotkey_bind.py`, `test_window_overlap.py`, `test_error_popup.py`,
+`test_flea_open_error_dialog.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -668,6 +669,12 @@ test_error_popup.py          Where sell.dismiss_error_popup clicks: on OK for ev
                              The OK rows are measured off the crops rather than assumed, so a
                              sixth crop framed differently belongs in its CROPS list. No game
                              needed, nothing is clicked.
+test_flea_open_error_dialog.py
+                             A flea that will not open gets one retry, and only one, once the
+                             Error dialog has been clicked away. The dimmed screen behind that
+                             dialog is the one failure it disguises as a shut flea, so this is
+                             the step where the dismiss has to happen rather than only on the
+                             way out of a pass. Guards the run of 2026-08-22. No game needed.
 test_first_offer_region.py   Where sell.grab_first_offer_region lands, drawn on the screen it was
                              cut from: the window with the box on it in yellow and the crop at
                              2x, both to tests/output/first_offer_region/. The tuning loop for
