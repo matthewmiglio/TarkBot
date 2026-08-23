@@ -32,6 +32,7 @@ def run_open(window_open):
     """open_offer_creation with the screen faked out. Returns (what was raised, clicks made)."""
     bot = object.__new__(FleaSeller)
     bot.region = None
+    bot.autoselect = False  # __init__ is skipped, and open_offer_creation reads it
     bot._stop = threading.Event()
     bot._pause = lambda *a: None
     bot._await_offer_slot = lambda: None
@@ -39,12 +40,12 @@ def run_open(window_open):
     clicks = []
     original = {name: getattr(sell, name) for name in
                 ('open_flea', 'click_add_offer', 'wait_for',
-                 'disable_autoselect_similar', 'orientate_offer_creation')}
+                 'set_autoselect_similar', 'orientate_offer_creation')}
     real_handle = window.handle
     sell.open_flea = lambda region=None: True
     sell.click_add_offer = lambda region=None: clicks.append('add offer') or (1, 2)
     sell.wait_for = lambda target, region=None, **kw: True
-    sell.disable_autoselect_similar = lambda region=None: True
+    sell.set_autoselect_similar = lambda on, region=None: True
     sell.orientate_offer_creation = lambda region=None: (1, 2)
 
     def fake_handle(title=window.TITLE):

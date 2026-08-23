@@ -26,7 +26,8 @@ import session_log  # noqa: E402
 import snipe_bot  # noqa: E402
 import window  # noqa: E402
 import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
-from sell_bot import DEFAULT_STALE, DEFAULT_UNDERCUT, MODES, STALE_THRESHOLDS, UNDERCUTS  # noqa: E402
+from sell_bot import (AUTOSELECT, DEFAULT_AUTOSELECT, DEFAULT_STALE, DEFAULT_UNDERCUT,  # noqa: E402
+                      MODES, STALE_THRESHOLDS, UNDERCUTS)
 from snipe_bot import DEFAULT_MARGIN, MARGINS  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
@@ -484,6 +485,16 @@ class App:
             tag='tab:snipe', row=1,
             tip='How many roubles under trader value an offer has to be listed before it is '
                 'bought')
+        # The one control on the empty left of row 1, under the title. The other three slots on
+        # this row are taken, and a third row does not fit: the header ends at 92 and the panels
+        # start at 110. Right edge 260 leaves a gap before MONITOR's widget, which starts at 302.
+        if self.prefs['autoselect'] not in AUTOSELECT:  # an edited settings file must not wedge it
+            self.prefs['autoselect'] = DEFAULT_AUTOSELECT
+        self.autoselect_var = self._dropdown(
+            'AUTOSELECT SIMILAR', 260, list(AUTOSELECT), self.prefs['autoselect'],
+            self._pick_autoselect, 62, tag='tab:flea', row=1,
+            tip='Leave the offer window\'s autoselect similar box ticked, so picking one item '
+                'picks every matching one and the offer lists the whole stack')
 
     def _draw_tabs(self):
         """The mode strip along the top of the status panel.
@@ -696,6 +707,10 @@ class App:
 
     def _pick_undercut(self, label):
         self.prefs['undercut'] = label  # the dropdown's labels are the keys, so no lookup
+        settings.save(self.prefs)
+
+    def _pick_autoselect(self, label):
+        self.prefs['autoselect'] = label  # the dropdown's labels are the keys, so no lookup
         settings.save(self.prefs)
 
     def _pick_stale(self, label):

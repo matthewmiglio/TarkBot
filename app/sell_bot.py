@@ -28,6 +28,12 @@ UNDERCUTS = {'2k rubles | 90%': (0.90, 2000),
              '3k rubles | 90%': (0.90, 3000),
              '5k rubles | 90%': (0.90, 5000)}
 DEFAULT_UNDERCUT = '2k rubles | 90%'
+# Whether the offer creation window's autoselect similar checkbox ends up ticked. GUI label ->
+# the state to leave it in, so the dropdown, the saved setting and the click read off one
+# definition. On lists every matching item as one offer, which is a stack sold at the price
+# read for a single one, so off is the default and on is a deliberate choice.
+AUTOSELECT = {'OFF': False, 'ON': True}
+DEFAULT_AUTOSELECT = 'OFF'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
 # How many escapes it takes to get back to a clean screen from wherever a pass gave up. What is
@@ -78,7 +84,8 @@ class Retry(Exception):
 class FleaSeller:
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
-                 undercut=UNDERCUTS[DEFAULT_UNDERCUT], stats=None):
+                 undercut=UNDERCUTS[DEFAULT_UNDERCUT],
+                 autoselect=AUTOSELECT[DEFAULT_AUTOSELECT], stats=None):
         log('Initalizing Flea Seller')
         self.hwnd = window.handle()  # raises WindowError if missing or duplicated
         self.position = window.position(self.hwnd)
@@ -97,12 +104,14 @@ class FleaSeller:
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
         self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
+        self.autoselect = autoselect  # leave autoselect similar ticked, so an offer is the stack
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
         log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
             f'searching {self.region}', 1)
         log(f'scav cases {"on" if target_scav_cases else "off"} '
             f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
-            f'undercut {undercut[0]:.1%} or {undercut[1]} roubles', 1)
+            f'undercut {undercut[0]:.1%} or {undercut[1]} roubles, '
+            f'autoselect similar {"on" if autoselect else "off"}', 1)
         # The GUI hands in its own dict, which outlives any one FleaSeller, so the counters carry
         # across stop/start and only reset when the app does. Nothing passed, count from zero.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
@@ -183,12 +192,13 @@ class FleaSeller:
         self._pause()
         # Waited for, not slept through. Everything below assumes this window is up: the
         # autoselect tick and the drag both live on it, and a flat WINDOW_DELAY that lands
-        # early turns into 'could not switch off autoselect similar', which points at the
+        # early turns into 'could not switch autoselect similar off', which points at the
         # wrong thing entirely.
         if not sell.wait_for(sell.OFFER_TARGET, self.region):
             raise RuntimeError('offer creation window never opened')
-        if not sell.disable_autoselect_similar(self.region):
-            raise RuntimeError('could not switch off autoselect similar')
+        want = 'on' if self.autoselect else 'off'
+        if not sell.set_autoselect_similar(self.autoselect, self.region):
+            raise RuntimeError(f'could not switch autoselect similar {want}')
         self._pause()
         if not sell.orientate_offer_creation(self.region):
             raise RuntimeError('offer creation window never appeared')
@@ -454,5 +464,6 @@ def build(prefs, stats):
     _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])
     stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
     undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])
+    autoselect = AUTOSELECT.get(prefs.get('autoselect'), AUTOSELECT[DEFAULT_AUTOSELECT])
     return FleaSeller(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
-                   undercut=undercut, stats=stats)
+                   undercut=undercut, autoselect=autoselect, stats=stats)

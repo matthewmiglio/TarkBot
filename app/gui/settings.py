@@ -22,6 +22,9 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # the second one was added; see RENAMED for what happens to a file still using it.
             'send_telemetry': True,
             'undercut': '2k rubles | 90%',  # how far under the suggested price, see sell_bot.UNDERCUTS
+            # Whether to leave the offer window's autoselect similar checkbox ticked, which
+            # lists every matching item as one offer. See sell_bot.AUTOSELECT.
+            'autoselect': 'OFF',
             # How many roubles under trader value a flea offer has to be before snipe mode
             # buys it. See snipe_bot.MARGINS.
             'margin': '500 rubles',

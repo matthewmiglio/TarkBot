@@ -18,8 +18,10 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a FleaSeller
                      built without one keeps its own.
-                     UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown and
-                     STALE_THRESHOLDS its STALE OFFER THRESHOLD one.
+                     UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown,
+                     STALE_THRESHOLDS its STALE OFFER THRESHOLD one and AUTOSELECT its
+                     AUTOSELECT SIMILAR one: ON leaves the offer window's checkbox ticked, so
+                     one pick takes every matching item and the offer is the whole stack.
 snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of item names,
                      searches each on the flea, reads the cheapest offer, and buys it when the
                      asking price is far enough under what a trader pays. Selling to the trader
@@ -277,7 +279,10 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      on screen with another tab's, so they share the positions rather than each
                      taking one. BACKGROUND, MONITOR and START KEY are untagged and stay put
                      across tabs, since a backdrop, a screen and a start key belong to the window
-                     rather than to a mode. STALE OFFER THRESHOLD is FLEA SELL's alone. Each
+                     rather than to a mode. STALE OFFER THRESHOLD and AUTOSELECT SIMILAR are
+                     FLEA SELL's alone, the second one on the empty left of the second header
+                     row, which is the only free slot: a third row does not fit between the
+                     header's foot at 92 and the panels at 110. Each
                      dropdown can carry a Tip, a hover tooltip drawn after TIP_DELAY.
                      Run: python -m gui.app
                      Under the buttons, one boxed line of narrate.LAST, repainted by tick()
@@ -569,12 +574,19 @@ interact/reference_images/<target>/*.png
   `ERROR_POPUP_OK_FRACTION` down the matched box, wait `ERROR_POPUP_DELAY`, and say whether one
   was there). Aimed off the dialog rather than off a crop of OK, because two plain glyphs on
   flat black have no false-positive headroom and the dialog around them matches at 0.9. Both
-  flea modes call it, and only from a failure path: `sell_bot.start` on a `Retry`, and
-  `snipe_bot.check_one` at each of the three exits that leave without reading a price. While
+  flea modes call it, and only from a failure path: `sell_bot.start` on a `Retry`,
+  `sell_bot.open_offer_creation` when the flea will not open, and `snipe_bot.check_one` at each
+  of the three exits that leave without reading a price. While
   that dialog is up every read underneath it fails, so it shows up as a run losing pass after
   pass for no nameable reason, and a match on the way out of something that already failed is
-  the cheapest place to notice,
-  `disable_autoselect_similar`, `enter_price` (ctrl+A first, the field arrives prefilled),
+  the cheapest place to notice. The flea-open call is the one that is not just cheap noticing:
+  Tarkov dims the screen behind the dialog, which drags the flea taskbar icon's mean brightness
+  under `FLEA_OPEN_BRIGHTNESS` (89 against a threshold of 90, where the real states are 56 and
+  119), so an open flea reads as shut and the click that would open a shut one is swallowed by
+  the modal. The dismiss on the `Retry` path cannot cover it, because the dialog can arrive in
+  the gap between that dismiss and the next pass's first look, which is how the run of
+  2026-08-22 ended 27 passes in with the OK button on screen unclicked,
+  `set_autoselect_similar(on)`, `enter_price` (ctrl+A first, the field arrives prefilled),
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
 - **Pricing** `get_price` reads the suggested price, but only after `first_offer_is_a_pack` has
@@ -765,7 +777,7 @@ build_digit_templates.py     Cut every fixture into glyphs and file them under t
 test_find.py [target]        find() over every reference folder, match box drawn on screen.
 test_more_offers.py          [true|false] is the add offer button lit or greyed out.
 test_autoselect_ticked.py    [true|false] is the similar-items checkbox ticked.
-test_disable_autoselect_similar.py   Untick it, no-op if it is already off.
+test_set_autoselect_similar.py [on|off]  Put it in that state, no-op if it is already there.
 test_remove_offers.py        The whole stale-offer sweep, flea already open. Cancels real
                              offers, so it counts down first. --settle N shortens the wait.
 test_flea_open.py            Is the flea market open.

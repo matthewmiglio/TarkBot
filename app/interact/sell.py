@@ -97,7 +97,7 @@ DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of
 # came within 80px of the corner. It worked out at 54% off the drag time and was reverted whole,
 # because landing a window beats landing it quickly. Do not shave them again without a run that
 # shows the windows still arriving.
-LEFT_PAD = 20  # px right of the All button's right edge, and so the grid's left edge. Was 10
+LEFT_PAD = 10  # px right of the All button's right edge, and so the grid's left edge. Was 20
 # px right of the autoselect similar button's right edge, which is also the grid's right edge.
 # Was 10, then 0, now -20: negative pulls that edge back inside the grid, short of the button.
 # Only this edge moves. The left edge and the two pads above are not affected.
@@ -786,26 +786,28 @@ def is_autoselect_similar_ticked(region=None, margin=CHECKMARK_MARGIN):
     return ticked
 
 
-def disable_autoselect_similar(region=None):
-    """Untick autoselect similar if it is ticked. Returns True once it is off.
+def set_autoselect_similar(on, region=None):
+    """Tick or untick autoselect similar so it matches `on`. Returns True once it reads that way.
 
-    Left on, picking one item pulls in every matching one, so the offer is not the single
-    item the price was read for. Already off is a no-op, not a click, because clicking it
-    then would switch it on.
+    Left on, picking one item pulls in every matching one, so the offer is a stack rather than
+    the single item the price was read for. Off is what a pass pricing one item at a time
+    wants; on is what someone clearing out duplicates wants, hence the switch. Already in the
+    wanted state is a no-op, not a click, because clicking it then would flip it the wrong way.
     """
-    if not is_autoselect_similar_ticked(region):
-        log('autoselect similar already off', 1)
+    want = 'on' if on else 'off'
+    if is_autoselect_similar_ticked(region) == bool(on):
+        log(f'autoselect similar already {want}', 1)
         return True
     point = find.find_center(AUTOSELECT_TARGET, region)
     if not point:
-        log('autoselect similar is ticked but its button vanished', 1)
+        log(f'autoselect similar needs switching {want} but its button vanished', 1)
         return False
-    log(f'autoselect similar is ticked, unticking it at {point}', 1)
+    log(f'switching autoselect similar {want} at {point}', 1)
     pyautogui.click(*point)
     time.sleep(MENU_DELAY)
-    off = not is_autoselect_similar_ticked(region)  # confirm the click took, do not assume
-    log(f'autoselect similar now {"off" if off else "STILL ON, the click did not take"}', 1)
-    return off
+    took = is_autoselect_similar_ticked(region) == bool(on)  # confirm it, do not assume
+    log(f'autoselect similar now {want if took else "UNCHANGED, the click did not take"}', 1)
+    return took
 
 
 def _scav_region_from(title, close_btn, screen_height):
@@ -1485,7 +1487,7 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     # ends at y 920. Every number below is those edges plus the three pads, so retuning a pad
     # moves this line too: left 1258+LEFT_PAD, top 80+TOP_PAD, right 1620+RIGHT_PAD.
     assert _region_from(Box(1232, 82, 26, 24), Box(1600, 60, 20, 20),
-                        Box(1200, 900, 30, 20)) == (1278, 100, 322, 820)
+                        Box(1200, 900, 30, 20)) == (1268, 100, 332, 820)
     try:  # autoselect similar left of the grid's left edge would invert it
         _region_from(Box(1232, 82, 26, 24), Box(100, 60, 20, 20), Box(1200, 900, 30, 20))
         raise AssertionError('expected LookupError')
