@@ -487,11 +487,17 @@ class App:
                 'bought')
         # The one control on the empty left of row 1, under the title. The other three slots on
         # this row are taken, and a third row does not fit: the header ends at 92 and the panels
-        # start at 110. Right edge 260 leaves a gap before MONITOR's widget, which starts at 302.
+        # start at 110. What bounds it on the right is MONITOR's *caption*, not MONITOR's widget:
+        # _dropdown draws a caption right-aligned width+10 left of its own right edge, so the
+        # neighbour reaches back to about 217 while its widget starts at 302. A right edge of 260
+        # was measured against the widget and printed over the caption, leaving the row reading
+        # 'AUTOSELECT SIMILAR [ON] ITOR'. 210 clears it, and the caption is shortened to fit what
+        # is left: 'AUTOSELECT' plus the gap plus the widget is 158px of the 217 available, where
+        # the full 'AUTOSELECT SIMILAR' needs 227. The tooltip carries the rest of the name.
         if self.prefs['autoselect'] not in AUTOSELECT:  # an edited settings file must not wedge it
             self.prefs['autoselect'] = DEFAULT_AUTOSELECT
         self.autoselect_var = self._dropdown(
-            'AUTOSELECT SIMILAR', 260, list(AUTOSELECT), self.prefs['autoselect'],
+            'AUTOSELECT', 210, list(AUTOSELECT), self.prefs['autoselect'],
             self._pick_autoselect, 62, tag='tab:flea', row=1,
             tip='Leave the offer window\'s autoselect similar box ticked, so picking one item '
                 'picks every matching one and the offer lists the whole stack')
