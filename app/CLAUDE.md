@@ -609,13 +609,10 @@ interact/reference_images/<target>/*.png
   `sell_bot._await_offer_slot` when no slot ever comes free, `snipe_bot.check_one` at each of
   the three exits that leave without reading a price, both pick loops when the right click
   produces no `filter_by_item` to click, and, in the seller, every screen-reading step of a pass,
-  through the `FleaSeller._past_error_dialog` wrapper below. The pick loops ask
-  before the escape they would otherwise press, and that order is the point: a modal dialog eats
-  the right click so no menu exists to escape out of, and the escape then closes the offer
-  creation window instead, which takes `infer_inventory_region`'s three anchors with it. Whether
-  that is what ends runs at 2560x1440 is unsettled, since the crash screenshots for those show
-  no dialog (peak 0.560 against a threshold of 0.9), so there the escape closes the window with
-  nothing to blame and this check just logs a clean screen. While
+  through the `FleaSeller._past_error_dialog` wrapper below. The pick loops ask before giving the
+  pass up, because a dialog is the one reason to miss that costs nothing to undo: it is modal, so
+  the right click landed on it and no menu exists at all, and clearing it keeps a pass that
+  returning would spend. While
   that dialog is up every read underneath it fails, so it shows up as a run losing pass after
   pass for no nameable reason, and a match on the way out of something that already failed is
   the cheapest place to notice,
@@ -647,6 +644,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
 `test_hotkey_bind.py`, `test_window_overlap.py`, `test_error_popup.py`,
 `test_flea_open_error_dialog.py`, `test_scav_case_fixture.py`, `test_scav_only_fallback.py`,
+`test_filter_by_item_backout.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -799,6 +797,16 @@ test_inventory_region_stress.py
                              three buttons infer_inventory_region measures from stops matching.
                              Writes the screen it failed on. Wants the flea open with the offer
                              creation window on it.
+test_filter_by_item_backout.py
+                             A right-click menu with no 'filter by item' in it ends the pass and
+                             presses nothing on the way out. The pick loop used to press escape
+                             here and try again, meaning to reset to the top of the pass; one
+                             blind press cannot, since escape closes the biggest window on screen
+                             and that is the offer creation window rather than the menu, so the
+                             menu stayed open and every button infer_inventory_region measures
+                             from went away. The reset is sell_bot's, which knows the count this
+                             screen needs, so the loop's whole job is to return None. Checks the
+                             counts too: INVENTORY_ESCAPES 1, SCAV_ESCAPES 2. No game needed.
 test_scav_case_fixture.py    Does find_all('scav_case') count the cases on real 1440p
                              screenshots. Each fixture's own height drives find.scale(), so the
                              crops are resized here exactly as they are on that player's machine
@@ -874,7 +882,7 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. Three entries today, and every one of them is a 1440p
+  number can be seen to sit in the gap. Four entries today, and every one of them is a 1440p
   screen losing a target the 1080p crop convention cannot reach once `needle()` grows it back.
   `offer_creation_window_title` at 0.8: its title is a thin strip of small text that scores 0.88
   on a 1440p screen once `needle()` has grown it, and 0.58 when the window is not there.
@@ -891,6 +899,17 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   `find_sell_pixels` only uses a match to skip pixels. `tests/test_scav_case_fixture.py` is the
   evidence, and the run it comes from is the 2026-08-20 one where SCAV CASES ONLY logged
   "scav cases on screen: 0" and sold a stash instead.
+  `filter_by_item` at 0.7, the fourth and the one with the most behind it. Its two crops are
+  157x10 and 120x6, the smallest of the four, so it falls furthest: on seven 1440p crash
+  screenshots the menu is open with 'FILTER BY ITEM' in it and scores 0.870 to 0.882, under the
+  default every time. 246 frames with no menu top out at 0.451, and 0.473 once those frames are
+  upscaled to 1440p and matched with the grown needle, which is how we know the resizing does
+  not invent matches. 0.7 rather than the middle of that band on purpose: the ceiling has 246
+  frames behind it and the floor has 7, so the margin goes to the floor.
+  `_filer_by_item_conf_testing/` holds the frames and the script that scored them, gitignored
+  like the other benches since the frames are full-screen shots of a real stash. What 0.9 cost: the menu went unseen, the pick loop pressed
+  escape at a menu it thought had not opened, and that escape closed the offer creation window
+  instead, taking every button `infer_inventory_region` measures from with it.
 - Do not "fix" one of these by lowering `CONFIDENCE` itself. How low a target can safely go is a
   property of that target: a wide element full of structure has a low false-positive ceiling
   (the button, 0.413), a small plain one does not (`checkmark`, which scores 0.69 against an

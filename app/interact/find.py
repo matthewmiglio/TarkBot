@@ -42,8 +42,22 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # amount of extra reference crops would have fixed this. 0.8 sits between the two readings.
 # A false positive here is cheap on both sides: open_scav_case still has to find an 'open' entry
 # in the right click menu, and find_sell_pixels only uses a match to skip pixels.
+# filter_by_item is the fourth and has the most behind it. On a 1440p player's crash screenshots
+# the right click menu is open with 'FILTER BY ITEM' in it and scores 0.870 to 0.882 across
+# seven of them, under the 0.9 default every time. Against that, 246 frames with no menu on them
+# top out at 0.451, and 0.473 with those frames upscaled to 1440p and matched with the grown
+# needle, so the resizing itself does not invent matches. The band is therefore 0.47 to 0.87 and
+# 0.7 is deliberately not centred in it: the ceiling comes from 246 frames and the floor from 7,
+# so the margin belongs on the floor's side. 0.7 leaves 0.17 there against 0.07 at 0.8. The two
+# crops are 157x10 and 120x6, the smallest of the four targets here, which is why this one falls
+# furthest. _filer_by_item_conf_testing/ holds the frames and the script that scored them, and
+# is gitignored like the other benches: the frames are full screen shots of a real stash.
+# What this cost while it was 0.9: the menu went unseen, select_item_from_inventory pressed
+# escape to shut a menu it thought had not opened, and with the menu open that escape closed the
+# offer creation window instead. Every button infer_inventory_region measures from lives on that
+# window, so the next attempt raised and the run ended. Seven crash reports on one machine.
 CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
-               'scav_case': 0.8}
+               'scav_case': 0.8, 'filter_by_item': 0.7}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 

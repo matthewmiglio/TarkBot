@@ -1007,23 +1007,37 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS, stop=None)
         time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
-            # Asked before the escape, and this is the whole reason why. The dialog is modal, so
-            # the right click that should have opened the menu landed on it instead and no menu
-            # exists to escape out of; the escape below then closes the offer creation window,
-            # and the next attempt's infer_inventory_region loses all three of its anchors at
-            # once and raises. Clearing the dialog leaves that window up and costs one match on
-            # an attempt that was already lost.
+            # Asked first, because a dialog is the one reason to miss that costs nothing to
+            # undo. It is modal, so the right click that should have opened the menu landed on
+            # it and no menu exists at all; clearing it and picking again keeps the pass, where
+            # the return below spends it. One match on an attempt that was already lost.
             #
-            # Whether this is what ends runs on 2560x1440 is not settled. The crash screenshots
-            # for those say no dialog (peak 0.560 against a 0.9 threshold), so on that machine
-            # the escape is closing the window with nothing to blame, and this check will log a
-            # clean screen and fall through to the escape exactly as before.
+            # Not what was ending runs at 2560x1440, which is worth saying because it was the
+            # first guess. There the menu really is open and 'FILTER BY ITEM' really is in it,
+            # and find just could not see it: 0.870 to 0.882 across seven crash screenshots
+            # against the 0.9 default, since the crops are 157x10 and 120x6 and lose too much
+            # growing to a 1440p screen. find.CONFIDENCES carries filter_by_item at 0.7 now and
+            # this branch should be rare again. The dialog check stays because it is a real
+            # cause, just not that one.
             if dismiss_error_popup(region):
                 log('an error dialog took the right click, cleared it and picking again', 2)
                 continue
-            log('no filter by item in the menu, escaping out', 2)
-            pyautogui.press('esc')  # shut whatever did open, or the next find hits a stale menu
-            continue
+            # Hand the whole pass back rather than pressing escape here and carrying on. The
+            # escape this used to press was meant to reset to the top of the loop, and one blind
+            # press cannot do that: escape closes the biggest window on screen, which is the
+            # offer creation window and never the little right click menu, so the menu stayed
+            # open and the window the rest of the pass measures itself against went away. The
+            # next attempt then lost all three of infer_inventory_region's anchors at once and
+            # the run ended, blaming the stash for a keypress two seconds earlier.
+            #
+            # sell_bot already owns that reset and already knows the count this screen needs,
+            # INVENTORY_ESCAPES for a bare stash and SCAV_ESCAPES with a case window over it. A
+            # None here is what puts it to work: sell_one escapes that many times and raises
+            # Retry, which is a fresh pass with the window reopened from scratch. One lost item
+            # instead of a stopped bot, and it costs a pass rather than nine more attempts at a
+            # screen that has already lost the thing they all measure from.
+            log('no filter by item in the menu, backing out for a fresh pass', 2)
+            return None
         point = jitter(pyautogui.center(box), y=0)  # a 6px tall crop says nothing about the row
         log(f'clicking filter by item at {point}', 2)
         pyautogui.click(*point)
@@ -1491,9 +1505,12 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, sto
             if dismiss_error_popup(region):
                 log('an error dialog took the right click, cleared it and picking again', 2)
                 continue
-            log('no filter by item in the menu, escaping out', 2)
-            pyautogui.press('esc')  # same as the inventory path: a left open menu eats the next click
-            continue
+            # Same as the inventory path, and the count is why it has to be the caller's job
+            # rather than a press here: this screen has the case window sat on the offer
+            # creation window, so backing out of it takes SCAV_ESCAPES and not one. select_item
+            # has already set that on the Selection by the time this returns.
+            log('no filter by item in the menu, backing out for a fresh pass', 2)
+            return None
         point = jitter(pyautogui.center(box), y=0)  # a 6px tall crop says nothing about the row
         log(f'clicking filter by item at {point}', 2)
         pyautogui.click(*point)
