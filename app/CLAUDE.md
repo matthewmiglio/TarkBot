@@ -18,13 +18,20 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      which the GUI also builds its labels from. The GUI passes its own dict
                      in, so the counters span the session rather than one Start; a FleaSeller
                      built without one keeps its own.
-                     _past_error_dialog(step, failed) wraps every screen-reading step that used
-                     to raise a RuntimeError on its own: run the step, and if it fails, look for
+                     _past_error_dialog(step, failed) wraps every screen-reading step of a pass
+                     that used to fail on its own: run the step, and if it fails, look for
                      the game's Error/0 dialog, and only if one was there clear it and run the
                      step once more. Tarkov raises that dialog whenever it likes, usually a
                      moment after a request it did not like, so there is no one step to guard:
-                     2026-08-22 died opening the flea, 2026-08-23 died applying the filters, both
-                     with the OK button on screen unclicked. A step that fails on a clean screen
+                     2026-08-22 died opening the flea, 2026-08-23 died applying the filters, and
+                     2026-08-24 died picking an item, all three with the OK button on screen
+                     unclicked. Failing means coming back false or raising LookupError, which is
+                     the same event from two sides: the region inferences raise when the window
+                     they measure against has gone, and a dialog is one of the things that takes
+                     a window away. The wrapper returns what the step returned, so select_item
+                     goes through it too. That one is wrapped for the raise and not the return,
+                     since a Selection is truthy even when its point is None and 'nothing
+                     selectable' is already a Retry. A step that fails on a clean screen
                      raises exactly the message it always did, and one that fails again with the
                      dialog gone gets 'after clearing the error dialog' on the end, so the log
                      never blames the dialog for something that was never about it. Everything
@@ -495,11 +502,12 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      window, which is where the suggestion list drops. The whole window would
                      find a padlock anywhere in the UI, and a box around one row is not needed:
                      the list has exactly one row in it, because every watchlist name was typed
-                     into a real flea first and the fourteen that brought back several rows or
-                     none were dropped. One row means one padlock and no question of whose it is.
+                     into a real flea first and the ones that brought back several rows or none
+                     were dropped. One row means one padlock and no question of whose it is.
                      That is a real coupling: put an ambiguous name back on the list and this
-                     reads the wrong row's lock. _price_scraper/rouble_flips.py's AMBIGUOUS set
-                     is what holds it. It is read while the list is still up,
+                     reads the wrong row's lock. _price_scraper/rouble_flips.py's SKIP is what
+                     holds it, and it is two sets rather than one: AMBIGUOUS, 10 names that bring
+                     back several rows, and NOT_FOUND, 6 that bring back none. It is read while the list is still up,
                      the only moment it can be: the list closes the instant a suggestion is
                      clicked, so a locked item is never clicked at all.
                      Those crops read 2 padlocks in the quadrant of a frame that visibly has 2,
@@ -519,9 +527,11 @@ interact/gym.py      The same for the hideout gym. Separate module on purpose: t
                      it before every look and matching it over the whole window costs 287ms
                      against 49ms inside that box.
                      read_lines() collapses that strip to one brightness per column, calls each
-                     run over LINE_BRIGHT a line, and returns Lines(target, moving, gap): the
-                     leftmost is the fixed hexagon's edge, the rightmost the closing ring, each
-                     a sub-pixel column. One run means they have met, so gap is 0. No template
+                     run over LINE_BRIGHT a line, and returns Lines(target, moving, gap, touch):
+                     the leftmost is the fixed hexagon's edge, the rightmost the closing ring,
+                     each a sub-pixel column, and touch is where the two first meet, 4-8 columns
+                     sooner than their centres line up. One run means they have met, so gap is 0
+                     and touch is what gym_bot's fallback press was tried against. No template
                      matching, because the ring is a different size in every frame. The target
                      drifts between reps, so neither line may be measured once and cached.
                      Reading a rep is done; navigating to one is not. open_hideout, open_gym,
@@ -559,6 +569,10 @@ interact/reference_images/<target>/*.png
   `grab_first_offer_region` (the same trick and the same scaling, for the topmost comparable
   offer; `FIRST_OFFER_FRACTIONS` was measured at 2560x1440 rather than 1080p, since that is
   what was on screen, and `tests/test_first_offer_region.py` is where to retune it).
+  `FIRST_ITEM_PRICE_FRACTIONS` is a second, tighter box for the price *inside* that row rather
+  than a slice of the first, and `tests/test_find_first_offer_dollar.py` is its tuning loop.
+  Nothing in the selling path reads it yet; it exists for the currency check the sniper already
+  does, so a comparable offer priced in dollars can be told from one in roubles.
 - **State reads** `is_flea_open` and `more_offers_available` work off pixel brightness rather
   than a second template, because those elements only change color: the flea taskbar icon
   inverts (mean channel 57 closed, 117 open, threshold 90; the cursor is parked before the
@@ -593,8 +607,15 @@ interact/reference_images/<target>/*.png
   flat black have no false-positive headroom and the dialog around them matches at 0.9. Both
   flea modes call it, and only from a failure path: `sell_bot.start` on a `Retry`,
   `sell_bot._await_offer_slot` when no slot ever comes free, `snipe_bot.check_one` at each of
-  the three exits that leave without reading a price, and, in the seller, every step that used
-  to raise a `RuntimeError`, through the `FleaSeller._past_error_dialog` wrapper below. While
+  the three exits that leave without reading a price, both pick loops when the right click
+  produces no `filter_by_item` to click, and, in the seller, every screen-reading step of a pass,
+  through the `FleaSeller._past_error_dialog` wrapper below. The pick loops ask
+  before the escape they would otherwise press, and that order is the point: a modal dialog eats
+  the right click so no menu exists to escape out of, and the escape then closes the offer
+  creation window instead, which takes `infer_inventory_region`'s three anchors with it. Whether
+  that is what ends runs at 2560x1440 is unsettled, since the crash screenshots for those show
+  no dialog (peak 0.560 against a threshold of 0.9), so there the escape closes the window with
+  nothing to blame and this check just logs a clean screen. While
   that dialog is up every read underneath it fails, so it shows up as a run losing pass after
   pass for no nameable reason, and a match on the way out of something that already failed is
   the cheapest place to notice,
@@ -625,7 +646,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_recover_loop.py`, `test_tab_switch.py`, `test_run_button.py`, `test_monitors.py`,
 `test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
 `test_hotkey_bind.py`, `test_window_overlap.py`, `test_error_popup.py`,
-`test_flea_open_error_dialog.py`,
+`test_flea_open_error_dialog.py`, `test_scav_case_fixture.py`, `test_scav_only_fallback.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
 `python -m interact.sell`, `python -m interact.gym`, `python -m interact.snipe`,
@@ -699,8 +720,10 @@ test_flea_open_error_dialog.py
                              driven end to end, since the dimmed screen behind that dialog is
                              the failure it disguises best (an open flea reads as shut), and
                              FleaSeller._past_error_dialog on its own with a bare lambda, since
-                             every screen-reading step of a pass now goes through it. Guards the
-                             runs of 2026-08-22 and 2026-08-23. No game needed.
+                             every screen-reading step of a pass now goes through it. Covers both
+                             ways a step fails, false and LookupError, and that the step's return
+                             value comes back out rather than a bool. Guards the runs of
+                             2026-08-22, 2026-08-23 and 2026-08-24. No game needed.
 test_first_offer_region.py   Where sell.grab_first_offer_region lands, drawn on the screen it was
                              cut from: the window with the box on it in yellow and the crop at
                              2x, both to tests/output/first_offer_region/. The tuning loop for
@@ -776,6 +799,37 @@ test_inventory_region_stress.py
                              three buttons infer_inventory_region measures from stops matching.
                              Writes the screen it failed on. Wants the flea open with the offer
                              creation window on it.
+test_scav_case_fixture.py    Does find_all('scav_case') count the cases on real 1440p
+                             screenshots. Each fixture's own height drives find.scale(), so the
+                             crops are resized here exactly as they are on that player's machine
+                             and a miss here is his miss. The evidence behind
+                             find.CONFIDENCES['scav_case'] = 0.8, and the regression net for the
+                             run that logged "scav cases on screen: 0" and sold a stash. Measured
+                             over 105 labelled frames. No game needed.
+test_scav_only_fallback.py   SCAV CASES ONLY refuses the stash when there is no case to open,
+                             rather than falling through to select_item_from_inventory and
+                             listing whatever the stash held. Builds a FleaSeller without
+                             __init__, since the real one wants a Tarkov window and a monitor and
+                             neither is what the decision turns on. No game needed.
+test_find_first_offer_dollar.py
+                             Is the topmost comparable offer priced in dollars, and where did the
+                             glyph land. Writes the whole frame to
+                             tests/output/first_offer_dollar/ with the price region in yellow,
+                             the offer row dim behind it and the dollars icon in red. Look at it:
+                             a miss because the offer is in roubles and a miss because the yellow
+                             box is in the wrong place read the same in a one-line summary. The
+                             tuning loop for FIRST_ITEM_PRICE_FRACTIONS. Bare it grabs the live
+                             window, so unlike the fixture tests above it wants the game up;
+                             hand it a frame path instead and it needs nothing, and the frame
+                             recorder's folder is full of them.
+test_snipe_report.py         Does a purchase reach the website, and does the opt-out really stop
+                             it. The pair to test_error_report.py and the same shape: reads the
+                             service key out of website/.env.local, writes a real row under
+                             TEST_MACHINE and deletes it again. Two things neither provable from
+                             the endpoint's side: that the app sends what the endpoint validates,
+                             since the send is fire and forget and a 400 never reaches the bot,
+                             and that the send_telemetry gate actually gates. Wants the site
+                             running; TARKBOT_SNIPE_URL points it at the deploy instead.
 test_error_report.py         Crash reporting end to end. The machine id depends on all three of
                              its inputs, a real screenshot round trips byte for byte, an image
                              past the bucket cap is refused, and a crash through App._run both
@@ -820,12 +874,23 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. Two entries today. `offer_creation_window_title` at 0.8:
-  its title is a thin strip of small text that scores 0.88 on a 1440p screen once `needle()`
-  has grown it, and 0.58 when the window is not there. `autoselect_similar` at 0.85: 0.889 to
-  0.944 across every frame it is in at either resolution, and never above 0.413 across 134
-  frames it is not in, so the old flat 0.9 ran through the middle of the real matches and lost
-  the button on a 1440p screen by 0.011.
+  number can be seen to sit in the gap. Three entries today, and every one of them is a 1440p
+  screen losing a target the 1080p crop convention cannot reach once `needle()` grows it back.
+  `offer_creation_window_title` at 0.8: its title is a thin strip of small text that scores 0.88
+  on a 1440p screen once `needle()` has grown it, and 0.58 when the window is not there.
+  `autoselect_similar` at 0.85: 0.889 to 0.944 across every frame it is in at either resolution,
+  and never above 0.413 across 134 frames it is not in, so the old flat 0.9 ran through the
+  middle of the real matches and lost the button on a 1440p screen by 0.011.
+  `scav_case` at 0.8, and the clearest reading of the three: dimmed and cross-hatched inside the
+  offer creation window it peaks at 0.852, against 0.752 across 24 frames of the same session
+  with no stash on screen and 0.641 on the flea-filters fixture. What settles it is that a crop
+  taken from that very frame, put through the 1080p convention and grown back, still only
+  scores 0.896, so 0.9 is unreachable for a target this large and this low contrast and no
+  number of extra crops would have fixed it. A false positive is cheap on both sides here:
+  `open_scav_case` still has to find an 'open' entry in the right-click menu, and
+  `find_sell_pixels` only uses a match to skip pixels. `tests/test_scav_case_fixture.py` is the
+  evidence, and the run it comes from is the 2026-08-20 one where SCAV CASES ONLY logged
+  "scav cases on screen: 0" and sold a stash instead.
 - Do not "fix" one of these by lowering `CONFIDENCE` itself. How low a target can safely go is a
   property of that target: a wide element full of structure has a low false-positive ceiling
   (the button, 0.413), a small plain one does not (`checkmark`, which scores 0.69 against an

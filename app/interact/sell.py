@@ -1007,6 +1007,20 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS, stop=None)
         time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
+            # Asked before the escape, and this is the whole reason why. The dialog is modal, so
+            # the right click that should have opened the menu landed on it instead and no menu
+            # exists to escape out of; the escape below then closes the offer creation window,
+            # and the next attempt's infer_inventory_region loses all three of its anchors at
+            # once and raises. Clearing the dialog leaves that window up and costs one match on
+            # an attempt that was already lost.
+            #
+            # Whether this is what ends runs on 2560x1440 is not settled. The crash screenshots
+            # for those say no dialog (peak 0.560 against a 0.9 threshold), so on that machine
+            # the escape is closing the window with nothing to blame, and this check will log a
+            # clean screen and fall through to the escape exactly as before.
+            if dismiss_error_popup(region):
+                log('an error dialog took the right click, cleared it and picking again', 2)
+                continue
             log('no filter by item in the menu, escaping out', 2)
             pyautogui.press('esc')  # shut whatever did open, or the next find hits a stale menu
             continue
@@ -1472,6 +1486,11 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, sto
         time.sleep(MENU_DELAY)  # the menu's own draw time, not the shorter poll wait
         box = find.find('filter_by_item', region)
         if not box:
+            # Same as the inventory path above, and for the same reason. Worse here if anything:
+            # the escape lands on the scav case window, which the caller then has to reopen.
+            if dismiss_error_popup(region):
+                log('an error dialog took the right click, cleared it and picking again', 2)
+                continue
             log('no filter by item in the menu, escaping out', 2)
             pyautogui.press('esc')  # same as the inventory path: a left open menu eats the next click
             continue

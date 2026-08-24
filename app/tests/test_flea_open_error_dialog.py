@@ -104,7 +104,10 @@ def wrapper_with(steps, dialog):
 
     def step():
         calls['step'] += 1
-        return answers.pop(0)
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):  # how the region inferences fail
+            raise answer
+        return answer
 
     def fake_dismiss(region=None, **kw):
         calls['dismiss'] += 1
@@ -112,8 +115,7 @@ def wrapper_with(steps, dialog):
 
     sell.dismiss_error_popup = fake_dismiss
     try:
-        bot._past_error_dialog(step, 'could not do the thing')
-        return 'done', calls
+        return bot._past_error_dialog(step, 'could not do the thing'), calls
     except RuntimeError as e:
         return str(e), calls
     finally:
@@ -122,11 +124,15 @@ def wrapper_with(steps, dialog):
 
 print('the wrapper on its own: any step, any message')
 outcome, calls = wrapper_with([True], dialog=False)
-assert (outcome, calls) == ('done', {'step': 1, 'dismiss': 0}), (outcome, calls)
+assert (outcome, calls) == (True, {'step': 1, 'dismiss': 0}), (outcome, calls)
 print(f'  ok  a step that works is never charged a match for the dialog  {calls}')
 
+outcome, calls = wrapper_with(['a Selection'], dialog=False)
+assert outcome == 'a Selection', outcome  # handed back, not flattened to True
+print('  ok  what the step returned comes back out')
+
 outcome, calls = wrapper_with([False, True], dialog=True)
-assert (outcome, calls) == ('done', {'step': 2, 'dismiss': 1}), (outcome, calls)
+assert (outcome, calls) == (True, {'step': 2, 'dismiss': 1}), (outcome, calls)
 print(f'  ok  cleared the dialog and the second go worked  {calls}')
 
 outcome, calls = wrapper_with([False], dialog=False)
@@ -138,5 +144,25 @@ outcome, calls = wrapper_with([False, False], dialog=True)
 assert outcome == 'could not do the thing after clearing the error dialog', outcome
 assert calls == {'step': 2, 'dismiss': 1}, calls
 print('  ok  failed twice, and the message says the dialog was not the reason')
+
+
+print('a step that raises LookupError, which is how the region inferences fail')
+anchors = LookupError('cannot infer inventory region, not on screen: a, b, c')
+
+outcome, calls = wrapper_with([anchors, 'picked'], dialog=True)
+assert (outcome, calls) == ('picked', {'step': 2, 'dismiss': 1}), (outcome, calls)
+print(f'  ok  a raise gets the same second look as a false  {calls}')
+
+outcome, calls = wrapper_with([anchors], dialog=False)
+assert outcome == ('could not do the thing: cannot infer inventory region, '
+                   'not on screen: a, b, c'), outcome
+assert calls == {'step': 1, 'dismiss': 1}, calls
+print('  ok  no dialog, so it raises and keeps the anchors the LookupError named')
+
+outcome, calls = wrapper_with([anchors, anchors], dialog=True)
+assert outcome == ('could not do the thing: cannot infer inventory region, '
+                   'not on screen: a, b, c after clearing the error dialog'), outcome
+assert calls == {'step': 2, 'dismiss': 1}, calls
+print('  ok  raised twice, and the message says the dialog was not the reason')
 
 print('ok, every step gets a second look once the Error dialog is gone, and one only')

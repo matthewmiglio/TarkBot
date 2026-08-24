@@ -133,7 +133,10 @@ class FleaSeller:
             raise Stopped()
 
     def _past_error_dialog(self, step, failed):
-        """Run `step`; if it comes back false, clear a Tarkov Error dialog and run it once more.
+        """Run `step`; if it fails, clear a Tarkov Error dialog and run it once more.
+
+        Returns whatever the step returned, so a step that answers with something useful can be
+        wrapped as readily as one that answers True or False.
 
         Tarkov's "Error / 0 / OK" dialog breaks every step of a pass the same two ways, which
         is why one wrapper covers all of them rather than each step growing its own check. It
@@ -147,6 +150,13 @@ class FleaSeller:
         opening the flea, the run of 2026-08-23 died applying the filters, and both screens had
         the OK button sat on them unclicked.
 
+        Failing means either coming back false or raising LookupError, and the two are the same
+        event seen from different sides. The region inferences raise it when the window they
+        measure themselves against is not on screen, and a dialog is one of the things that
+        takes a window off the screen, so a raise deserves the same second look as a false. The
+        LookupError's own text is carried into the message, since it names which anchors went
+        missing and that is the part worth reading.
+
         One retry, and only when the dialog was really there. A step that fails on a clean
         screen has a real problem and raises exactly the message it always did; a step that
         fails again with the dialog cleared says so in its message, so the log never blames the
@@ -154,13 +164,23 @@ class FleaSeller:
         be safe to run twice, which they are: each one gives up on a target it could not find,
         so a failed attempt has typed and clicked nothing.
         """
-        if step():
-            return
+        try:
+            result = step()
+            if result:
+                return result
+            why = failed
+        except LookupError as e:
+            why = f'{failed}: {e}'
         if not sell.dismiss_error_popup(self.region):
-            raise RuntimeError(failed)
-        log(f'{failed}: trying once more now the error dialog is gone', 1)
-        if not step():
+            raise RuntimeError(why)
+        log(f'{why}: trying once more now the error dialog is gone', 1)
+        try:
+            result = step()
+        except LookupError as e:
+            raise RuntimeError(f'{failed}: {e} after clearing the error dialog')
+        if not result:
             raise RuntimeError(f'{failed} after clearing the error dialog')
+        return result
 
     def _await_offer_slot(self):
         """Block until there is a slot to sell into, cancelling stale offers to make one.
@@ -339,7 +359,15 @@ class FleaSeller:
         """
         started = time.monotonic()
         self.open_offer_creation()
-        picked = self.select_item()
+        # Wrapped for the LookupError, not for the return: a Selection is truthy even when its
+        # point is None, and 'nothing selectable' is already a Retry further down. What this
+        # catches is infer_inventory_region giving up on all three of its anchors at once, which
+        # is what a window closing under it looks like. The run of 2026-08-24 03:26 ended here
+        # with the dialog on screen at 0.961 against a 0.9 threshold: it closed the scav case
+        # window, select_item caught that one and fell back to the stash, and the stash's own
+        # infer then raised into a screen nobody had looked at. One dismiss covers both, because
+        # the retry starts the pick over from the top.
+        picked = self._past_error_dialog(self.select_item, 'could not pick an item to sell')
         # Before the no-item accounting below, because the select loop also returns None when
         # it was stopped part way. Without this a Stop read as 'nothing selectable', which
         # counted a find failure that never happened and pressed escape on the way out.
