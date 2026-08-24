@@ -101,3 +101,8 @@ _price_scraper/
 
 # Flea search harness: the screenshots it takes of the suggestion list
 _item_search_testing/
+
+# Filter-by-item confidence bench: 260 frames scored, 20 of them kept as a labelled set. Full
+# screen shots of a real stash, so the same rule as the benches above, they never go near a
+# commit. score.py rebuilds the whole thing from any frames folder.
+_filer_by_item_conf_testing/
