@@ -65,14 +65,17 @@ print('every crop in error_0_popup/, at two screen positions:')
 for left, top in ((700, 400), (-1520, 130)):
     for width, height, ok_top, ok_bottom in CROPS:
         x, y = click_for(pyscreeze.Box(left, top, width, height))
-        assert abs(x - (left + width // 2)) <= sell.CLICK_JITTER, (
+        assert x == left + width // 2, (
             f'{width}x{height}: clicked x {x}, wanted the box middle {left + width // 2}')
-        # Every draw the jitter can produce has to be on the button, not just the middle one.
-        low, high = y - sell.CLICK_JITTER, y + sell.CLICK_JITTER
-        assert top + ok_top <= low and high <= top + ok_bottom, (
-            f'{width}x{height}: clicked y {y} (jitter reaches {low}-{high}), and OK is at '
-            f'{top + ok_top}-{top + ok_bottom}. ERROR_POPUP_OK_FRACTION is '
-            f'{sell.ERROR_POPUP_OK_FRACTION}, which puts part of the click off the button')
+        # Exact, because this one click is not jittered. The y is already a fraction down a box
+        # whose height differs by 5px between crops, so it is approximate before any spread is
+        # added, and OK is 17px of glyphs. This assertion used to allow a jitter either side and
+        # failed about five runs in eight: the point handed back was jittered, and adding the
+        # allowance on top asked a 13px window to fit in the 17px strip.
+        assert top + ok_top <= y <= top + ok_bottom, (
+            f'{width}x{height}: clicked y {y}, and OK is at {top + ok_top}-{top + ok_bottom}. '
+            f'ERROR_POPUP_OK_FRACTION is {sell.ERROR_POPUP_OK_FRACTION}, which puts the click '
+            f'off the button')
         print(f'  ok  {width}x{height} at ({left}, {top}): clicked ({x}, {y}), OK spans '
               f'{top + ok_top}-{top + ok_bottom}')
 

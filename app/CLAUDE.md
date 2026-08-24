@@ -604,7 +604,10 @@ interact/reference_images/<target>/*.png
   `dismiss_error_popup` (the game's plain Error/0 dialog: find it, click OK at
   `ERROR_POPUP_OK_FRACTION` down the matched box, wait `ERROR_POPUP_DELAY`, and say whether one
   was there). Aimed off the dialog rather than off a crop of OK, because two plain glyphs on
-  flat black have no false-positive headroom and the dialog around them matches at 0.9. Both
+  flat black have no false-positive headroom and the dialog around them matches at 0.9. The one
+  click in the file that is not passed through `jitter`: the y is a fraction of a box that is a
+  different height in every crop, so it is approximate before any spread is added, and OK is
+  17px of glyphs. Both
   flea modes call it, and only from a failure path: `sell_bot.start` on a `Retry`,
   `sell_bot._await_offer_slot` when no slot ever comes free, `snipe_bot.check_one` at each of
   the three exits that leave without reading a price, both pick loops when the right click
@@ -707,8 +710,9 @@ test_window_overlap.py       window.state() told the control panel and the game 
 test_pack_offer.py           A suggested price quoted against a pack is refused before the OCR
                              is ever reached, and a normal offer still reads. No game needed.
 test_error_popup.py          Where sell.dismiss_error_popup clicks: on OK for every crop in
-                             error_0_popup/, every draw the jitter can make, at a positive and a
-                             negative screen origin, and nothing at all when no dialog is up.
+                             error_0_popup/, at a positive and a negative screen origin, and
+                             nothing at all when no dialog is up. Exact, since that click is the
+                             one that is not jittered.
                              The OK rows are measured off the crops rather than assumed, so a
                              sixth crop framed differently belongs in its CROPS list. No game
                              needed, nothing is clicked.

@@ -700,14 +700,20 @@ def dismiss_error_popup(region=None):
     a title bar and matches at the default 0.9. So the thing that is safe to find is the thing
     we find, and the button is a fixed fraction down it.
 
+    The one click in this file that is not jittered. Everywhere else the point comes straight
+    off a matched box and the jitter is free spread inside a button; here the y is a fraction
+    down a box that is a different height in every crop, so it is already approximate and the
+    jitter is spread stacked on spread. The button is two glyphs 17px tall and there is no room
+    to spend on it.
+
     False when nothing is up, which is the answer on almost every call and is not a problem:
     the caller was already failing and this is only ever an attempt to explain why.
     """
     box = find.find(ERROR_POPUP_TARGET, region)
     if box is None:
         return False
-    point = jitter((box.left + box.width // 2,
-                    box.top + round(box.height * ERROR_POPUP_OK_FRACTION)))
+    point = (box.left + box.width // 2,
+             box.top + round(box.height * ERROR_POPUP_OK_FRACTION))
     log(f'the game put an Error dialog up; clicking its OK at {point} and waiting '
         f'{ERROR_POPUP_DELAY:.0f}s', 1)
     pyautogui.click(*point)
@@ -1086,6 +1092,10 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
     Dragged repeats times over: the window trails the cursor, so one pass stops short and each
     following pass re-finds it wherever it settled. Stops early if it goes missing, which is
     also how a single failed find still returns None.
+
+    Finding the window at the start is the whole success condition, deliberately. A drag cannot
+    close a Tarkov window, so a post-drag read that comes back empty is the match failing, not
+    the window leaving, and a point that was genuinely grabbed stays the honest answer.
 
     Every pass runs, including ones that look wasted. A pass that moves the window nothing is
     not proof it has arrived, and cutting those was tried and taken back out on 2026-08-22.
