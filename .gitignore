@@ -106,3 +106,7 @@ _item_search_testing/
 # screen shots of a real stash, so the same rule as the benches above, they never go near a
 # commit. score.py rebuilds the whole thing from any frames folder.
 _filer_by_item_conf_testing/
+
+# Snipe captcha debugging: a user's crash dump (logs + full-screen frames with their character
+# name and rouble balance) and the parsed purchase timeline. Same rule as the benches above.
+_snipebot_captcha_debugging/
