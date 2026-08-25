@@ -287,9 +287,19 @@ class FleaSniper:
         bottom of it always waits the longest, which is both a pattern in the clicking and a
         standing head start for whoever else is watching the same items.
         """
+        # Raise rather than skip and try again. Filters that will not go on mean the filter
+        # controls are not reachable, and the causes we have seen do not clear themselves: an
+        # out-of-money error dialog over the flea, a captcha, or another modal sitting on the
+        # board. Left to retry, the run spins a sweep every couple of seconds buying nothing for
+        # as long as the user leaves it (2026-08-25: 961 skipped sweeps over 91 minutes). A raise
+        # ends the run through gui/app.py's crash handler, which reddens the lamp and files a
+        # screenshot, so the stuck screen is named instead of hidden.
         if not snipe.apply_flea_filters(self.region):
-            log('the filters would not go on, so the board cannot be trusted; skipping this sweep')
-            return 0
+            raise LookupError(
+                'the flea filters would not go on, so the board cannot be trusted. The flea is '
+                'blocked by something the sniper cannot clear (an out-of-money error dialog, a '
+                'captcha, or another modal over the board); ending the run rather than sweeping a '
+                'board that will never read')
         # And again after them, not only at Start. The filter window's reset can bring a saved
         # filter set back with it, and a board still filtered to one item answers every search
         # with that item, which reads as 77 checks and is really one.

@@ -778,7 +778,7 @@ test_snipe_loop.py           The snipe loop's decisions against a stand-in scree
                              cleared before any searching, a purchase whose balance never moved
                              is counted nowhere but in "buys that missed", a locked item is
                              skipped before the board is ever read,
-                             filters that will not go on stop the sweep before it reads anything,
+                             filters that will not go on raise and end the run rather than skipping the sweep,
                              a shuffled sweep still covers every item exactly once and two sweeps
                              do not walk the same order, and Stop lands mid sweep. No game needed.
 test_snipe_watchlist.py      The watchlist loads and the TRADER dropdown has traders on it,

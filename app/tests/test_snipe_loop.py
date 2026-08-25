@@ -130,10 +130,14 @@ if __name__ == '__main__':
               'the filters go on, then the item filter comes off')
         check(board.searched == ['RAM stick'], 'and only then does it search')
 
-        print('filters that will not go on stop the sweep before it clears anything')
+        print('filters that will not go on raise, ending the run rather than skipping the sweep')
         board = FakeBoard(price=19_500, filters=False)
         bot = sniper(board)
-        bot.sweep_once()
+        try:
+            bot.sweep_once()
+            check(False, 'the sweep raised')
+        except LookupError:
+            check(True, 'the sweep raised')
         check(board.did == ['filters'], 'it gave up at the filters and never touched the board')
 
         print('a purchase whose balance never moved is not counted')
@@ -178,12 +182,6 @@ if __name__ == '__main__':
         # The point of the raise: the second item is never reached, because it would fail the
         # same way and the run cannot buy anything until somebody empties the field.
         check(board.looked == 1, 'and it stopped on the first item rather than trying all 77')
-
-        print('filters that will not go on stop the sweep before it reads anything')
-        board = FakeBoard(price=19_000, filters=False)
-        bot = sniper(board)
-        check(bot.sweep_once() == 0, 'nothing bought')
-        check(board.searched == [], 'it never searched, so it never read a board')
 
         print('a shuffled sweep still covers every item exactly once')
         board = FakeBoard(price=19_500)
