@@ -77,6 +77,7 @@ $body=[Drawing.Color]::FromArgb(16,17,16); $bar=[Drawing.Color]::FromArgb(13,14,
 $f=New-Object Windows.Forms.Form
 $f.FormBorderStyle='None'; $f.StartPosition='CenterScreen'; $f.TopMost=$true; $f.Text='Tarkbot'
 $f.ClientSize=New-Object Drawing.Size(360,132); $f.BackColor=$body; $f.ShowInTaskbar=$true
+$f.Icon=[Drawing.Icon]::ExtractAssociatedIcon('@EXE@')  # Tarkbot icon in the taskbar on minimise
 
 $tb=New-Object Windows.Forms.Panel; $tb.SetBounds(0,0,360,30); $tb.BackColor=$bar; $f.Controls.Add($tb)
 $title=New-Object Windows.Forms.Label; $title.Text='Tarkbot'; $title.ForeColor=$ink
