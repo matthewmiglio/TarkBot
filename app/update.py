@@ -63,13 +63,35 @@ def _latest():
 
 
 def _install_after_exit(msi):
-    """Detached: wait for us to die, install the MSI silently, relaunch the app."""
+    """Detached: keep an 'updating' window up, install the MSI, relaunch the app.
+
+    The window has to live out here, in the waiter, not in the app: the app that showed the
+    download popup must exit before msiexec can overwrite its files, so without this the screen
+    goes blank for the whole install. The waiter shows a small marquee window first, waits for
+    us to die (or Windows Installer sees tarkbot.exe in use and defers to a reboot), installs
+    while pumping the window so it stays painted, then closes it and relaunches. Single-quoted
+    paths: %LOCALAPPDATA%/%TEMP% never contain a single quote.
+    """
     log = msi + '.log'
-    # Wait-Process on our PID first, or Windows Installer sees tarkbot.exe in use and defers to a
-    # reboot. Single-quoted paths (%LOCALAPPDATA%/%TEMP% never contain a single quote).
-    ps = (f"Wait-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
-          f"Start-Process msiexec -ArgumentList '/i','{msi}','/quiet','/norestart','/l*v','{log}' "
-          f"-Wait; Start-Process '{sys.executable}'")
+    ps = f"""
+        $ErrorActionPreference='SilentlyContinue'
+        Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+        $f=New-Object Windows.Forms.Form
+        $f.Text='Tarkbot'; $f.FormBorderStyle='FixedDialog'; $f.ControlBox=$false
+        $f.StartPosition='CenterScreen'; $f.TopMost=$true
+        $f.ClientSize=New-Object Drawing.Size(320,84)
+        $f.BackColor=[Drawing.Color]::FromArgb(16,17,16)
+        $b=New-Object Windows.Forms.ProgressBar; $b.Style='Marquee'; $b.Dock='Bottom'; $b.Height=22
+        $l=New-Object Windows.Forms.Label; $l.Text='Tarkbot is updating...'
+        $l.ForeColor='White'; $l.TextAlign='MiddleCenter'; $l.Dock='Fill'
+        $f.Controls.Add($l); $f.Controls.Add($b)
+        $f.Show(); [Windows.Forms.Application]::DoEvents()
+        Wait-Process -Id {os.getpid()}
+        $p=Start-Process msiexec -ArgumentList '/i','{msi}','/quiet','/norestart','/l*v','{log}' -PassThru
+        while(-not $p.HasExited){{ [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 80 }}
+        $f.Close()
+        Start-Process '{sys.executable}'
+    """
     # DEVNULL for all three: a windowed exe's own std handles are invalid, and the child chokes
     # on them without this. See NO_WINDOW above for why that flag and not DETACHED_PROCESS.
     subprocess.Popen(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
