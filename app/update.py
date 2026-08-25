@@ -81,6 +81,7 @@ def boot_gate():
     """Returns True if an update is being applied (caller should exit), False to boot normally."""
     if not getattr(sys, 'frozen', False):
         return False
+    _log(f'running {__version__}, checking for a newer release')  # names who ran the check
     try:
         found = _latest()
     except Exception as e:
