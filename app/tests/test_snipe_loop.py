@@ -49,7 +49,9 @@ class FakeBoard:
 
     def find_search_box(self, region=None, cached=None):
         self.looked += 1
-        return 'box' if self.search else None
+        if not self.search:
+            raise LookupError('flea_enter_item_name_input not on screen')
+        return 'box'
 
     def search_for(self, name, box, region=None):
         self.searched.append(name)
@@ -163,13 +165,19 @@ if __name__ == '__main__':
         check(bot.sweep_once() == 0, 'nothing bought')
         check(board.bought == [], 'purchase was never clicked')
 
-        print('a search box that is not there ends the item, not the run')
+        print('a search box that has never been found ends the run')
         board = FakeBoard(price=19_000, search=False)
         bot = sniper(board, watchlist=[('RAM stick', 'Therapist', 19890),
                                        ('Cat figurine', 'Therapist', 31777)])
-        check(bot.sweep_once() == 0, 'nothing bought')
+        try:
+            bot.sweep_once()
+            check(False, 'the sweep raised')
+        except LookupError:
+            check(True, 'the sweep raised')
         check(board.searched == [], 'nothing was typed anywhere')
-        check(board.looked == 2, 'and the sweep still tried the next item')
+        # The point of the raise: the second item is never reached, because it would fail the
+        # same way and the run cannot buy anything until somebody empties the field.
+        check(board.looked == 1, 'and it stopped on the first item rather than trying all 77')
 
         print('filters that will not go on stop the sweep before it reads anything')
         board = FakeBoard(price=19_000, filters=False)

@@ -58,7 +58,8 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      self._search_box is where the box was last seen, carried across items and
                      handed back to snipe.find_search_box. The box only matches while it is
                      empty, so without it one clear that did not take ends the sweep: every item
-                     after it finds no box, types nothing and does nothing but log.
+                     after it finds no box, types nothing and does nothing but log. With no
+                     cached box at all, find_search_box raises and the run stops.
                      sweep_once walks the whole watchlist, start() repeats it. The order is
                      reshuffled every sweep: a sweep is the same work whatever order it runs in,
                      and the csv's own order would mean the top of the list is read every few
@@ -438,7 +439,10 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      field still has text in it, which is a clear that did not take rather than a
                      flea that moved, and the answer is to click the box we know about and clear
                      it again. A cold start with text already in the field is the one case that
-                     cannot be helped: no cached box either, so it returns None and says so.
+                     cannot be helped: no cached box either, and no way to reach the field
+                     without one. That raises LookupError and ends the run. It used to log and
+                     skip the item, which meant every one of the 77 names after it failed the
+                     same way and the run spent the rest of its life saying so.
                      clear_search takes that same box rather than looking for it again, for the
                      same reason, and runs last rather than first. Emptying the field before
                      typing would work just as well for the field and would leave the previous
@@ -767,8 +771,10 @@ test_ruble_region.py         Where snipe.ruble_region lands, drawn on the screen
 test_snipe_loop.py           The snipe loop's decisions against a stand-in screen: a cheap top
                              offer is bought, a dear one is left, an unreadable price is never
                              acted on, a price under SANITY_FLOOR reads as a misread rather than
-                             a bargain, an empty board and a missing search box end the item and
-                             not the run, a filter-by-item that survived the filter window is
+                             a bargain, an empty board ends the item and not the run while a
+                             search box that has never been found ends the run on the first item
+                             rather than the seventy-seventh, a filter-by-item that survived the
+                             filter window is
                              cleared before any searching, a purchase whose balance never moved
                              is counted nowhere but in "buys that missed", a locked item is
                              skipped before the board is ever read,

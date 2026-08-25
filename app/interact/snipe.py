@@ -225,7 +225,7 @@ def remove_filter_by_item_filter(region=None):
 
 
 def find_search_box(region=None, cached=None):
-    """The flea's search box, or `cached` if it cannot be found, or None if there is neither.
+    """The flea's search box, or `cached` if it cannot be found. Raises if there is neither.
 
     Every crop under flea_enter_item_name_input/ is of the *placeholder* text, 'enter item
     name', which the field only shows while it is empty. That makes the box findable exactly
@@ -238,7 +238,11 @@ def find_search_box(region=None, cached=None):
     box, types nothing, and the run does nothing but log.
 
     A cold start with text already in the field is the one case neither can help, since there is
-    no cached box yet either. That returns None and says so.
+    no cached box yet either. Nothing downstream can type the text out, because the only way to
+    reach the field is to click a box we have never found, so every item left in the sweep fails
+    here in exactly the same way. That used to be logged per item and skipped, which meant a run
+    that would never buy anything spent the rest of its life saying so; it raises instead, which
+    ends the run, files a crash report and puts the two screenshots of the field next to it.
     """
     box = find.find(SEARCH_BOX_TARGET, region)
     if box:
@@ -247,9 +251,9 @@ def find_search_box(region=None, cached=None):
         log(f'{SEARCH_BOX_TARGET} did not match, so the field still has text in it; using the '
             f'box we found it at, {tuple(cached)}', 1)
         return cached
-    log(f'{SEARCH_BOX_TARGET} not on screen. If the flea is open, its search box already has '
-        f'something typed in it: clear it and start again', 1)
-    return None
+    raise LookupError(
+        f'{SEARCH_BOX_TARGET} not on screen and no box has been found this run. If the flea is '
+        f'open, its search box already has something typed in it: clear it and start again')
 
 
 def ruble_region(region):

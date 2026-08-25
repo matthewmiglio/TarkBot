@@ -210,19 +210,20 @@ class FleaSniper:
         sits at a fixed offset from it (see interact/snipe.PRICE_LEFT), and finding it is
         already needed to click it, so one match does both jobs.
 
-        The three exits that leave without reading a price try to dismiss the game's Error
-        dialog on the way out. While that dialog is up the search box, the board and the price
-        all fail together, and so would every item left in the sweep; a match on the way out of
-        a check that already failed is the cheapest place to notice. The fourth exit, an offer
-        that is simply not cheap enough, read the board fine and asks nothing.
+        The two exits that leave without reading a price try to dismiss the game's Error dialog
+        on the way out. While that dialog is up the board and the price fail together, and so
+        would every item left in the sweep; a match on the way out of a check that already
+        failed is the cheapest place to notice. The third exit, an offer that is simply not
+        cheap enough, read the board fine and asks nothing.
+
+        A search box that has never been found raises out of here and ends the run, rather than
+        being a fourth exit. See snipe.find_search_box: it is the one failure no later item can
+        recover from, so skipping it only buys 76 more copies of the same log line.
         """
         self.stats['checked'] += 1
         # Remembered across items on purpose: the box only matches while it is empty, so a
         # clear that did not take would otherwise end the sweep. See snipe.find_search_box.
         box = snipe.find_search_box(self.region, self._search_box)
-        if box is None:
-            snipe.dismiss_error_popup(self.region)
-            return False
         self._search_box = box
         if snipe.search_for(name, box, self.region) is None:
             self.stats['locked'] += 1
