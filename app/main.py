@@ -14,7 +14,6 @@ if __name__ == '__main__':
     # Before anything else: frozen windowed there is no console, sys.stdout is None, and the
     # first print() in the selling path would kill the run. See session_log.py for the rest.
     session_log.start()
-    update.remove_stale_machine_install()  # one-time: clear an old per-machine build if present
     if not update.boot_gate():  # if a newer MSI is installing, exit and let it relaunch us
         frames.start()  # a screenshot either side of every click, to read beside that log
         root = tk.Tk()

@@ -11,7 +11,6 @@ the caller exits instead of opening the main window.
 Frozen builds only; from source it is a no-op. Every failure falls through to a normal boot: an
 update must never be why the app won't open. Self-check, no network: python -m update
 """
-import ctypes
 import json
 import os
 import subprocess
@@ -20,7 +19,6 @@ import tempfile
 import threading
 import tkinter as tk
 import urllib.request
-from ctypes import wintypes
 from tkinter import ttk
 
 import narrate
@@ -35,9 +33,6 @@ REPO = 'matthewmiglio/TarkBot'
 API = f'https://api.github.com/repos/{REPO}/releases/latest'
 CHECK_TIMEOUT = 6  # short, so a dead network delays boot by seconds, not the download's 15
 DETACHED = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-# Same GUID scripts/setup_msi.py stamps into every MSI, uppercased to MSI's stored form. Both the
-# old per-machine build and the new per-user one carry it, which is how we find the stale one.
-UPGRADE_CODE = '{31798CB3-83B3-4ED1-A318-A005166EDA24}'
 
 
 def _asset(release):
@@ -73,56 +68,6 @@ def _install_after_exit(msi):
           f"-Wait; Start-Process '{sys.executable}'")
     subprocess.Popen(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
                      creationflags=DETACHED, close_fds=True)
-
-
-def _related_products(upgrade_code):
-    """Every installed ProductCode registered under this UpgradeCode, any install context."""
-    msi = ctypes.windll.msi
-    buf = ctypes.create_unicode_buffer(39)  # a GUID is 38 chars + null
-    out, i = [], 0
-    while msi.MsiEnumRelatedProductsW(upgrade_code, 0, i, buf) == 0:  # 0 == ERROR_SUCCESS
-        out.append(buf.value)
-        i += 1
-    return out
-
-
-def _is_per_machine(product_code):
-    """True if this product was installed for the whole machine (AssignmentType 1)."""
-    msi = ctypes.windll.msi
-    size = wintypes.DWORD(0)
-    msi.MsiGetProductInfoW(product_code, 'AssignmentType', None, ctypes.byref(size))
-    size.value += 1
-    buf = ctypes.create_unicode_buffer(size.value)
-    if msi.MsiGetProductInfoW(product_code, 'AssignmentType', buf, ctypes.byref(size)) != 0:
-        return False
-    return buf.value == '1'
-
-
-def remove_stale_machine_install():
-    """One-time migration: uninstall the old per-machine build if this user has it.
-
-    Removing a machine-wide install needs elevation, so this is the one UAC prompt in the whole
-    updater, and it is shown only to users who still carry the old ProgramFiles MSI. Our own
-    per-user install shares the UpgradeCode but is AssignmentType 0, so it is never a target.
-    Once the old one is gone the enumeration comes back empty and this never prompts again.
-    """
-    if not getattr(sys, 'frozen', False):
-        return
-    try:
-        related = _related_products(UPGRADE_CODE)
-        stale = [p for p in related if _is_per_machine(p)]
-    except Exception as e:
-        _log(f'stale-install check failed: {e!r}')  # msi.dll unhappy: skip, never block boot
-        return
-    _log(f'products under our upgrade code: {related or "none"}; per-machine to remove: '
-         f'{stale or "none"}')
-    for code in stale:
-        # runas -> one UAC prompt; /qn -> silent uninstall behind it. ShellExecuteW returns >32
-        # on launch, <=32 on failure/decline; boot carries on either way.
-        _log(f'removing old per-machine install {code} (expect a UAC prompt)')
-        rc = ctypes.windll.shell32.ShellExecuteW(None, 'runas', 'msiexec',
-                                                 f'/x {code} /qn /norestart', None, 0)
-        _log(f'ShellExecute returned {rc}')
 
 
 def boot_gate():
@@ -217,7 +162,6 @@ def demo():
     assert _newer(__version__) is False
     assert _newer(None) is False
     assert boot_gate() is False  # not frozen: never gates
-    assert remove_stale_machine_install() is None  # not frozen: no enumeration, no prompt
     print('ok. current version:', __version__)
 
 

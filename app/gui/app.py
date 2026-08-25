@@ -902,7 +902,6 @@ class App:
 
 if __name__ == '__main__':
     session_log.start()  # one file per boot, same as the frozen build. See session_log.py.
-    update.remove_stale_machine_install()  # one-time: clear an old per-machine build if present
     if not update.boot_gate():  # frozen only: a newer MSI installs and relaunches us, then exit
         frames.start()  # a screenshot either side of every click, to read beside that log
         root = tk.Tk()
