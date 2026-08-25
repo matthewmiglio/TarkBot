@@ -127,7 +127,7 @@ def _run_popup(url):
     root.title('Tarkbot')
     root.resizable(False, False)
     root.configure(bg='#101110')
-    tk.Label(root, text='Tarkbot is updating…', bg='#101110', fg='#e8e8e8',
+    tk.Label(root, text='Tarkbot is downloading an update…', bg='#101110', fg='#e8e8e8',
              font=('Segoe UI', 11), pady=14).pack(padx=28)
     bar = ttk.Progressbar(root, length=280, mode='determinate', maximum=100)
     bar.pack(padx=28, pady=(0, 18))
