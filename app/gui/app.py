@@ -24,6 +24,7 @@ import screen  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
 import snipe_bot  # noqa: E402
+import update  # noqa: E402
 import window  # noqa: E402
 import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
 from sell_bot import (AUTOSELECT, DEFAULT_AUTOSELECT, DEFAULT_STALE, DEFAULT_UNDERCUT,  # noqa: E402
@@ -901,7 +902,9 @@ class App:
 
 if __name__ == '__main__':
     session_log.start()  # one file per boot, same as the frozen build. See session_log.py.
-    frames.start()  # and a screenshot either side of every click, to read beside that log
-    root = tk.Tk()
-    App(root)
-    root.mainloop()
+    update.remove_stale_machine_install()  # one-time: clear an old per-machine build if present
+    if not update.boot_gate():  # frozen only: a newer MSI installs and relaunches us, then exit
+        frames.start()  # a screenshot either side of every click, to read beside that log
+        root = tk.Tk()
+        App(root)
+        root.mainloop()

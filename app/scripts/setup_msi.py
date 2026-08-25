@@ -65,7 +65,12 @@ bdist_msi_options = {
     # v0.0.0 no matter what --target-version said.
     'product_version': PRODUCT_VERSION,
     'output_name': f'tarkbot-{VERSION}-win64.msi',
-    'initial_target_dir': rf'[ProgramFilesFolder]\{NAME}',
+    # Per-user install: all_users=False makes it ALLUSERS=2 + MSIINSTALLPERUSER=1, so it lands
+    # without elevation, and update.py can then apply a newer MSI silently with msiexec /quiet.
+    # cx_Freeze still defaults the dir to ProgramFiles even per-user, so LocalAppData is set by
+    # hand or the install would want admin after all.
+    'all_users': False,
+    'initial_target_dir': rf'[LocalAppDataFolder]\{NAME}',
     'summary_data': {'author': AUTHOR, 'comments': DESCRIPTION},
 }
 
