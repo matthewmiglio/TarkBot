@@ -56,8 +56,17 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # escape to shut a menu it thought had not opened, and with the menu open that escape closed the
 # offer creation window instead. Every button infer_inventory_region measures from lives on that
 # window, so the next attempt raised and the run ended. Seven crash reports on one machine.
+# flea_enter_item_name_input is the fifth, and the first to bite at 1080p rather than 1440p.
+# It is the placeholder text 'enter item name', a thin strip of small anti-aliased glyphs, and
+# the live font renders a hair off the reference crop even at native size. Measured off a 1080p
+# player's frames (his snipe run died on the first item, LookupError with the flea open and the
+# box plainly on screen): the empty field scores 0.887 across all 12 frames it shows in, against
+# 0.434 across 35 frames with text typed in or no field up. The 0.9 default ran just above the
+# real match and lost the box by 0.013, which ends the whole sweep on find_search_box's raise.
+# 0.8 sits in that gap with the margin on the false-positive side, the way the four above do.
 CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
-               'scav_case': 0.8, 'filter_by_item': 0.7}
+               'scav_case': 0.8, 'filter_by_item': 0.7,
+               'flea_enter_item_name_input': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
