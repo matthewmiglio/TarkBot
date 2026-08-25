@@ -62,7 +62,7 @@ def _latest():
     return (tag, url) if (_newer(tag) and url) else None
 
 
-def _install_after_exit(msi):
+def _install_after_exit(msi, tag):
     """Detached: keep an 'updating' window up, install the MSI, relaunch the app.
 
     The window has to live out here, in the waiter, not in the app: the app that showed the
@@ -82,7 +82,7 @@ def _install_after_exit(msi):
         $f.ClientSize=New-Object Drawing.Size(320,84)
         $f.BackColor=[Drawing.Color]::FromArgb(16,17,16)
         $b=New-Object Windows.Forms.ProgressBar; $b.Style='Marquee'; $b.Dock='Bottom'; $b.Height=22
-        $l=New-Object Windows.Forms.Label; $l.Text='Tarkbot is updating...'
+        $l=New-Object Windows.Forms.Label; $l.Text='Updating to {tag}...'
         $l.ForeColor='White'; $l.TextAlign='MiddleCenter'; $l.Dock='Fill'
         $f.Controls.Add($l); $f.Controls.Add($b)
         $f.Show(); [Windows.Forms.Application]::DoEvents()
@@ -115,13 +115,13 @@ def boot_gate():
     tag, url = found
     _log(f'update available: {tag} (have {__version__}); downloading')
     try:
-        return _run_popup(url)  # True once the installer is launched, False if it fell through
+        return _run_popup(url, tag)  # True once the installer is launched, False if it fell through
     except Exception as e:
         _log(f'update download/launch failed: {e!r}')  # fall through to a normal boot
         return False
 
 
-def _run_popup(url):
+def _run_popup(url, tag):
     """Progress window; downloads the MSI and launches the installer. True if it launched."""
     root = tk.Tk()
     root.title('Tarkbot')
@@ -154,7 +154,7 @@ def _run_popup(url):
             return
         _log(f'downloaded {state["msi"]}; launching installer, will exit and relaunch')
         try:
-            _install_after_exit(state['msi'])
+            _install_after_exit(state['msi'], tag)
             state['launched'] = True  # we exit right after; the detached installer waits for that
         except Exception as e:
             _log(f'installer launch failed: {e!r}')  # stay open rather than exit into nothing
