@@ -32,7 +32,11 @@ def _log(msg):
 REPO = 'matthewmiglio/TarkBot'
 API = f'https://api.github.com/repos/{REPO}/releases/latest'
 CHECK_TIMEOUT = 6  # short, so a dead network delays boot by seconds, not the download's 15
-DETACHED = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+# CREATE_NO_WINDOW, not DETACHED_PROCESS: the windowed exe has no console and no valid std
+# handles, and a DETACHED_PROCESS child inherits that and dies before running a line (measured:
+# the waiter launched but msiexec never started). CREATE_NO_WINDOW gives it its own hidden
+# console, and CREATE_NEW_PROCESS_GROUP plus DEVNULL handles below keep it clean and detached.
+NO_WINDOW = 0x08000000 | 0x00000200  # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
 
 
 def _asset(release):
@@ -66,8 +70,11 @@ def _install_after_exit(msi):
     ps = (f"Wait-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
           f"Start-Process msiexec -ArgumentList '/i','{msi}','/quiet','/norestart','/l*v','{log}' "
           f"-Wait; Start-Process '{sys.executable}'")
+    # DEVNULL for all three: a windowed exe's own std handles are invalid, and the child chokes
+    # on them without this. See NO_WINDOW above for why that flag and not DETACHED_PROCESS.
     subprocess.Popen(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
-                     creationflags=DETACHED, close_fds=True)
+                     creationflags=NO_WINDOW, close_fds=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def boot_gate():
