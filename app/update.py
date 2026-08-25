@@ -2,11 +2,12 @@
 
 The MSI installs into %LocalAppData%\\Tarkbot (see scripts/setup_msi.py), so a newer MSI upgrades
 in place with no elevation and no UAC. boot_gate() runs before the main window: it asks GitHub for
-the latest release, and if it is newer than ours it shows a small "Tarkbot is updating..." popup
-with a progress bar, downloads the MSI, then hands it to msiexec /quiet through a detached waiter
-that lets this process exit first (so the running exe is never the one being overwritten) and
-relaunches the app once the install finishes. The gate returns True when an update is under way, so
-the caller exits instead of opening the main window.
+the latest release, and if it is newer than ours it hands off to one detached updater window that
+downloads the MSI (a determinate progress bar), waits for this process to exit (so the running exe
+is never the one being overwritten), installs with msiexec /quiet (the bar switches to a cycling
+marquee for that indeterminate stage), then closes and relaunches the app. One window start to
+finish. The gate returns True when an update is under way, so the caller exits instead of opening
+the main window.
 
 Frozen builds only; from source it is a no-op. Every failure falls through to a normal boot: an
 update must never be why the app won't open. Self-check, no network: python -m update
@@ -16,10 +17,7 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
-import tkinter as tk
 import urllib.request
-from tkinter import ttk
 
 import narrate
 from version import __version__
@@ -62,36 +60,78 @@ def _latest():
     return (tag, url) if (_newer(tag) and url) else None
 
 
-def _install_after_exit(msi, tag):
-    """Detached: keep an 'updating' window up, install the MSI, relaunch the app.
+# The whole update runs in this one detached window: a borderless, app-styled form that downloads
+# the MSI on a determinate bar, then flips the same bar to a cycling marquee for the msiexec
+# install, then closes and relaunches. It lives in a separate process because the app that
+# launched it must exit before msiexec can overwrite its files. Tokens (@URL@ etc.) are filled in
+# by _spawn_updater; a normal string, not an f-string, so PowerShell's own { } need no escaping.
+# Colors mirror gui/theme.py so it reads as part of the app. Single-quoted paths: %LOCALAPPDATA%
+# and %TEMP% never contain a single quote.
+_UPDATER_PS = r"""
+$ErrorActionPreference='SilentlyContinue'
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+$ink=[Drawing.Color]::FromArgb(216,215,210); $dim=[Drawing.Color]::FromArgb(143,146,143)
+$close=[Drawing.Color]::FromArgb(138,74,74); $closeHot=[Drawing.Color]::FromArgb(208,90,90)
+$body=[Drawing.Color]::FromArgb(16,17,16); $bar=[Drawing.Color]::FromArgb(13,14,13)
 
-    The window has to live out here, in the waiter, not in the app: the app that showed the
-    download popup must exit before msiexec can overwrite its files, so without this the screen
-    goes blank for the whole install. The waiter shows a small marquee window first, waits for
-    us to die (or Windows Installer sees tarkbot.exe in use and defers to a reboot), installs
-    while pumping the window so it stays painted, then closes it and relaunches. Single-quoted
-    paths: %LOCALAPPDATA%/%TEMP% never contain a single quote.
-    """
-    log = msi + '.log'
-    ps = f"""
-        $ErrorActionPreference='SilentlyContinue'
-        Add-Type -AssemblyName System.Windows.Forms,System.Drawing
-        $f=New-Object Windows.Forms.Form
-        $f.Text='Tarkbot'; $f.FormBorderStyle='FixedDialog'; $f.ControlBox=$false
-        $f.StartPosition='CenterScreen'; $f.TopMost=$true
-        $f.ClientSize=New-Object Drawing.Size(320,84)
-        $f.BackColor=[Drawing.Color]::FromArgb(16,17,16)
-        $b=New-Object Windows.Forms.ProgressBar; $b.Style='Marquee'; $b.Dock='Bottom'; $b.Height=22
-        $l=New-Object Windows.Forms.Label; $l.Text='Updating to {tag}...'
-        $l.ForeColor='White'; $l.TextAlign='MiddleCenter'; $l.Dock='Fill'
-        $f.Controls.Add($l); $f.Controls.Add($b)
-        $f.Show(); [Windows.Forms.Application]::DoEvents()
-        Wait-Process -Id {os.getpid()}
-        $p=Start-Process msiexec -ArgumentList '/i','{msi}','/quiet','/norestart','/l*v','{log}' -PassThru
-        while(-not $p.HasExited){{ [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 80 }}
-        $f.Close()
-        Start-Process '{sys.executable}'
-    """
+$f=New-Object Windows.Forms.Form
+$f.FormBorderStyle='None'; $f.StartPosition='CenterScreen'; $f.TopMost=$true; $f.Text='Tarkbot'
+$f.ClientSize=New-Object Drawing.Size(360,132); $f.BackColor=$body; $f.ShowInTaskbar=$true
+
+$tb=New-Object Windows.Forms.Panel; $tb.SetBounds(0,0,360,30); $tb.BackColor=$bar; $f.Controls.Add($tb)
+$title=New-Object Windows.Forms.Label; $title.Text='Tarkbot'; $title.ForeColor=$ink
+$title.Font=New-Object Drawing.Font('Segoe UI',10); $title.AutoSize=$false
+$title.SetBounds(10,0,200,30); $title.TextAlign='MiddleLeft'; $tb.Controls.Add($title)
+
+$x=New-Object Windows.Forms.Label; $x.Text=[char]0x2715; $x.ForeColor=$close
+$x.Font=New-Object Drawing.Font('Segoe UI',10); $x.TextAlign='MiddleCenter'
+$x.SetBounds(326,0,34,30); $x.Cursor='Hand'; $tb.Controls.Add($x)
+$x.add_MouseEnter({ $x.ForeColor=$closeHot }); $x.add_MouseLeave({ $x.ForeColor=$close })
+$x.add_Click({ $f.Hide() })
+
+$m=New-Object Windows.Forms.Label; $m.Text=[char]0x2013; $m.ForeColor=$dim
+$m.Font=New-Object Drawing.Font('Segoe UI',11); $m.TextAlign='MiddleCenter'
+$m.SetBounds(292,0,34,30); $m.Cursor='Hand'; $tb.Controls.Add($m)
+$m.add_MouseEnter({ $m.ForeColor=$ink }); $m.add_MouseLeave({ $m.ForeColor=$dim })
+$m.add_Click({ $f.WindowState='Minimized' })
+
+$script:drag=$false
+$down={ $script:drag=$true; $script:sp=[Windows.Forms.Cursor]::Position; $script:fp=$f.Location }
+$move={ if($script:drag){ $c=[Windows.Forms.Cursor]::Position
+  $f.Location=New-Object Drawing.Point(($script:fp.X+$c.X-$script:sp.X),($script:fp.Y+$c.Y-$script:sp.Y)) } }
+$up={ $script:drag=$false }
+$tb.add_MouseDown($down); $tb.add_MouseMove($move); $tb.add_MouseUp($up)
+$title.add_MouseDown($down); $title.add_MouseMove($move); $title.add_MouseUp($up)
+
+$l=New-Object Windows.Forms.Label; $l.Text='Updating to @TAG@...'; $l.ForeColor=$ink
+$l.Font=New-Object Drawing.Font('Segoe UI',11); $l.TextAlign='MiddleCenter'
+$l.SetBounds(30,50,300,24); $f.Controls.Add($l)
+$pb=New-Object Windows.Forms.ProgressBar; $pb.SetBounds(30,90,300,16); $pb.Maximum=100
+$f.Controls.Add($pb)
+$f.Show(); [Windows.Forms.Application]::DoEvents()
+
+$wc=New-Object System.Net.WebClient; $script:pct=0
+Register-ObjectEvent -InputObject $wc -EventName DownloadProgressChanged -Action { $script:pct=$Event.SourceEventArgs.ProgressPercentage } | Out-Null
+$wc.DownloadFileAsync([Uri]'@URL@','@MSI@')
+while($wc.IsBusy){ $pb.Value=[Math]::Min(100,$script:pct); [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 60 }
+$pb.Value=100; [Windows.Forms.Application]::DoEvents()
+
+if(Test-Path '@MSI@'){
+  $pb.Style='Marquee'; $pb.MarqueeAnimationSpeed=30
+  Wait-Process -Id @PID@
+  $p=Start-Process msiexec -ArgumentList '/i','@MSI@','/quiet','/norestart','/l*v','@LOG@' -PassThru
+  while(-not $p.HasExited){ [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 80 }
+}
+$f.Close()
+Start-Process '@EXE@'
+"""
+
+
+def _spawn_updater(url, msi, tag):
+    """Detached: run the one-window updater (download -> install -> relaunch). See _UPDATER_PS."""
+    ps = (_UPDATER_PS.replace('@TAG@', tag).replace('@URL@', url).replace('@MSI@', msi)
+          .replace('@PID@', str(os.getpid())).replace('@LOG@', msi + '.log')
+          .replace('@EXE@', sys.executable))
     # DEVNULL for all three: a windowed exe's own std handles are invalid, and the child chokes
     # on them without this. See NO_WINDOW above for why that flag and not DETACHED_PROCESS.
     subprocess.Popen(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
@@ -113,75 +153,14 @@ def boot_gate():
         _log(f'up to date at {__version__}')
         return False
     tag, url = found
-    _log(f'update available: {tag} (have {__version__}); downloading')
+    msi = os.path.join(tempfile.gettempdir(), url.rsplit('/', 1)[-1])
+    _log(f'update available: {tag} (have {__version__}); handing off to the updater')
     try:
-        return _run_popup(url, tag)  # True once the installer is launched, False if it fell through
+        _spawn_updater(url, msi, tag)
+        return True  # the updater window now owns the download, install and relaunch
     except Exception as e:
-        _log(f'update download/launch failed: {e!r}')  # fall through to a normal boot
+        _log(f'update launch failed: {e!r}')  # fall through to a normal boot
         return False
-
-
-def _run_popup(url, tag):
-    """Progress window; downloads the MSI and launches the installer. True if it launched."""
-    root = tk.Tk()
-    root.title('Tarkbot')
-    root.resizable(False, False)
-    root.configure(bg='#101110')
-    tk.Label(root, text='Tarkbot is downloading an update…', bg='#101110', fg='#e8e8e8',
-             font=('Segoe UI', 11), pady=14).pack(padx=28)
-    bar = ttk.Progressbar(root, length=280, mode='determinate', maximum=100)
-    bar.pack(padx=28, pady=(0, 18))
-
-    state = {'done': False, 'err': '', 'msi': None, 'launched': False}
-
-    def worker():
-        try:
-            path = os.path.join(tempfile.gettempdir(), url.rsplit('/', 1)[-1])
-            urllib.request.urlretrieve(url, path, _report(state, bar, root))
-            state['msi'] = path
-        except Exception as e:
-            state['err'] = repr(e)
-        finally:
-            state['done'] = True
-
-    def poll():
-        if not state['done']:
-            root.after(100, poll)
-            return
-        if state['err'] or not state['msi']:
-            _log(f'download failed: {state["err"] or "no file"}')
-            root.destroy()  # leaves launched False -> boot_gate opens the app as normal
-            return
-        _log(f'downloaded {state["msi"]}; launching installer, will exit and relaunch')
-        try:
-            _install_after_exit(state['msi'], tag)
-            state['launched'] = True  # we exit right after; the detached installer waits for that
-        except Exception as e:
-            _log(f'installer launch failed: {e!r}')  # stay open rather than exit into nothing
-        root.destroy()
-
-    threading.Thread(target=worker, daemon=True).start()
-    root.after(100, poll)
-    _center(root)
-    root.mainloop()
-    return state['launched']
-
-
-def _report(state, bar, root):
-    """urlretrieve reporthook -> drive the bar from the main thread via after()."""
-    def hook(count, block, total):
-        if total > 0:
-            pct = min(100, count * block * 100 // total)
-            root.after(0, lambda: bar.config(value=pct))
-    return hook
-
-
-def _center(root):
-    root.update_idletasks()
-    w, h = root.winfo_width(), root.winfo_height()
-    x = (root.winfo_screenwidth() - w) // 2
-    y = (root.winfo_screenheight() - h) // 2
-    root.geometry(f'+{x}+{y}')
 
 
 def demo():
