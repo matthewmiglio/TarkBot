@@ -23,7 +23,13 @@ import urllib.request
 from ctypes import wintypes
 from tkinter import ttk
 
+import narrate
 from version import __version__
+
+
+def _log(msg):
+    """Timestamped line into the session log, so this whole path can be read back after a boot."""
+    narrate.log(f'update: {msg}')
 
 REPO = 'matthewmiglio/TarkBot'
 API = f'https://api.github.com/repos/{REPO}/releases/latest'
@@ -103,14 +109,20 @@ def remove_stale_machine_install():
     if not getattr(sys, 'frozen', False):
         return
     try:
-        stale = [p for p in _related_products(UPGRADE_CODE) if _is_per_machine(p)]
-    except Exception:
-        return  # msi.dll unhappy: skip the cleanup, never block boot over it
+        related = _related_products(UPGRADE_CODE)
+        stale = [p for p in related if _is_per_machine(p)]
+    except Exception as e:
+        _log(f'stale-install check failed: {e!r}')  # msi.dll unhappy: skip, never block boot
+        return
+    _log(f'products under our upgrade code: {related or "none"}; per-machine to remove: '
+         f'{stale or "none"}')
     for code in stale:
-        # runas -> one UAC prompt; /qn -> silent uninstall behind it. Declined or failed is
-        # swallowed by ShellExecuteW's return, and boot carries on with both installs present.
-        ctypes.windll.shell32.ShellExecuteW(None, 'runas', 'msiexec',
-                                            f'/x {code} /qn /norestart', None, 0)
+        # runas -> one UAC prompt; /qn -> silent uninstall behind it. ShellExecuteW returns >32
+        # on launch, <=32 on failure/decline; boot carries on either way.
+        _log(f'removing old per-machine install {code} (expect a UAC prompt)')
+        rc = ctypes.windll.shell32.ShellExecuteW(None, 'runas', 'msiexec',
+                                                 f'/x {code} /qn /norestart', None, 0)
+        _log(f'ShellExecute returned {rc}')
 
 
 def boot_gate():
@@ -119,20 +131,23 @@ def boot_gate():
         return False
     try:
         found = _latest()
-    except Exception:
-        return False  # offline, rate-limited, no release: just boot
-    if not found:
+    except Exception as e:
+        _log(f'update check failed: {e!r}')  # offline, rate-limited, bad json: just boot
         return False
-    _tag, url = found
+    if not found:
+        _log(f'up to date at {__version__}')
+        return False
+    tag, url = found
+    _log(f'update available: {tag} (have {__version__}); downloading')
     try:
-        _run_popup(url)  # blocks until the MSI is downloaded and the installer is launched
-        return True
-    except Exception:
-        return False  # any failure downloading or launching: fall through to a normal boot
+        return _run_popup(url)  # True once the installer is launched, False if it fell through
+    except Exception as e:
+        _log(f'update download/launch failed: {e!r}')  # fall through to a normal boot
+        return False
 
 
 def _run_popup(url):
-    """Small progress window; downloads the MSI, then launches the detached installer."""
+    """Progress window; downloads the MSI and launches the installer. True if it launched."""
     root = tk.Tk()
     root.title('Tarkbot')
     root.resizable(False, False)
@@ -142,15 +157,15 @@ def _run_popup(url):
     bar = ttk.Progressbar(root, length=280, mode='determinate', maximum=100)
     bar.pack(padx=28, pady=(0, 18))
 
-    state = {'done': False, 'error': False, 'msi': None}
+    state = {'done': False, 'err': '', 'msi': None, 'launched': False}
 
     def worker():
         try:
             path = os.path.join(tempfile.gettempdir(), url.rsplit('/', 1)[-1])
             urllib.request.urlretrieve(url, path, _report(state, bar, root))
             state['msi'] = path
-        except Exception:
-            state['error'] = True
+        except Exception as e:
+            state['err'] = repr(e)
         finally:
             state['done'] = True
 
@@ -158,16 +173,23 @@ def _run_popup(url):
         if not state['done']:
             root.after(100, poll)
             return
-        if state['error'] or not state['msi']:
-            root.destroy()
-            raise RuntimeError('update download failed')
-        _install_after_exit(state['msi'])
-        root.destroy()  # we exit right after; the detached installer waits for that
+        if state['err'] or not state['msi']:
+            _log(f'download failed: {state["err"] or "no file"}')
+            root.destroy()  # leaves launched False -> boot_gate opens the app as normal
+            return
+        _log(f'downloaded {state["msi"]}; launching installer, will exit and relaunch')
+        try:
+            _install_after_exit(state['msi'])
+            state['launched'] = True  # we exit right after; the detached installer waits for that
+        except Exception as e:
+            _log(f'installer launch failed: {e!r}')  # stay open rather than exit into nothing
+        root.destroy()
 
     threading.Thread(target=worker, daemon=True).start()
     root.after(100, poll)
     _center(root)
     root.mainloop()
+    return state['launched']
 
 
 def _report(state, bar, root):
