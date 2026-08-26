@@ -286,6 +286,34 @@ def grab_first_item_price_region(region=None):
     return grab_price_region(region, FIRST_ITEM_PRICE_FRACTIONS)
 
 
+CAPTCHA_TITLE_TARGET = 'captcha_window_title'      # the 'SECURITY CHECK' bar at the top of the modal
+CAPTCHA_CONFIRM_TARGET = 'captcha_confirm_button'  # its 'CONFIRM' button at the bottom
+
+
+def grab_captcha_region(frame):
+    """The box around Tarkov's flea SECURITY CHECK modal on `frame`, or None if none is up.
+
+    The modal has no crop of its own: the challenge grid in the middle is a different set of item
+    icons every time, so nothing there is stable to match. It is measured off the two parts that
+    do not change, the 'SECURITY CHECK' title bar at the top and the 'CONFIRM' button at the
+    bottom, and the box is stitched from them: left, right and bottom off the confirm button,
+    top off the title bar. Returns (left, top, width, height) in `frame`'s own coordinates, or
+    None if either part is absent, which is the answer when there is no captcha on screen.
+
+    Takes the frame rather than reading the screen, so a caller can hand it a live grab or a saved
+    screenshot; the two targets are found inside it with find(haystack=...), which returns boxes
+    in the frame's coordinates.
+    """
+    title = find.find(CAPTCHA_TITLE_TARGET, haystack=frame)
+    confirm = find.find(CAPTCHA_CONFIRM_TARGET, haystack=frame)
+    if not title or not confirm:
+        return None
+    left, top = confirm.left, title.top
+    width = confirm.width
+    height = (confirm.top + confirm.height) - title.top
+    return (left, top, width, height)
+
+
 def first_offer_is_a_pack(region=None):
     """Is the topmost comparable offer a pack rather than a single item?
 

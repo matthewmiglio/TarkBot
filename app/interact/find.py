@@ -64,9 +64,17 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # 0.434 across 35 frames with text typed in or no field up. The 0.9 default ran just above the
 # real match and lost the box by 0.013, which ends the whole sweep on find_search_box's raise.
 # 0.8 sits in that gap with the margin on the false-positive side, the way the four above do.
+# captcha_window_title is the sixth, and a 1440p case of the same thing. It is the 'SECURITY
+# CHECK' bar at the top of Tarkov's flea anti-bot modal, a 16px strip of small text. Native at
+# 1080p it clears the default (matches at >= 0.9 on the frames it was cropped from), but grown to
+# 1440p by needle() it scores 0.845, uniform across 25 frames of a 1440p session that sat on the
+# captcha, so the 0.9 default sees no captcha on a 1440p screen at all. Against that, a non-captcha
+# board tops out at 0.434 across 47 frames, so the band is 0.43 to 0.845 and 0.8 keeps the margin
+# on the false-positive side. Cheap either way here: grab_captcha_region needs the CONFIRM button
+# too (which scores 0.97 grown), so a lone title false-positive infers no region.
 CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
                'scav_case': 0.8, 'filter_by_item': 0.7,
-               'flea_enter_item_name_input': 0.8}
+               'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
