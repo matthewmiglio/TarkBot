@@ -37,7 +37,19 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # Crafts mode's two max buy prices, in roubles, typed into a digits-only field.
             # A blank or non-numeric value falls back to craft_bot's default at startup.
             'crackers_max': '22000',
-            'alyonka_max': '17500'}
+            'alyonka_max': '17500',
+            # Who to buy each ingredient from: a craft_bot.SOURCES label ('Players'/'Traders').
+            'crackers_source': 'Players',
+            'alyonka_source': 'Players',
+            # Fleece craft's inputs. Same <stem>_max / _source shape as slickers above.
+            'sewing_kit_max': '38500',
+            'sewing_kit_source': 'Players',
+            'ux_pro_beanie_max': '3500',
+            'ux_pro_beanie_source': 'Traders',
+            # Which crafts the runner actually runs, one <name>_enabled per craft. Both on by
+            # default; the GUI refuses to start with none ticked.
+            'slickers_enabled': True,
+            'fleece_enabled': True}
 
 
 # Keys that changed name, as {old: new}. A settings.json written by an older build still has

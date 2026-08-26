@@ -55,11 +55,30 @@ TAB_GAP = 8
 ROW_TOP = 222  # first stat row's baseline, below the tab strip
 ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
-# Crafts mode keeps its two max-price pickers inside the panel rather than in the header, so the
-# stats drop below them. CRAFT_DROP_ROWS are the two dropdown baselines under the tab rule (at
-# TAB_ROW + 32 = 170), and CRAFTS_ROW_TOP is where that tab's stats start, clear of the pickers.
-CRAFT_DROP_ROWS = (206, 242)
-CRAFTS_ROW_TOP = 300
+# Crafts mode keeps its per-ingredient controls inside the panel rather than in the header, so the
+# stats drop below them. Each craft is drawn like its in-game bar: the two input icons, an arrow,
+# then the output icon; beneath each input sits its source dropdown and max-price field.
+CRAFT_ICONS_DIR = Path(__file__).resolve().parent / 'craft_icons'
+CRAFT_ICON = 44  # input/output icon square, px
+CRAFT_CARD_WIDTH = 130  # an input's controls (dropdown/field) width; two inputs side by side
+CRAFT_ICON_TO_SOURCE = 42  # source dropdown centre below the icon centre
+CRAFT_SOURCE_TO_MAX = 30  # max field centre below the source dropdown centre
+RUBLE_ICON = 'ruble.png'  # the rouble glyph shown right of each max field
+RUBLE_ICON_H = 15  # its height, px; width follows the glyph's aspect
+RUBLE_GOLD = (206, 168, 64)  # the goldish colour the (black) glyph is tinted to
+RUBLE_GAP = 5  # px between the max field's right edge and the rouble glyph
+CRAFT_BLOCK_GAP = 40  # from one craft's max field to the next craft's icon row
+CRAFT_ROWS_TOP = 200  # first craft's icon-row centre, under the tab rule (TAB_ROW + 32 = 170)
+CRAFTS_ROW_TOP = 418  # first stat row baseline, clear of both crafts
+CRAFTS_ROW_STEP = 26  # tighter than ROW_STEP: the crafts leave less room for the stat rows
+# The two crafts. Each is (name, output icon file, inputs), and each input is (label, settings key
+# stem, icon file); the max field stores <stem>_max and the source picker <stem>_source, and the
+# per-craft enable checkbox <name>_enabled, all matching settings.DEFAULTS. The output icon is
+# decoration only (the bar's right-hand item), no controls.
+CRAFTS = (('slickers', 'slickers.png', (('CRACKERS', 'crackers', 'crackers.png'),
+                                        ('ALYONKA', 'alyonka', 'alyonka.png'))),
+          ('fleece', 'fleece.png', (('SEWING KIT', 'sewing_kit', 'sewing_kit.png'),
+                                    ('UX PRO BEANIE', 'ux_pro_beanie', 'ux_pro_beanie.png'))))
 LOG_DROP = 40  # px below the status row for the activity line, in the band under the buttons
 LOG_BOX = 17  # half the height of the box drawn round that line, and its inset from the text
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
@@ -509,20 +528,109 @@ class App:
             tip='Leave the offer window\'s autoselect similar box ticked, so picking one item '
                 'picks every matching one and the offer lists the whole stack')
 
-        # Crafts mode's two max-price fields sit inside the status panel, under the tab strip and
-        # above that tab's stats (which drop to CRAFTS_ROW_TOP to make room), rather than in the
-        # header. Right-aligned to the panel's value column (right - PAD) so they line up with the
-        # stat numbers below them. Typed roubles rather than preset rungs: an ingredient ceiling
-        # is a money number the user wants to set exactly, not pick from a menu.
-        drop_right = theme.STATUS_PANEL[2] - PAD
-        self.crackers_var = self._number_input(
-            'MAX CRACKERS', drop_right, self.prefs['crackers_max'], 'crackers_max', 150,
-            tag='tab:crafts', y=CRAFT_DROP_ROWS[0],
-            tip='Most roubles to pay for a pack of crackers')
-        self.alyonka_var = self._number_input(
-            'MAX ALYONKA', drop_right, self.prefs['alyonka_max'], 'alyonka_max', 150,
-            tag='tab:crafts', y=CRAFT_DROP_ROWS[1],
-            tip='Most roubles to pay for a bar of Alyonka chocolate')
+        self._draw_craft_rows()
+
+    def _draw_craft_rows(self):
+        """The crafts tab's config, one block per craft drawn like its in-game bar: the two input
+        icons, an arrow, then the output icon, with a source dropdown and a max-price field stacked
+        beneath each input. Sits above that tab's stats (which drop to CRAFTS_ROW_TOP).
+
+        Every input stores <stem>_max (a typed rouble ceiling, a money number the user sets exactly)
+        and <stem>_source (players or traders, which the buy step's filters honour). Driven off the
+        CRAFTS table so a new craft is a row there, not more code here. The two StringVars per input
+        are kept in self.craft_vars[stem]; the max field saves itself through its own trace and the
+        source picker through _save_pref. PhotoImages are held on self._craft_icons or tk
+        garbage-collects them off the canvas.
+        """
+        left, _, right, _ = theme.STATUS_PANEL
+        inner_l, inner_r = left + PAD, right - PAD
+        self.craft_vars = {}
+        self.craft_enabled = {}
+        self._craft_icons = []
+        ruble, ruble_w = self._gold_ruble()  # one shared PhotoImage for every max field
+        self._craft_icons.append(ruble)
+        icon_y = CRAFT_ROWS_TOP
+        for name, output_icon, inputs in CRAFTS:
+            # A checkbox at the far left enables the craft; the runner only runs ticked ones.
+            self._craft_checkbox(inner_l + 6, icon_y, f'{name}_enabled', name)
+            # Two input columns (spaced for their control cards), then an arrow, then the output
+            # icon near the right edge, so the row reads A | B -> output. Shifted right of the box.
+            in_centres = [inner_l + 92, inner_l + 92 + (CRAFT_CARD_WIDTH + 12)]
+            out_centre = inner_r - CRAFT_ICON // 2 - 4
+            arrow_x = (in_centres[1] + out_centre) / 2
+            source_y = icon_y + CRAFT_ICON_TO_SOURCE
+            max_y = source_y + CRAFT_SOURCE_TO_MAX
+
+            # The arrow from the inputs to the output item.
+            self.canvas.create_text(arrow_x, icon_y, text='→', fill=theme.INK_DIM,
+                                    font=self.fonts['value'], tags='tab:crafts')
+            self._draw_craft_icon(out_centre, icon_y, output_icon, 'output')
+
+            for cx, (label, stem, icon_file) in zip(in_centres, inputs):
+                max_key, source_key = f'{stem}_max', f'{stem}_source'
+                if self.prefs.get(source_key) not in craft_bot.SOURCES:  # a stale file must not wedge it
+                    self.prefs[source_key] = craft_bot.DEFAULT_SOURCE
+                if not str(self.prefs.get(max_key, '')).isdigit():  # coerce an old label like "15k rubles"
+                    self.prefs[max_key] = settings.DEFAULTS.get(max_key, '')
+                self._draw_craft_icon(cx, icon_y, icon_file, label)
+                card_right = int(cx + CRAFT_CARD_WIDTH / 2)  # _dropdown/_number_input anchor east
+                source_var = self._dropdown(
+                    '', card_right, list(craft_bot.SOURCES), self.prefs[source_key],
+                    lambda value, k=source_key: self._save_pref(k, value), CRAFT_CARD_WIDTH,
+                    tag='tab:crafts', y=source_y,
+                    tip=f'Buy {label.title()} from other players or from traders')
+                # The max field is shortened to leave the rouble glyph sitting at the card's right
+                # edge, so the row reads <number> ₽.
+                field_right = card_right - ruble_w - RUBLE_GAP
+                max_var = self._number_input(
+                    '', field_right, self.prefs[max_key], max_key, CRAFT_CARD_WIDTH - ruble_w - RUBLE_GAP,
+                    tag='tab:crafts', y=max_y, tip=f'Most roubles to pay for {label.title()}')
+                self.canvas.create_image(card_right - ruble_w // 2, max_y, image=ruble,
+                                         tags='tab:crafts')
+                self.craft_vars[stem] = (max_var, source_var)
+            icon_y = max_y + CRAFT_BLOCK_GAP
+
+    def _craft_checkbox(self, x, y, key, name):
+        """A small enable checkbox for one craft, centred at (x, y), writing prefs[key]. The runner
+        only runs ticked crafts; the BooleanVar is held in self.craft_enabled or tk drops it."""
+        var = tk.BooleanVar(value=bool(self.prefs.get(key, True)))
+
+        def save():
+            self.prefs[key] = var.get()
+            settings.save(self.prefs)
+        box = tk.Checkbutton(self.canvas, variable=var, command=save, bg=theme.PLATE,
+                             activebackground=theme.PLATE, selectcolor=theme.PLATE,
+                             fg=theme.INK, activeforeground=theme.INK, highlightthickness=0, bd=0)
+        self.canvas.create_window(x, y, window=box, tags='tab:crafts')
+        self.craft_enabled[name] = var
+
+    def _gold_ruble(self):
+        """A gold-tinted rouble glyph PhotoImage and its width. The source png is a black glyph on
+        transparency, so tinting keeps the alpha and repaints the colour; aspect is preserved."""
+        from PIL import Image, ImageTk
+        base = Image.open(CRAFT_ICONS_DIR / RUBLE_ICON).convert('RGBA')
+        width = max(1, round(base.width / base.height * RUBLE_ICON_H))
+        gold = Image.new('RGBA', base.size, (*RUBLE_GOLD, 0))
+        gold.putalpha(base.getchannel('A'))
+        gold = gold.resize((width, RUBLE_ICON_H), Image.LANCZOS)
+        return ImageTk.PhotoImage(gold), width
+
+    def _draw_craft_icon(self, cx, cy, icon_file, label):
+        """One item's icon centred at (cx, cy), or a labelled placeholder box if it will
+        not load. Icons come from gui/craft_icons/."""
+        from PIL import Image, ImageTk
+        try:
+            image = Image.open(CRAFT_ICONS_DIR / icon_file).convert('RGBA')
+            image = image.resize((CRAFT_ICON, CRAFT_ICON), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(image)
+            self._craft_icons.append(photo)
+            self.canvas.create_image(cx, cy, image=photo, tags='tab:crafts')
+        except (OSError, ValueError):  # missing or unreadable png: a plain box keeps the layout
+            r = CRAFT_ICON // 2
+            self.canvas.create_rectangle(cx - r, cy - r, cx + r, cy + r,
+                                         outline=theme.LINE, tags='tab:crafts')
+            self.canvas.create_text(cx, cy, text=label.split()[0].title(), fill=theme.INK_FAINT,
+                                    font=self.fonts['small'], tags='tab:crafts')
 
     def _draw_tabs(self):
         """The mode strip along the top of the status panel.
@@ -615,10 +723,11 @@ class App:
         left, top, right, _ = theme.STATUS_PANEL
         self.values[tab] = {}
         rows = [*module.STAT_LABELS, ('runtime', 'Run time')]
-        # Crafts starts its rows lower, since its two max-price pickers sit in the panel above.
-        row_top = CRAFTS_ROW_TOP if tab == 'crafts' else ROW_TOP
+        # Crafts starts its rows lower and tighter, since its ingredient cards sit in the panel
+        # above and leave less room beneath them.
+        row_top, row_step = (CRAFTS_ROW_TOP, CRAFTS_ROW_STEP) if tab == 'crafts' else (ROW_TOP, ROW_STEP)
         for index, (key, label) in enumerate(rows):
-            y = row_top + index * ROW_STEP
+            y = row_top + index * row_step
             indent = 12 if label.startswith(' ') else 0  # the two "from ..." rows sit inset
             self.canvas.create_text(left + PAD + indent, y, anchor='w',
                                     text=spaced(label.strip().upper()),
@@ -628,7 +737,8 @@ class App:
                 right - PAD, y, anchor='e', text='-', fill=theme.INK,
                 font=self.fonts['value'], tags=f'tab:{tab}')
             if index < len(rows) - 1:
-                self.canvas.create_line(left + PAD, y + 20, right - PAD, y + 20,
+                divider = y + row_step // 2  # midway to the next row, so it clears both texts
+                self.canvas.create_line(left + PAD, divider, right - PAD, divider,
                                         fill='#2a2c2a', tags=f'tab:{tab}')
 
     def _show_tab(self, tab):
@@ -790,8 +900,11 @@ class App:
         self.prefs['trader'] = label  # a trader's name, or snipe_bot.ALL_TRADERS
         settings.save(self.prefs)
 
-    # crackers_max / alyonka_max are typed fields now (see _number_input), which save
-    # themselves through a StringVar trace, so there are no pick handlers for them.
+    # The crafts tab's <stem>_max fields are typed inputs that save themselves through a
+    # StringVar trace (see _number_input); the <stem>_source pickers save through _save_pref.
+    def _save_pref(self, key, value):
+        self.prefs[key] = value
+        settings.save(self.prefs)
 
     # ------------------------------------------------------------------ running
 
@@ -828,7 +941,9 @@ class App:
         # branch here on which one it is.
         try:
             self.bot = self.modules[self.tab].build(self.prefs, self.stats[self.tab])
-        except window.WindowError as e:
+        except (window.WindowError, ValueError) as e:
+            # WindowError: the game is on the wrong screen. ValueError: a mode refused to build,
+            # eg crafts with no craft ticked. Either way, say why and do not start the countdown.
             self.bot = None
             self._set_status(str(e), theme.ERROR)
             return

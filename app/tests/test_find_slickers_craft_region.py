@@ -12,13 +12,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from PIL import Image, ImageDraw  # noqa: E402
+from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 import window  # noqa: E402
 from interact import craft, find  # noqa: E402
 
 OUT = Path(__file__).parent / 'output' / 'slickers_region'
 YELLOW, MAGENTA, CYAN = (255, 210, 0), (220, 0, 220), (0, 220, 220)
+try:
+    FONT = ImageFont.truetype('arialbd.ttf', 26)
+except OSError:  # no truetype on this box, fall back to the tiny bitmap font
+    FONT = ImageFont.load_default()
 
 
 def outputs_in(image):
@@ -40,7 +44,7 @@ def outputs_in(image):
 def band_from(boxes, left, width):
     if not boxes:
         return None
-    top = min(b.top for b in boxes) - craft.SLICKERS_BAND_PAD
+    top = min(b.top for b in boxes) - craft.SLICKERS_BAND_PAD + craft.SLICKERS_BAND_TOP_DROP
     bottom = max(b.top + b.height for b in boxes) + craft.SLICKERS_BAND_PAD
     return (left, top, width, bottom - top)
 
@@ -54,6 +58,13 @@ def annotate(image, name, outputs, timers, band):
     if band:
         l, t, w, h = band
         draw.rectangle((l, t, l + w, t + h), outline=CYAN, width=4)
+        cx, cy = l + w // 2, t + h // 2
+        # One label centred on each side, so the drop shows as a number, not just a moved line.
+        for text, (x, y), anchor in ((f'top {t}', (cx, t + 6), 'ma'),
+                                     (f'bottom {t + h}', (cx, t + h - 6), 'md'),
+                                     (f'left {l}', (l + 6, cy), 'lm'),
+                                     (f'right {l + w}', (l + w - 6, cy), 'rm')):
+            draw.text((x, y), text, fill=CYAN, anchor=anchor, font=FONT)
     OUT.mkdir(parents=True, exist_ok=True)
     image.save(OUT / f'{name}.png')
 

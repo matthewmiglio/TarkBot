@@ -15,7 +15,7 @@ from PIL import Image  # noqa: E402
 
 from interact import craft, find  # noqa: E402
 
-FOLDER = find.REFS / 'hideout_tab'
+FOLDER = find.REFS / 'hideout' / 'hideout_tab'
 
 
 def report(path):

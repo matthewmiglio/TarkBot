@@ -8,6 +8,7 @@ its dark plate in both states and only lights its label), so it is read the same
 brightest channel in the button box, thresholded.
 """
 import time
+from collections import namedtuple
 
 import numpy as np
 import pyautogui
@@ -26,6 +27,8 @@ SLICKERS_TARGET = 'crafting/slickers'  # the slickers item, as an ingredient or 
 TIMER_TARGET = 'crafting/craft_timer_icon'  # the clock icon that sits left of every output item
 SLICKERS_BAND_PAD = 100  # px above the topmost and below the bottommost slickers match, literal
 # screen pixels rather than 1080p-scaled: this is slack around a match, not a measured offset.
+SLICKERS_BAND_TOP_DROP = 60  # trim this much off the top of the band: the pad alone reached too
+# high, catching the craft above's controls. Top only, so the bottom pad is unaffected.
 ROW_TOL = 40  # two matches are on the same craft row when their centre y are within this (1080p)
 ALYONKA_TARGET = 'crafting/alyonka'
 CRACKERS_TARGET = 'crafting/crackers'
@@ -40,6 +43,8 @@ OFFER_WAIT = 10.0  # after the filters go on, how long to keep looking for an of
 OFFER_POLL = 0.3  # how often to re-check the board for an offer while waiting
 OVER_PRICE_WAIT = 10.0  # seconds to sit after backing out of an offer that costs too much
 BOUGHT_SETTLE = 2.0  # seconds after a purchase before the caller does anything else
+NUTRITION_RETURN_WAIT = 10.0  # how long to wait for the nutrition panel after escaping the flea
+NUTRITION_RETURN_POLL = 0.2  # how often to re-check for it while waiting
 # Brightest channel anywhere in the START button. Measured on a live 1440p crafting screen with
 # one ready craft and four short of ingredients: 231 for the lit green button, 75-86 for the
 # four greyed ones. 150 sits in the middle of that gap with wide headroom on both sides.
@@ -50,15 +55,15 @@ GET_ITEMS_TARGET = 'crafting/get_items'  # the GET ITEMS button on a finished cr
 # sits in that gap. ponytail: confirm against a real not-highlighted GET ITEMS frame and retune
 # if the two states are closer than START's are.
 GET_ITEMS_HIGHLIGHT_BRIGHTNESS = 150
-HIDEOUT_TAB_TARGET = 'hideout_tab'  # a module's tab in the hideout's left-hand list
+HIDEOUT_TAB_TARGET = 'hideout/hideout_tab'  # a module's tab in the hideout's left-hand list
 # Mean brightness of the hideout tab that says it is the selected one. The whole tab lightens
 # when active rather than just a label, so mean reads it cleanly (like sell.is_flea_open, not the
 # brightest-channel button reads): measured 57 on two inactive crops and 118-122 on two active
 # ones, so 90 sits in the middle of that gap.
 HIDEOUT_TAB_ACTIVE_BRIGHTNESS = 90
-NUTRITION_TARGET = 'hideout/nutrition_unit'  # the module we are navigating to
-NUTRITION_ACTIVE_TARGET = 'nutrition_unit_active'  # the panel header shown once it is open
-HIDEOUT_DIR = 'hideout'  # the folder of module-label references, one subfolder per module
+NUTRITION_TARGET = 'hideout/hideout_tabs/nutrition_unit'  # the module we are navigating to
+NUTRITION_ACTIVE_TARGET = 'hideout/hideout_station_titles/nutrition_unit'  # the panel header shown once it is open
+HIDEOUT_DIR = 'hideout/hideout_tabs'  # the folder of module-label references, one subfolder per module
 SWIPE_DISTANCE = 500  # px to drag the hideout view per swipe, 1080p, scaled at swipe time
 SWIPE_DURATION = 0.3  # seconds the drag itself takes
 SWIPE_SETTLE = 0.5  # seconds after a swipe for the view to stop moving before it is read
@@ -66,6 +71,29 @@ RESET_SWIPES = 5  # swipes left to push the view to one end before searching rig
 MAX_SEARCH_SWIPES = 10  # swipes right looking for the nutrition unit before giving up
 TAB_TIMEOUT = 10.0  # seconds for the hideout tab to come back after clicking it
 NAV_SETTLE = 3.0  # seconds to let a navigation land before reading or clicking again
+
+# Fleece craft, the second one this module runs. Its two inputs and its output each have their own
+# reference folder under crafting/, same as the slickers craft's above.
+FLEECE_TARGET = 'crafting/fleece'
+SEWING_KIT_TARGET = 'crafting/sewing_kit'
+BEANIE_TARGET = 'crafting/ux_pro_beanie'
+LAVATORY_TARGET = 'hideout/hideout_tabs/lavatory'  # the fleece craft's station, in the module carousel
+LAVATORY_ACTIVE_TARGET = 'hideout/hideout_station_titles/lavatory'  # its panel header once open
+
+# A craft is everything that differs between the slickers and fleece runs, so one set of reading
+# and navigation functions serves both. ingredients are (name, icon target); the name doubles as
+# the key the runner looks its rouble ceiling and offer source up under, and matches the crafting/
+# folder, so buying can aim at crafting/<name> without a second lookup.
+Ingredient = namedtuple('Ingredient', 'name target')
+Craft = namedtuple('Craft', 'name output_target ingredients module_target station_title')
+
+SLICKERS = Craft('slickers', SLICKERS_TARGET,
+                 (Ingredient('crackers', CRACKERS_TARGET), Ingredient('alyonka', ALYONKA_TARGET)),
+                 NUTRITION_TARGET, NUTRITION_ACTIVE_TARGET)
+FLEECE = Craft('fleece', FLEECE_TARGET,
+               (Ingredient('sewing_kit', SEWING_KIT_TARGET), Ingredient('ux_pro_beanie', BEANIE_TARGET)),
+               LAVATORY_TARGET, LAVATORY_ACTIVE_TARGET)
+CRAFTS = {c.name: c for c in (SLICKERS, FLEECE)}
 
 
 def hideout_tab_brightness(region=None):
@@ -88,15 +116,20 @@ def is_hideout_tab_active(region=None, threshold=HIDEOUT_TAB_ACTIVE_BRIGHTNESS):
     return active
 
 
-def check_if_nutrition_unit_active(region=None):
-    """True when the nutrition unit panel is open, read off its header title."""
-    active = find.find(NUTRITION_ACTIVE_TARGET, region) is not None
-    log(f'nutrition unit panel {"open" if active else "not open"}', 1)
+def station_active(craft, region=None):
+    """True when this craft's station panel is open, read off its header title."""
+    active = find.find(craft.station_title, region) is not None
+    log(f'{craft.name} station panel {"open" if active else "not open"}', 1)
     return active
 
 
+def check_if_nutrition_unit_active(region=None):
+    """Back-compat wrapper: is the slickers craft's station (the nutrition unit) open."""
+    return station_active(SLICKERS, region)
+
+
 def hideout_module_targets():
-    """Every 'hideout/<module>' folder that holds reference crops, nutrition unit included."""
+    """Every 'hideout/hideout_tabs/<module>' folder that holds reference crops, nutrition unit included."""
     d = find.REFS / HIDEOUT_DIR
     return [f'{HIDEOUT_DIR}/{p.name}' for p in sorted(d.iterdir())
             if p.is_dir() and any(p.glob('*.png'))]
@@ -117,14 +150,14 @@ def _swipe(x, y, dx):
     pyautogui.dragTo(x + dx, y, duration=SWIPE_DURATION, button='left')
 
 
-def get_to_nutrition_unit(region=None):
-    """Navigate the hideout to the nutrition unit and open it. True on success, else raises.
+def get_to_station(craft, region=None):
+    """Navigate the hideout to this craft's station and open it. True on success, else raises.
 
     Ensures the hideout tab is the active one (clicking it if not), then treats the module row as
     a horizontal carousel: swipe left RESET_SWIPES times to reach one end, swipe right up to
-    MAX_SEARCH_SWIPES times until the nutrition unit label appears, then click it. Every dead end
-    (no tab, tab will not activate, no module row to grab, nutrition unit never found or lost
-    while the screen settles) raises LookupError rather than clicking blind.
+    MAX_SEARCH_SWIPES times until the station's module label appears, then click it. Every dead
+    end (no tab, tab will not activate, no module row to grab, station never found or lost while
+    the screen settles) raises LookupError rather than clicking blind.
     """
     if is_hideout_tab_active(region):
         log('already on the hideout tab, skipping to the module search', 1)
@@ -141,9 +174,9 @@ def get_to_nutrition_unit(region=None):
             raise LookupError('hideout tab did not become active after clicking it')
 
     # Already looking at it? Click it and skip the scrolling entirely.
-    if find.find(NUTRITION_TARGET, region):
-        log('nutrition unit already on screen, no scrolling needed', 1)
-        return _open_nutrition_unit(region)
+    if find.find(craft.module_target, region):
+        log(f'{craft.name} station already on screen, no scrolling needed', 1)
+        return _open_station(craft, region)
 
     icons = hideout_icons(region)
     if not icons:
@@ -157,39 +190,44 @@ def get_to_nutrition_unit(region=None):
     for _ in range(RESET_SWIPES):
         _swipe(x, y, -dist)
         time.sleep(SWIPE_SETTLE)
-        if find.find(NUTRITION_TARGET, region):  # spotted it on the way left, no need to reset further
-            log('nutrition unit appeared while resetting left', 1)
-            return _open_nutrition_unit(region)
+        if find.find(craft.module_target, region):  # spotted it while resetting, stop early
+            log(f'{craft.name} station appeared while resetting left', 1)
+            return _open_station(craft, region)
 
-    log(f'searching right for the nutrition unit, up to {MAX_SEARCH_SWIPES} swipes', 1)
-    found = find.find(NUTRITION_TARGET, region)
+    log(f'searching right for the {craft.name} station, up to {MAX_SEARCH_SWIPES} swipes', 1)
+    found = find.find(craft.module_target, region)
     swipes = 0
     while not found and swipes < MAX_SEARCH_SWIPES:
         _swipe(x, y, dist)
         swipes += 1
         time.sleep(SWIPE_SETTLE)
-        found = find.find(NUTRITION_TARGET, region)
+        found = find.find(craft.module_target, region)
     if not found:
-        raise LookupError(f'nutrition unit never appeared after {MAX_SEARCH_SWIPES} swipes')
-    return _open_nutrition_unit(region)
+        raise LookupError(f'{craft.name} station never appeared after {MAX_SEARCH_SWIPES} swipes')
+    return _open_station(craft, region)
 
 
-def _open_nutrition_unit(region=None):
-    """Settle, re-find the nutrition unit, click it, and confirm its panel opened. True or raises.
+def _open_station(craft, region=None):
+    """Settle, re-find the station's module label, click it, confirm its panel opened. True/raises.
 
-    Shared by all three ways get_to_nutrition_unit spots the module: already on screen, seen
-    while resetting left, or found swiping right.
+    Shared by all three ways get_to_station spots the module: already on screen, seen while
+    resetting left, or found swiping right.
     """
-    log(f'nutrition unit found, settling {NAV_SETTLE}s before clicking', 1)
+    log(f'{craft.name} station found, settling {NAV_SETTLE}s before clicking', 1)
     time.sleep(NAV_SETTLE)
-    box = find.find(NUTRITION_TARGET, region)
+    box = find.find(craft.module_target, region)
     if not box:
-        raise LookupError('lost the nutrition unit while the screen settled')
+        raise LookupError(f'lost the {craft.name} station while the screen settled')
     pyautogui.click(*sell.jitter(pyautogui.center(box)))
     time.sleep(NAV_SETTLE)
-    if not check_if_nutrition_unit_active(region):
-        raise LookupError('clicked the nutrition unit but its panel never opened')
+    if not station_active(craft, region):
+        raise LookupError(f'clicked the {craft.name} station but its panel never opened')
     return True
+
+
+def get_to_nutrition_unit(region=None):
+    """Back-compat wrapper: navigate to the slickers craft's station (the nutrition unit)."""
+    return get_to_station(SLICKERS, region)
 
 
 def start_buttons(region=None):
@@ -221,54 +259,70 @@ def first_ready_button(region=None, threshold=START_READY_BRIGHTNESS):
     return None
 
 
-def output_slickers(region=None):
-    """Every slickers match that is a craft's OUTPUT rather than one of its ingredients.
+def output_items(craft, region=None):
+    """Every match of this craft's item that is a craft's OUTPUT rather than one of its ingredients.
 
-    A slickers bar is the output when the craft's timer clock sits to its left on the same row;
-    a slickers bar used as an ingredient has no timer left of it. Same row means centre y within
-    ROW_TOL (scaled), to the left means the timer's centre x is smaller.
+    An item bar is the output when a timer clock sits to its left on the same row; the same item
+    used as an ingredient has no timer left of it. Same row means centre y within ROW_TOL (scaled),
+    to the left means the timer's centre x is smaller.
     """
     tol = ROW_TOL * find.scale()
     timers = find.find_all(TIMER_TARGET, region)
     outputs = []
-    for slick in find.find_all(SLICKERS_TARGET, region):
-        sx, sy = _center(slick)
-        if any(_center(t)[0] < sx and abs(_center(t)[1] - sy) <= tol for t in timers):
-            outputs.append(slick)
+    for item in find.find_all(craft.output_target, region):
+        ix, iy = _center(item)
+        if any(_center(t)[0] < ix and abs(_center(t)[1] - iy) <= tol for t in timers):
+            outputs.append(item)
     return outputs
 
 
-def slickers_output_box(region=None):
-    """The slickers craft's output bar, in whatever state the craft is in, or None.
+def output_box(craft, region=None):
+    """This craft's output bar, in whatever state the craft is in, or None.
 
     Prefers the timer-anchored output (right in the ready state), and falls back to the rightmost
-    slickers match when there is no timer, which is every other state: the output sits at the far
-    right of its row, right of the ingredients, so it is the rightmost slickers on screen.
+    item match when there is no timer, which is every other state: the output sits at the far
+    right of its row, right of the ingredients, so it is the rightmost match of the item on screen.
     """
-    timed = output_slickers(region)
+    timed = output_items(craft, region)
     if timed:
         return max(timed, key=lambda b: b.left)
-    boxes = find.find_all(SLICKERS_TARGET, region)
+    boxes = find.find_all(craft.output_target, region)
     return max(boxes, key=lambda b: b.left) if boxes else None
+
+
+def output_slickers(region=None):
+    """Back-compat wrapper: the slickers craft's timer-anchored output matches."""
+    return output_items(SLICKERS, region)
+
+
+def slickers_output_box(region=None):
+    """Back-compat wrapper: the slickers craft's output bar in any state."""
+    return output_box(SLICKERS, region)
 
 
 def _row_band(box, region=None):
     """A full-width band SLICKERS_BAND_PAD above and below one match's row."""
     left, _, width, _ = region if region else screen.rect()
-    top = box.top - SLICKERS_BAND_PAD
-    return (left, top, width, box.height + 2 * SLICKERS_BAND_PAD)
+    top = box.top - SLICKERS_BAND_PAD + SLICKERS_BAND_TOP_DROP
+    bottom = box.top + box.height + SLICKERS_BAND_PAD
+    return (left, top, width, bottom - top)
+
+
+def craft_row_band(craft, region=None):
+    """This craft's row band in any state, or None if its output is not on screen.
+
+    Unlike find_craft, which anchors on the ready-state timer, this uses output_box (rightmost
+    item match when there is no timer), so it also frames the row when the craft is producing or
+    done, ie when the GET ITEMS button rather than a timer is on it. That is what a caller reading
+    GET ITEMS or START off the row needs.
+    """
+    box = output_box(craft, region)
+    return _row_band(box, region) if box else None
 
 
 def slickers_row_band(region=None):
-    """The slickers craft's row band in any state, or None if its output is not on screen.
-
-    Unlike find_slickers_craft, which anchors on the ready-state timer, this uses
-    slickers_output_box (rightmost slickers when there is no timer), so it also frames the row
-    when the craft is producing or done, ie when the GET ITEMS button rather than a timer is on
-    it. That is what a caller reading GET ITEMS or START off the row needs.
-    """
-    box = slickers_output_box(region)
-    return _row_band(box, region) if box else None
+    """Back-compat wrapper: the slickers craft's state-independent row band."""
+    return craft_row_band(SLICKERS, region)
 
 
 def get_items_highlighted(box, threshold=GET_ITEMS_HIGHLIGHT_BRIGHTNESS):
@@ -276,18 +330,18 @@ def get_items_highlighted(box, threshold=GET_ITEMS_HIGHLIGHT_BRIGHTNESS):
     return button_brightness(box) >= threshold
 
 
-def get_slickers_craft_state(region=None):
-    """One of 'not started', 'done', 'ready', 'producing' for the slickers craft.
+def get_craft_state(craft, region=None):
+    """One of 'not started', 'done', 'ready', 'producing' for this craft.
 
-    Scoped to the slickers output's own row so another craft's button cannot be read by mistake:
+    Scoped to the craft output's own row so another craft's button cannot be read by mistake:
       - GET ITEMS present and greyed  -> 'not started'
       - GET ITEMS present and lit     -> 'done' (items are waiting to be collected)
       - START button present          -> 'ready' (ingredients are in the stash)
       - none of those                 -> 'producing' (the craft is running)
     """
-    output = slickers_output_box(region)
+    output = output_box(craft, region)
     if output is None:
-        log('no slickers output on screen, cannot read the craft state', 1)
+        log(f'no {craft.name} output on screen, cannot read the craft state', 1)
         return 'producing'
     band = _row_band(output, region)
 
@@ -298,29 +352,39 @@ def get_slickers_craft_state(region=None):
         state = 'ready'
     else:
         state = 'producing'
-    log(f'slickers craft state: {state}', 1)
+    log(f'{craft.name} craft state: {state}', 1)
     return state
 
 
-def find_slickers_craft(region=None):
-    """A full-width horizontal band around the slickers craft on screen, or None if not found.
+def get_slickers_craft_state(region=None):
+    """Back-compat wrapper: the slickers craft's state."""
+    return get_craft_state(SLICKERS, region)
 
-    The craft is the row whose slickers bar is the output, ie has the timer clock to its left;
-    an ingredient slickers on some other craft's row is ignored. The band spans SLICKERS_BAND_PAD
-    above the topmost output slickers and the same below the bottommost, across the whole width of
-    the search region (the game window, or the screen when no region is given). A
-    (left, top, width, height) rect, ready to hand back to find as the region for that craft's
+
+def find_craft(craft, region=None):
+    """A full-width horizontal band around this craft on screen, or None if not found.
+
+    The craft is the row whose item bar is the output, ie has the timer clock to its left; the
+    same item used as an ingredient on some other craft's row is ignored. The band spans
+    SLICKERS_BAND_PAD above the topmost output and the same below the bottommost (less
+    SLICKERS_BAND_TOP_DROP off the top), across the whole width of the search region. A
+    (left, top, width, height) rect, ready to hand to find as the region for that craft's
     ingredients, marks and START button.
     """
-    boxes = output_slickers(region)
+    boxes = output_items(craft, region)
     if not boxes:
-        log('no slickers craft output on screen', 1)
+        log(f'no {craft.name} craft output on screen', 1)
         return None
-    top = min(b.top for b in boxes) - SLICKERS_BAND_PAD
+    top = min(b.top for b in boxes) - SLICKERS_BAND_PAD + SLICKERS_BAND_TOP_DROP
     bottom = max(b.top + b.height for b in boxes) + SLICKERS_BAND_PAD
     left, _, width, _ = region if region else screen.rect()
-    log(f'slickers band {top}..{bottom} across x {left}..{left + width}', 1)
+    log(f'{craft.name} band {top}..{bottom} across x {left}..{left + width}', 1)
     return (left, top, width, bottom - top)
+
+
+def find_slickers_craft(region=None):
+    """Back-compat wrapper: the slickers craft's timer-anchored band."""
+    return find_craft(SLICKERS, region)
 
 
 def _center(box):
@@ -346,51 +410,59 @@ def _mark_beneath(icon, marks):
     return best
 
 
-def validate_slickers_craftable(region=None):
-    """Are both slickers ingredients (crackers and alyonka) in the stash?
+def ingredient_icon(craft, ingredient, region=None):
+    """This ingredient's icon on the craft's own row, or None. The band scopes to one row, but a
+    pad can catch a neighbouring row, so of any matches pick the one nearest the output's row."""
+    band = find_craft(craft, region)
+    output = output_box(craft, region)
+    if band is None or output is None:
+        return None
+    icons = find.find_all(ingredient.target, band)
+    if not icons:
+        return None
+    _, oy = _center(output)
+    return min(icons, key=lambda b: abs(_center(b)[1] - oy))
 
-    Only the slickers craft's own row is read: the search is scoped to the band
-    find_slickers_craft draws around the output slickers, so an ingredient of the same name on
-    another craft's row cannot be mistaken for one of these. With no slickers craft on screen
-    both ingredients read as not ready.
+
+def validate_craftable(craft, region=None):
+    """Are all of this craft's ingredients in the stash?
+
+    Only the craft's own row is read: the search is scoped to the band find_craft draws around the
+    output, so an ingredient of the same name on another craft's row cannot be mistaken for one of
+    these. With no craft on screen every ingredient reads as not ready.
 
     Reads the checkmark or X drawn under each ingredient icon. Returns (all_ready, missing):
-    (True, []) when both show a checkmark, else (False, [names not ready]) with crackers before
-    alyonka. An ingredient is not ready when an X sits under it, when nothing does, or when its
-    icon is not on screen at all.
+    (True, []) when all show a checkmark, else (False, [names not ready]) in the craft's own
+    ingredient order. An ingredient is not ready when an X sits under it, when nothing does, or
+    when its icon is not on screen at all.
     """
-    band = find_slickers_craft(region)
+    band = find_craft(craft, region)
     if band is None:
-        return (False, ['crackers', 'alyonka'])
-    alyonkas = find.find_all(ALYONKA_TARGET, band)
-    crackers_all = find.find_all(CRACKERS_TARGET, band)
+        return (False, [ing.name for ing in craft.ingredients])
     checks = find.find_all(CHECK_TARGET, band)
-
-    # The slickers row is the one holding alyonka (it is used in no other craft). Its crackers is
-    # the one on that same row; a second crackers on screen belongs to a different craft.
-    alyonka = min(alyonkas, key=lambda b: b.top) if alyonkas else None
-    crackers = None
-    if crackers_all and alyonka is not None:
-        _, ay = _center(alyonka)
-        crackers = min(crackers_all, key=lambda b: abs(_center(b)[1] - ay))
-    elif crackers_all:
-        crackers = min(crackers_all, key=lambda b: b.top)
-
     missing = []
-    for name, icon in (('crackers', crackers), ('alyonka', alyonka)):
+    for ing in craft.ingredients:
+        icon = ingredient_icon(craft, ing, region)
         ready = icon is not None and _mark_beneath(icon, checks) is not None
-        log(f'{name}: {"ready" if ready else "not ready"}', 1)
+        log(f'{ing.name}: {"ready" if ready else "not ready"}', 1)
         if not ready:
-            missing.append(name)
+            missing.append(ing.name)
     return (not missing, missing)
 
 
-def buy_craft_input_item(location, max_price, region=None):
+def validate_slickers_craftable(region=None):
+    """Back-compat wrapper: are both slickers ingredients in the stash."""
+    return validate_craftable(SLICKERS, region)
+
+
+def buy_craft_input_item(location, max_price, region=None, source='players', craft=SLICKERS):
     """Buy one craft ingredient off the flea, if the cheapest offer is at or under max_price.
 
-    location is where the ingredient sits in the craft row (a point to right click). The flow is
-    the flea sniper's, aimed from a right click rather than a typed search: filter the board to
-    this one item through the inventory menu, put the sniper's filters on, read the top offer's
+    location is where the ingredient sits in the craft row (a point to right click). source is who
+    to buy from, 'players' or 'traders', and only changes the offers-from filter. craft is which
+    craft this input belongs to, so the flea can be escaped back to the right station afterwards.
+    The flow is the flea sniper's, aimed from a right click rather than a typed search: filter the
+    board to this one item through the inventory menu, put the filters on, read the top offer's
     price, and buy that row only when it is cheap enough.
 
     Returns True if it bought, False otherwise (too dear, or the price could not be read safely).
@@ -410,7 +482,9 @@ def buy_craft_input_item(location, max_price, region=None):
     pyautogui.click(*point)
 
     time.sleep(FLEA_LOAD_DELAY)  # the flea board opens from scratch here, give its UI time to draw
-    sell.apply_flea_filters(region)
+    # No condition filter: a craft input is consumed, not resold, so a scuffed one is fine and
+    # filtering on 100% only hides the cheaper offers we are here for.
+    sell.apply_flea_filters(region, source=source, set_condition=False)
 
     # The board reloads after the filters go on and offers do not all appear at once, so poll for
     # the first purchase button rather than reading once: up to OFFER_WAIT, every OFFER_POLL.
@@ -436,4 +510,31 @@ def buy_craft_input_item(location, max_price, region=None):
     log(f'{price} is at or under {max_price}, buying', 1)
     bought = snipe.buy(top, region)
     time.sleep(BOUGHT_SETTLE)
+    return_to_station(craft, region)  # the buy leaves the flea up over the panel; get back to it
     return bought
+
+
+def return_to_station(craft, region=None):
+    """Escape the flea and wait for this craft's station panel to come back on screen.
+
+    A purchase leaves the flea board sitting over the hideout, so the next craft read finds no
+    output and the loop stalls. Press esc, then poll for the panel header up to
+    NUTRITION_RETURN_WAIT. Raises LookupError if it never reappears, since everything after this
+    reads off that panel and would otherwise misfire against whatever the flea left on screen.
+    """
+    pyautogui.press('esc')
+    deadline = time.monotonic() + NUTRITION_RETURN_WAIT
+    while True:
+        if find.find(craft.station_title, region) is not None:
+            log(f'back on the {craft.name} station', 1)
+            return
+        if time.monotonic() >= deadline:
+            raise LookupError(
+                f'{craft.name} station panel did not reappear within {NUTRITION_RETURN_WAIT}s of '
+                'leaving the flea')
+        time.sleep(NUTRITION_RETURN_POLL)
+
+
+def return_to_nutrition_unit(region=None):
+    """Back-compat wrapper: escape the flea back to the slickers craft's station."""
+    return return_to_station(SLICKERS, region)
