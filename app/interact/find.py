@@ -72,9 +72,17 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # board tops out at 0.434 across 47 frames, so the band is 0.43 to 0.845 and 0.8 keeps the margin
 # on the false-positive side. Cheap either way here: grab_captcha_region needs the CONFIRM button
 # too (which scores 0.97 grown), so a lone title false-positive infers no region.
+# nutrition_unit_active is the seventh, the same 1440p story again: the hideout nutrition unit's
+# open-panel header (the fork-and-knife icon plus 'Nutrition Unit'). Grown from its 1080p crop to
+# a live 1440p screen it tops out at 0.85 (matches at 0.84, gone by 0.86), so the 0.9 default
+# never sees an open panel and get_to_nutrition_unit reports the click failed even sitting on it.
+# 0.8 clears that with a small margin. The text and icon are distinctive, so another module's
+# header is not expected to reach it, but the off-screen ceiling against other panels is not yet
+# measured; confirm it stays clear before this is trusted for the pre-navigation check.
 CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
                'scav_case': 0.8, 'filter_by_item': 0.7,
-               'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8}
+               'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
+               'nutrition_unit_active': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 

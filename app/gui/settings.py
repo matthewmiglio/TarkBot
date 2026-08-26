@@ -33,7 +33,11 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'trader': 'Therapist',
             # The key that starts and stops the bot from inside the game. A name from
             # gui.app.HOTKEYS; anything else falls back to the default at startup.
-            'hotkey': 'F4'}
+            'hotkey': 'F4',
+            # Crafts mode's two max buy prices, in roubles, typed into a digits-only field.
+            # A blank or non-numeric value falls back to craft_bot's default at startup.
+            'crackers_max': '22000',
+            'alyonka_max': '17500'}
 
 
 # Keys that changed name, as {old: new}. A settings.json written by an older build still has

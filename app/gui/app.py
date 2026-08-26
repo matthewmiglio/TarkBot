@@ -18,6 +18,7 @@ from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import crash_report  # noqa: E402
+import craft_bot  # noqa: E402
 import frames  # noqa: E402
 import gym_bot  # noqa: E402
 import screen  # noqa: E402
@@ -41,7 +42,7 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 #   TINT_STAT    the row that goes green once it is non-zero, or None
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
 TABS = (('flea', 'FLEA SELL', sell_bot), ('snipe', 'FLEA SNIPE', snipe_bot),
-        ('gym', 'HIDEOUT GYM', gym_bot))
+        ('gym', 'HIDEOUT GYM', gym_bot), ('crafts', 'CRAFTS', craft_bot))
 DEFAULT_TAB = 'flea'
 # Tabs drawn but not selectable, greyed rather than deleted so a mode being built can still be
 # seen. Empty today: all three modes are selectable. Put a key back in here to grey one out.
@@ -49,11 +50,16 @@ DISABLED_TABS = set()
 
 DROP_ROW = (29, 63)  # centre lines of the header's two dropdown rows
 TAB_ROW = 138  # the tab strip's centre line, inside the status panel
-TAB_WIDTH = 132
+TAB_WIDTH = 98  # four tabs across the status panel: 4*98 + 3*8 lands exactly on the right rule
 TAB_GAP = 8
 ROW_TOP = 222  # first stat row's baseline, below the tab strip
 ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
+# Crafts mode keeps its two max-price pickers inside the panel rather than in the header, so the
+# stats drop below them. CRAFT_DROP_ROWS are the two dropdown baselines under the tab rule (at
+# TAB_ROW + 32 = 170), and CRAFTS_ROW_TOP is where that tab's stats start, clear of the pickers.
+CRAFT_DROP_ROWS = (206, 242)
+CRAFTS_ROW_TOP = 300
 LOG_DROP = 40  # px below the status row for the activity line, in the band under the buttons
 LOG_BOX = 17  # half the height of the box drawn round that line, and its inset from the text
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
@@ -503,6 +509,21 @@ class App:
             tip='Leave the offer window\'s autoselect similar box ticked, so picking one item '
                 'picks every matching one and the offer lists the whole stack')
 
+        # Crafts mode's two max-price fields sit inside the status panel, under the tab strip and
+        # above that tab's stats (which drop to CRAFTS_ROW_TOP to make room), rather than in the
+        # header. Right-aligned to the panel's value column (right - PAD) so they line up with the
+        # stat numbers below them. Typed roubles rather than preset rungs: an ingredient ceiling
+        # is a money number the user wants to set exactly, not pick from a menu.
+        drop_right = theme.STATUS_PANEL[2] - PAD
+        self.crackers_var = self._number_input(
+            'MAX CRACKERS', drop_right, self.prefs['crackers_max'], 'crackers_max', 150,
+            tag='tab:crafts', y=CRAFT_DROP_ROWS[0],
+            tip='Most roubles to pay for a pack of crackers')
+        self.alyonka_var = self._number_input(
+            'MAX ALYONKA', drop_right, self.prefs['alyonka_max'], 'alyonka_max', 150,
+            tag='tab:crafts', y=CRAFT_DROP_ROWS[1],
+            tip='Most roubles to pay for a bar of Alyonka chocolate')
+
     def _draw_tabs(self):
         """The mode strip along the top of the status panel.
 
@@ -515,6 +536,9 @@ class App:
         for key, label, _ in TABS:
             self.tabs[key] = Tab(self.canvas, (x, TAB_ROW - 13, x + TAB_WIDTH, TAB_ROW + 13),
                                  label, lambda k=key: self._show_tab(k), self.fonts['plate'])
+            # Unspaced, overriding Plate's letter-spacing: four spaced labels do not fit the
+            # panel width, and 'HIDEOUT GYM' spaced alone is wider than a quarter of it.
+            self.canvas.itemconfig(self.tabs[key].label, text=label)
             if key in DISABLED_TABS:
                 self.tabs[key].config(False)  # greyed and unclickable, see DISABLED_TABS
             x += TAB_WIDTH + TAB_GAP
@@ -522,12 +546,14 @@ class App:
                                 fill=theme.LINE)
 
     def _dropdown(self, caption, right, values, current, command, width, tip=None, tag=None,
-                  row=0):
+                  row=0, y=None):
         """A caption and a tk OptionMenu, right-aligned to x. The one real widget style here.
 
         tag: a canvas tag, so _show_tab can hide the whole thing. Canvas window items take
         state='hidden' like any other item, which is why the dropdowns can be tabbed at all.
         row: which header row, indexing DROP_ROW.
+        y: an explicit centre line, overriding row. Lets a dropdown sit inside a panel rather
+        than in the header, which is where crafts mode's max-price pickers go.
         """
         var = tk.StringVar(value=current)
         menu = tk.OptionMenu(self.canvas, var, *values, command=command)
@@ -540,7 +566,7 @@ class App:
                             activeforeground=theme.INK, bd=0, relief='flat',
                             font=self.fonts['label'])
         tags = (tag,) if tag else ()
-        y = DROP_ROW[row]
+        y = DROP_ROW[row] if y is None else y
         self.canvas.create_window(right, y, anchor='e', window=menu, width=width, height=24,
                                   tags=tags)
         self.canvas.create_text(right - width - 10, y + 1, anchor='e', text=spaced(caption),
@@ -559,8 +585,10 @@ class App:
         left, top, right, _ = theme.STATUS_PANEL
         self.values[tab] = {}
         rows = [*module.STAT_LABELS, ('runtime', 'Run time')]
+        # Crafts starts its rows lower, since its two max-price pickers sit in the panel above.
+        row_top = CRAFTS_ROW_TOP if tab == 'crafts' else ROW_TOP
         for index, (key, label) in enumerate(rows):
-            y = ROW_TOP + index * ROW_STEP
+            y = row_top + index * ROW_STEP
             indent = 12 if label.startswith(' ') else 0  # the two "from ..." rows sit inset
             self.canvas.create_text(left + PAD + indent, y, anchor='w',
                                     text=spaced(label.strip().upper()),
@@ -730,6 +758,14 @@ class App:
 
     def _pick_trader(self, label):
         self.prefs['trader'] = label  # a trader's name, or snipe_bot.ALL_TRADERS
+        settings.save(self.prefs)
+
+    def _pick_crackers(self, label):
+        self.prefs['crackers_max'] = label  # the dropdown's labels are the keys, so no lookup
+        settings.save(self.prefs)
+
+    def _pick_alyonka(self, label):
+        self.prefs['alyonka_max'] = label  # the dropdown's labels are the keys, so no lookup
         settings.save(self.prefs)
 
     # ------------------------------------------------------------------ running
