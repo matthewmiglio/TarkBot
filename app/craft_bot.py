@@ -50,7 +50,7 @@ DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders'}  # anything not listed defaults
 # A single figure per craft, not a live read, so 'Est. profit' below is (crafts collected) * this.
 # ponytail: constants, since input prices and output values drift; update them when they have, or
 # read them off the market if this ever needs to be exact. Fleece's is a placeholder until measured.
-PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 0}
+PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321}
 
 # The counters, in the order the GUI lists them. Same shape as sell_bot.STAT_LABELS.
 STAT_LABELS = (('crafts', 'Crafts started'), ('profit', 'Est. profit'))
@@ -167,17 +167,13 @@ class HideoutCraft:
         self.stats['profit'] += PROFIT_PER_CRAFT.get(job.craft.name, 0)
         return point
 
-    def buy_missing(self, job, item):
-        """Buy one missing ingredient off the flea, at its configured ceiling. True if it bought."""
+    def buy_input(self, job, item, location):
+        """Buy one missing ingredient off the flea at its ceiling, at a location already found on
+        the craft row. True if it bought. No band read here: the caller read the whole row once."""
         ceiling = job.max_prices.get(item)
         if ceiling is None:
             log(f'no price ceiling set for {item}, skipping it this pass', 1)
             return False
-        band = craft.find_craft(job.craft, self.region)
-        if band is None:
-            log(f'lost the {job.craft.name} craft before buying, skipping', 1)
-            return False
-        location = find.find_center(f'crafting/{item}', band)
         if location is None:
             log(f'could not find {item} on the craft row to buy it', 1)
             return False
@@ -206,16 +202,27 @@ class HideoutCraft:
             self._swap()
             return
 
-        ready, missing = craft.validate_craftable(job.craft, self.region)
-        if ready:
+        # Read the whole row once into a to-buy queue (name + where it sits), buy the queue in a
+        # row, then read the row again to confirm it is ready before starting. One band read for
+        # the plan, not one per ingredient.
+        plan = craft.craft_plan(job.craft, self.region)
+        queue = [(name, location) for name, ready, location in plan if not ready]
+        if not queue:
             self.start_craft(job)
             self._pause(START_SETTLE)  # give the click time to flip the row to producing
             return
 
-        log(f'{job.craft.name} missing {missing}, buying each')
-        for item in missing:
+        log(f'{job.craft.name} missing {[name for name, _ in queue]}, buying each')
+        for name, location in queue:
             self._pause()  # a Stop between buys lands here
-            self.buy_missing(job, item)
+            self.buy_input(job, name, location)
+
+        ready, still_missing = craft.validate_craftable(job.craft, self.region)
+        if ready:
+            self.start_craft(job)
+            self._pause(START_SETTLE)
+        else:
+            log(f'{job.craft.name} still missing {still_missing} after buying, will retry', 1)
 
     def start(self):
         """Navigate to the first craft's station, then run the craft cycle until stop(). Blocks."""

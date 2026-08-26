@@ -410,43 +410,46 @@ def _mark_beneath(icon, marks):
     return best
 
 
-def ingredient_icon(craft, ingredient, region=None):
-    """This ingredient's icon on the craft's own row, or None. The band scopes to one row, but a
-    pad can catch a neighbouring row, so of any matches pick the one nearest the output's row."""
-    band = find_craft(craft, region)
-    output = output_box(craft, region)
-    if band is None or output is None:
-        return None
-    icons = find.find_all(ingredient.target, band)
-    if not icons:
-        return None
-    _, oy = _center(output)
-    return min(icons, key=lambda b: abs(_center(b)[1] - oy))
+def craft_plan(craft, region=None):
+    """Read the craft's whole row in one pass and report what each ingredient needs.
 
-
-def validate_craftable(craft, region=None):
-    """Are all of this craft's ingredients in the stash?
-
-    Only the craft's own row is read: the search is scoped to the band find_craft draws around the
-    output, so an ingredient of the same name on another craft's row cannot be mistaken for one of
-    these. With no craft on screen every ingredient reads as not ready.
-
-    Reads the checkmark or X drawn under each ingredient icon. Returns (all_ready, missing):
-    (True, []) when all show a checkmark, else (False, [names not ready]) in the craft's own
-    ingredient order. An ingredient is not ready when an X sits under it, when nothing does, or
-    when its icon is not on screen at all.
+    Returns a list of (name, ready, location) in the craft's ingredient order, from a single
+    find_craft band read rather than one read per ingredient. location is the ingredient icon's
+    centre (the point to right-click when buying), or None if the icon is not on the row. ready is
+    whether a checkmark sits under it. With no craft on screen every ingredient is (name, False,
+    None). The band scopes to one row, but a pad can catch a neighbour, so of any matches the icon
+    nearest the output's row is taken.
     """
     band = find_craft(craft, region)
     if band is None:
-        return (False, [ing.name for ing in craft.ingredients])
+        return [(ing.name, False, None) for ing in craft.ingredients]
+    output = output_box(craft, region)
+    oy = _center(output)[1] if output else None
     checks = find.find_all(CHECK_TARGET, band)
-    missing = []
+    plan = []
     for ing in craft.ingredients:
-        icon = ingredient_icon(craft, ing, region)
+        icons = find.find_all(ing.target, band)
+        if not icons:
+            icon = None
+        elif oy is not None:
+            icon = min(icons, key=lambda b: abs(_center(b)[1] - oy))
+        else:
+            icon = min(icons, key=lambda b: b.top)
         ready = icon is not None and _mark_beneath(icon, checks) is not None
+        location = _center(icon) if icon else None
         log(f'{ing.name}: {"ready" if ready else "not ready"}', 1)
-        if not ready:
-            missing.append(ing.name)
+        plan.append((ing.name, ready, location))
+    return plan
+
+
+def validate_craftable(craft, region=None):
+    """Are all of this craft's ingredients in the stash? (all_ready, [names not ready]).
+
+    One read of the craft's own row through craft_plan, so an ingredient of the same name on
+    another craft's row cannot be mistaken for one of these, and the row is not re-found per
+    ingredient. Not ready means an X under the icon, nothing under it, or the icon off screen.
+    """
+    missing = [name for name, ready, _ in craft_plan(craft, region) if not ready]
     return (not missing, missing)
 
 
