@@ -575,6 +575,36 @@ class App:
             Tip(menu, tip, self.fonts['label'])  # held by the widget's own bindings, not by us
         return var
 
+    def _number_input(self, caption, right, current, key, width, tip=None, tag=None, y=None):
+        """A caption and a digits-only tk.Entry that writes straight into prefs[key].
+
+        Same footprint and right-alignment as _dropdown, so a typed field drops in where a
+        dropdown used to sit. The validate command rejects any keystroke that would leave a
+        non-digit in the field; an empty field is allowed while editing and reads back as the
+        default at run time (craft_bot._ceiling). Saves on every accepted change, like a pick.
+        """
+        var = tk.StringVar(value=str(current))
+
+        def save(*_):
+            self.prefs[key] = var.get()
+            settings.save(self.prefs)
+        var.trace_add('write', save)
+
+        allow = (self.canvas.register(lambda proposed: proposed == '' or proposed.isdigit()), '%P')
+        entry = tk.Entry(self.canvas, textvariable=var, validate='key', validatecommand=allow,
+                         bg=theme.PLATE, fg=theme.INK, insertbackground=theme.INK,
+                         highlightthickness=1, bd=0, relief='flat', highlightbackground=theme.LINE,
+                         highlightcolor=theme.LINE, font=self.fonts['label'], justify='right')
+        tags = (tag,) if tag else ()
+        y = DROP_ROW[0] if y is None else y
+        self.canvas.create_window(right, y, anchor='e', window=entry, width=width, height=24,
+                                  tags=tags)
+        self.canvas.create_text(right - width - 10, y + 1, anchor='e', text=spaced(caption),
+                                fill=theme.INK_FAINT, font=self.fonts['small'], tags=tags)
+        if tip:
+            Tip(entry, tip, self.fonts['label'])
+        return var
+
     def _draw_stats(self, tab, module):
         """One mode's stat rows, tagged so _show_tab can hide them as a set.
 
@@ -760,13 +790,8 @@ class App:
         self.prefs['trader'] = label  # a trader's name, or snipe_bot.ALL_TRADERS
         settings.save(self.prefs)
 
-    def _pick_crackers(self, label):
-        self.prefs['crackers_max'] = label  # the dropdown's labels are the keys, so no lookup
-        settings.save(self.prefs)
-
-    def _pick_alyonka(self, label):
-        self.prefs['alyonka_max'] = label  # the dropdown's labels are the keys, so no lookup
-        settings.save(self.prefs)
+    # crackers_max / alyonka_max are typed fields now (see _number_input), which save
+    # themselves through a StringVar trace, so there are no pick handlers for them.
 
     # ------------------------------------------------------------------ running
 
