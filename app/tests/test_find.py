@@ -40,7 +40,10 @@ NOT_TARGETS = {'dead_pixels', 'price_digits'}
 
 
 def targets():
-    return sorted(p.name for p in find.REFS.iterdir()
+    # rglob, not iterdir, so a nested folder like crafting/start is found too. A target is any
+    # folder holding pngs directly; a name in NOT_TARGETS is skipped wherever it sits. Names come
+    # back as forward-slashed paths relative to REFS, which is what find.images() takes.
+    return sorted(p.relative_to(find.REFS).as_posix() for p in find.REFS.rglob('*')
                   if p.is_dir() and p.name not in NOT_TARGETS and any(p.glob('*.png')))
 
 
