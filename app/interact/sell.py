@@ -47,7 +47,7 @@ SELECT_POLL_DELAY = 0.5  # after a click, before reading what it did
 SELECT_WINDOW_DELAY = WINDOW_DELAY / 2  # after filter by item, for the flea panel to catch up
 ADD_OFFER_TARGET = 'add_offer'  # the button that opens the offer creation window
 OFFER_TARGET = 'offer_creation_window_title'  # that window's title bar, for dragging and for
-# spotting one left open. Named to match scav_case_window_title and flea_filters_window_title:
+# spotting one left open. Named to match scav_case_window_title and flea_filters/window_title:
 # the three things recovery escapes are all matched on their title bars, for the same reason.
 SCAV_WINDOW_TARGET = 'scav_case_window_title'  # reference images for the opened scav case window
 CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we want the leftmost
@@ -132,18 +132,24 @@ OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
 # Everything belonging to the flea's filter window shares a flea_filters_ prefix, so the
 # reference_images listing groups them instead of scattering them through the alphabet.
 # filter_by_item is deliberately not one of these: that is the inventory right-click menu.
-FILTER_BUTTON_TARGET = 'flea_filters_button'  # opens the flea's filter window
-FILTERS_WINDOW_TARGET = 'flea_filters_window_title'  # that window's title bar, for dragging it
+FILTER_BUTTON_TARGET = 'flea_filters/button'  # opens the flea's filter window
+FILTERS_WINDOW_TARGET = 'flea_filters/window_title'  # that window's title bar, for dragging it
 # Clears every filter on that window, and closes it doing so. Only the buyer's pass uses it:
 # see apply_flea_filters for why a buyer resets and a seller does not.
-RESET_TARGET = 'flea_filters_reset_button'
-CURRENCY_ANY_TARGET = 'flea_filters_currency_dropdown_any'  # currency, while it still says any
-CURRENCY_RUBLES_OPTION = 'flea_filters_currency_dropdown_select_rubles'  # roubles, in the opened dropdown
-CURRENCY_RUB_TARGET = 'flea_filters_currency_dropdown_rub'  # the dropdown once it reads roubles
-OFFERS_FROM_ANY_TARGET = 'flea_filters_offers_from_any'  # offers-from, while it still says any
-OFFERS_FROM_PLAYERS_OPTION = 'flea_filters_offers_from_select_players'  # players, in the opened dropdown
-OFFERS_FROM_PLAYERS_TARGET = 'flea_filters_offers_from_players'  # the dropdown once it reads players
-FILTERS_OK_TARGET = 'flea_filters_OK_button'  # applies the filters and closes the window
+RESET_TARGET = 'flea_filters/reset_button'
+CURRENCY_ANY_TARGET = 'flea_filters/currency_dropdown_any'  # currency, while it still says any
+CURRENCY_RUBLES_OPTION = 'flea_filters/currency_dropdown_select_rubles'  # roubles, in the opened dropdown
+CURRENCY_RUB_TARGET = 'flea_filters/currency_dropdown_rub'  # the dropdown once it reads roubles
+OFFERS_FROM_ANY_TARGET = 'flea_filters/offers_from_any'  # offers-from, while it still says any
+OFFERS_FROM_PLAYERS_OPTION = 'flea_filters/offers_from_select_players'  # players, in the opened dropdown
+OFFERS_FROM_PLAYERS_TARGET = 'flea_filters/offers_from_players'  # the dropdown once it reads players
+OFFERS_FROM_TRADERS_OPTION = 'flea_filters/offers_from_select_traders'  # traders, in the opened dropdown
+OFFERS_FROM_TRADERS_TARGET = 'flea_filters/offers_from_traders'  # the dropdown once it reads traders
+# The offers-from choice, keyed by the source name callers pass: (option in the open list, settled
+# field once picked). 'players' is the default everywhere but crafts mode, which buys from either.
+OFFERS_FROM = {'players': (OFFERS_FROM_PLAYERS_OPTION, OFFERS_FROM_PLAYERS_TARGET),
+               'traders': (OFFERS_FROM_TRADERS_OPTION, OFFERS_FROM_TRADERS_TARGET)}
+FILTERS_OK_TARGET = 'flea_filters/OK_button'  # applies the filters and closes the window
 CONDITION_VALUE = '100'  # only sell pristine items, so the board we undercut is pristine ones
 # The number box carries no border of its own worth matching and its contents are the thing
 # being set, so it is aimed at by crossing two labels that never change instead: the row's Y
@@ -152,8 +158,8 @@ CONDITION_VALUE = '100'  # only sell pristine items, so the board we undercut is
 # the 80/100 crops cannot do. Keep both crop folders internally consistent in extent: find()
 # cannot say which png matched, so a crop with more padding than its neighbours moves the
 # centre this aims at.
-CONDITION_LABEL_TARGET = 'flea_filters_condition_from_label'  # gives the row: its middle Y
-EXPIRING_TEXT_TARGET = 'flea_filters_items_expiring_text'  # gives the column: its middle X
+CONDITION_LABEL_TARGET = 'flea_filters/condition_from_label'  # gives the row: its middle Y
+EXPIRING_TEXT_TARGET = 'flea_filters/items_expiring_text'  # gives the column: its middle X
 DROPDOWN_DELAY = 0.3  # seconds for the currency dropdown to unroll
 OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
 # Goes at one dropdown before giving up on it. More than one because the usual failure is a
@@ -1383,8 +1389,16 @@ def open_filters(region=None):
     return True
 
 
-def apply_flea_filters(region=None, reset=False):
-    """Open the flea's filter window, set roubles, players and 100% condition, then OK out.
+def apply_flea_filters(region=None, reset=False, source='players', set_condition=True):
+    """Open the flea's filter window, set roubles, an offer source and 100% condition, then OK out.
+
+    source picks the offers-from dropdown: 'players' (the default, what both flea modes want) or
+    'traders' (crafts mode buys inputs from either). Same three-crop dance either way, only the
+    option and settled crops differ, see sell.OFFERS_FROM.
+
+    set_condition types 100 into the condition-from box, which both flea modes want (an item at
+    less than full durability is worth less). Crafts mode passes False: a craft input is consumed,
+    not resold, so its condition does not matter and filtering on it only hides cheaper offers.
 
     Returns True once everything reads the right thing and the window is closed. The dropdowns
     are only touched while they still say 'any', so running this against an already filtered
@@ -1425,16 +1439,17 @@ def apply_flea_filters(region=None, reset=False):
         return False
 
     # Three folders, the same shape as currency above. These used to be two: the option and the
-    # settled state both read out of flea_filters_offers_from_select_players, on the idea that
+    # settled state both read out of flea_filters/offers_from_select_players, on the idea that
     # find() tries every png in a folder so both kinds of crop could share one. They cannot. A
     # list row and a closed field are different things (the field carries the dropdown chevron,
     # the row does not), and sharing a folder hid that every crop in it was of the field, so
     # clicking the option looked for a chevron the open list has never had.
-    if not _set_dropdown(OFFERS_FROM_ANY_TARGET, OFFERS_FROM_PLAYERS_OPTION,
-                         OFFERS_FROM_PLAYERS_TARGET, region, OFFERS_FROM_DELAY):
+    option_target, settled_target = OFFERS_FROM[source]
+    if not _set_dropdown(OFFERS_FROM_ANY_TARGET, option_target, settled_target,
+                         region, OFFERS_FROM_DELAY):
         return False
 
-    if not _set_condition_from(region):
+    if set_condition and not _set_condition_from(region):
         return False
 
     point = jitter(find.find_center(FILTERS_OK_TARGET, region))  # applies them and shuts the window
