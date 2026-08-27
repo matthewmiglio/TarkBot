@@ -56,7 +56,11 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'slickers_enabled': True,
             'fleece_enabled': True,
             'wires_enabled': True,
-            'ai2_enabled': True}
+            'ai2_enabled': True,
+            # The last mode (tab key) a run was actually started in. When the next run is a
+            # different mode, the GUI wipes the logs and frames first so a mode's debug artifacts
+            # are only ever its own; same mode twice running just accumulates. See gui/app.App.start.
+            'last_run_mode': ''}
 
 
 # Keys that changed name, as {old: new}. A settings.json written by an older build still has

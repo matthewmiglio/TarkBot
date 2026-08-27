@@ -1008,6 +1008,16 @@ class App:
             self._set_status(str(e), theme.ERROR)
             return
         self.error = None
+        # Starting a different mode than last time: wipe the frames so this mode's before/after
+        # shots are only ever its own, rather than buried under the last mode's. Logs are left to
+        # stack under their own 10-deep cap; they are tiny beside the frames. Same mode twice keeps
+        # accumulating. Only reached once the build succeeded, so a failed start never wipes.
+        if self.prefs.get('last_run_mode') != self.tab:
+            was = self.prefs.get('last_run_mode') or 'none'
+            narrate.log(f'new run mode {self.tab} (was {was}), clearing old frames')
+            frames.clear()
+            self.prefs['last_run_mode'] = self.tab
+            settings.save(self.prefs)
         self._set_run('stop')  # pressable through the countdown, so that can be cancelled too
         self._countdown(COUNTDOWN)
 

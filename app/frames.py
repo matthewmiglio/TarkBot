@@ -113,6 +113,23 @@ def stop():
     flush()  # whatever the last pass took is worth having on disk before anyone looks
 
 
+def clear():
+    """Delete every frame on disk now, for a clean start (a new mode's run wants only its own).
+
+    Queued through the saver like every other delete, so it cannot race a write already in flight,
+    and _kept is reset so the cap counts from zero. A no-op before start(), when there is no
+    directory yet. Returns how many were dropped.
+    """
+    if _dir is None:
+        return 0
+    dropped = 0
+    for path in sorted(_dir.glob(f'*{SUFFIX}')):
+        _saves.put((path, None))
+        dropped += 1
+    _kept.clear()
+    return dropped
+
+
 def _prune():
     """Queue the oldest frames for deletion until at most `_keep` are left. Returns how many."""
     dropped = 0
@@ -256,6 +273,15 @@ if __name__ == '__main__':
         before = len(_kept)
         nested.press('f5')
         assert len(_kept) - before == 2, 'the guard lifted again'
+
+        # clear() empties the folder for a fresh mode, and leaves the cap counting from zero.
+        capture('keep-me', blank)
+        flush()
+        assert list(directory.glob(f'*{SUFFIX}')), 'a frame to clear'
+        clear()
+        flush()
+        assert not list(directory.glob(f'*{SUFFIX}')), 'clear() emptied the folder'
+        assert len(_kept) == 0, 'and reset the cap bookkeeping'
 
         stop()
         count = len(list(directory.glob(f'*{SUFFIX}')))
