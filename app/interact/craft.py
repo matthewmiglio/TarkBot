@@ -41,7 +41,6 @@ MENU_DELAY = 0.33  # after the right click, for the inventory context menu to dr
 FLEA_LOAD_DELAY = 3.0  # after 'filter by item', for the flea board and its filter UI to load
 OFFER_WAIT = 10.0  # after the filters go on, how long to keep looking for an offer before giving up
 OFFER_POLL = 0.3  # how often to re-check the board for an offer while waiting
-OVER_PRICE_WAIT = 10.0  # seconds to sit after backing out of an offer that costs too much
 BOUGHT_SETTLE = 2.0  # seconds after a purchase before the caller does anything else
 NUTRITION_RETURN_WAIT = 10.0  # how long to wait for the nutrition panel after escaping the flea
 NUTRITION_RETURN_POLL = 0.2  # how often to re-check for it while waiting
@@ -84,6 +83,11 @@ LAVATORY_ACTIVE_TARGET = 'hideout/hideout_station_titles/lavatory'  # its panel 
 # and navigation functions serves both. ingredients are (name, icon target); the name doubles as
 # the key the runner looks its rouble ceiling and offer source up under, and matches the crafting/
 # folder, so buying can aim at crafting/<name> without a second lookup.
+class PriceTooHigh(Exception):
+    """Raised by buy_craft_input_item when the cheapest offer is over the ceiling: the caller has
+    already backed out to the station, and this says to stop buying and move on to the next craft."""
+
+
 Ingredient = namedtuple('Ingredient', 'name target')
 Craft = namedtuple('Craft', 'name output_target ingredients module_target station_title')
 
@@ -505,9 +509,10 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
 
     if price is None or price > max_price:
         why = 'unreadable' if price is None else f'{price} over the {max_price} ceiling'
-        log(f'not buying ({why}), backing out and waiting {OVER_PRICE_WAIT}s', 1)
-        pyautogui.press('esc')
-        time.sleep(OVER_PRICE_WAIT)
+        log(f'not buying ({why}), backing out', 1)
+        return_to_station(craft, region)  # esc off the flea, back to the hideout station
+        if price is not None:  # a real price over the ceiling: tell the runner to move on
+            raise PriceTooHigh(f'{price} over the {max_price} ceiling')
         return False
 
     log(f'{price} is at or under {max_price}, buying', 1)

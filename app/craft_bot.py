@@ -215,7 +215,14 @@ class HideoutCraft:
         log(f'{job.craft.name} missing {[name for name, _ in queue]}, buying each')
         for name, location in queue:
             self._pause()  # a Stop between buys lands here
-            self.buy_input(job, name, location)
+            try:
+                self.buy_input(job, name, location)
+            except craft.PriceTooHigh as e:
+                # Too dear right now. buy_input already backed out to the station; leave the rest
+                # of the queue and go tend the other craft rather than overpaying or waiting.
+                log(f'{name} {e}, swapping to the next craft', 1)
+                self._swap()
+                return
 
         ready, still_missing = craft.validate_craftable(job.craft, self.region)
         if ready:
