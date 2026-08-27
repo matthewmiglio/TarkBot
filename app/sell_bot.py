@@ -1,4 +1,6 @@
+import contextlib
 import random
+import sys
 import threading
 import time
 from collections import namedtuple
@@ -9,6 +11,50 @@ import screen
 import window
 from interact import sell, snipe
 from narrate import log
+
+JITTER_MAX = 1.0  # seconds; a random 0-JITTER_MAX pad on every flea-sell wait and before its clicks
+
+
+@contextlib.contextmanager
+def _human_jitter():
+    """Flea-sell only: pad every deliberate wait by 0-JITTER_MAX s and pause the same before
+    every click, so the pacing is not machine-uniform. Installed for the length of one run and
+    taken back out in the finally, so the sniper and the gym, which reuse sell.py's helpers,
+    never inherit it.
+
+    ponytail: a run-scoped monkeypatch, not jitter threaded through ~60 scattered click and
+    sleep sites across sell.py and sell_bot.py. Only one mode runs at a time, and frames.py
+    already wraps these same pyautogui calls in place, so this is the shape the code already uses.
+
+    time.sleep is jittered only when the caller is the sell code (module 'sell_bot' or
+    'interact.sell'); pyautogui's own PAUSE and its tweened drags call time.sleep from inside
+    pyautogui, so they are left exact and a 0.4s drag stays 0.4s.
+    """
+    real_sleep = time.sleep
+    sell_modules = {'sell_bot', 'interact.sell'}
+    clicks = ('click', 'rightClick', 'dragTo')
+    saved_clicks = {name: getattr(pyautogui, name) for name in clicks}
+
+    def jittered_sleep(seconds=0.0):
+        if sys._getframe(1).f_globals.get('__name__', '') in sell_modules:
+            seconds += random.uniform(0, JITTER_MAX)
+        real_sleep(seconds)
+
+    def wait_then(fn):
+        def clicked(*args, **kwargs):
+            real_sleep(random.uniform(0, JITTER_MAX))
+            return fn(*args, **kwargs)
+        return clicked
+
+    time.sleep = jittered_sleep
+    for name, fn in saved_clicks.items():
+        setattr(pyautogui, name, wait_then(fn))
+    try:
+        yield
+    finally:
+        time.sleep = real_sleep
+        for name, fn in saved_clicks.items():
+            setattr(pyautogui, name, fn)
 
 SCAV_CHANCE = 0.5  # how often to sell out of a scav case instead of the stash, when enabled
 # Where the bot takes items from. key -> (label, target_scav_cases, scav_chance). The GUI
@@ -500,21 +546,22 @@ class FleaSeller:
         """Sell one item after another until stop() is called. Blocks, so give it a thread."""
         log('Starting Flea Seller')
         self._stop.clear()
-        self._recover()
         passes = 0
         try:
-            while not self._stop.is_set():
-                passes += 1
-                log(f'===== pass {passes} =====')
-                try:
-                    self.sell_one()
-                except Retry as e:  # recoverable, the screen has already been backed out of
-                    log(f'{e}, starting a fresh pass')
-                    # Here rather than in sell_one, because a pass has many ways to fail and the
-                    # Error dialog is the one that fails all of them at once. Costs one match on
-                    # a pass that was already lost, and a run stuck behind that dialog would
-                    # otherwise lose every pass after it until Stop.
-                    sell.dismiss_error_popup(self.region)
+            with _human_jitter():
+                self._recover()
+                while not self._stop.is_set():
+                    passes += 1
+                    log(f'===== pass {passes} =====')
+                    try:
+                        self.sell_one()
+                    except Retry as e:  # recoverable, the screen has already been backed out of
+                        log(f'{e}, starting a fresh pass')
+                        # Here rather than in sell_one, because a pass has many ways to fail and
+                        # the Error dialog is the one that fails all of them at once. Costs one
+                        # match on a pass that was already lost, and a run stuck behind that
+                        # dialog would otherwise lose every pass after it until Stop.
+                        sell.dismiss_error_popup(self.region)
         except Stopped:
             log('stopped part way through a pass')
         finally:
