@@ -176,6 +176,34 @@ def confidence_for(name):
     return CONFIDENCES.get(name, CONFIDENCE)
 
 
+def best_score(name, region=None, haystack=None):
+    """The peak match score for `name`, and which crop gave it, ignoring the threshold: (score, crop).
+
+    find() only ever says a target was or was not found. This says how close a miss came, which is
+    the difference between a 0.78 that wants a looser CONFIDENCE and a 0.20 that is not on the
+    screen at all. Used only for logging (VERBOSE, and craft mode's detection narration), so it is
+    allowed to be the second, slower matcher rather than folded into find()'s hot path.
+
+    Same needle() resize and same haystack as find(), so the number is the one find() would judge.
+    """
+    import cv2  # a real dependency already (opencv-python backs the confidence matching), lazy so
+    import numpy as np  # importing find.py for the geometry self-checks stays cv2-free
+
+    image, _ = _haystack(region, haystack)
+    hay = cv2.cvtColor(np.asarray(image.convert('RGB')), cv2.COLOR_RGB2BGR)
+    best, which = 0.0, None
+    for path in images(name):
+        grown = needle(path)
+        crop = (cv2.imread(grown) if isinstance(grown, str)
+                else cv2.cvtColor(np.asarray(grown.convert('RGB')), cv2.COLOR_RGB2BGR))
+        if crop is None or crop.shape[0] > hay.shape[0] or crop.shape[1] > hay.shape[1]:
+            continue  # a crop taller or wider than the search area would make matchTemplate raise
+        score = float(cv2.matchTemplate(hay, crop, cv2.TM_CCOEFF_NORMED).max())
+        if score > best:
+            best, which = score, path.name
+    return best, which
+
+
 def find(name, region=None, confidence=None, haystack=None):
     """First match for `name` as Box(left, top, width, height), or None.
 
@@ -199,8 +227,9 @@ def find(name, region=None, confidence=None, haystack=None):
                     f'in {time.monotonic() - started:.2f}s', 2)
             return box
     if VERBOSE:
+        peak, crop = best_score(name, haystack=image)  # the same grab find() just judged
         log(f'find {name}: none of {len(paths)} reference images matched at confidence '
-            f'{confidence} in {time.monotonic() - started:.2f}s '
+            f'{confidence} (best {peak:.3f} from {crop}) in {time.monotonic() - started:.2f}s '
             f'({", ".join(p.name for p in paths)})', 2)
     return None
 
@@ -303,5 +332,13 @@ if __name__ == '__main__':
 
     assert needle(path) == str(path), '1080p hands the matcher the file itself, unresized'
 
+    # best_score reads the peak regardless of threshold: high where the crop is pasted whole,
+    # low on a blank screen. This is what turns a craft miss into "best 0.78" rather than silence.
+    peak, crop = best_score(loose, haystack=fake)
+    assert peak > 0.95 and crop is not None, f'best_score saw {loose} pasted whole only at {peak}'
+    blank = Image.new('RGB', (1920, 1080), (30, 30, 30))
+    assert best_score(loose, haystack=blank)[0] < 0.5, 'best_score stays low when the target is gone'
+
     print(f'ok, {name} {reference.size} -> {grown.size} found at {box.left, box.top}, '
-          f'{loose} matched at {confidence_for(loose)} and not at {CONFIDENCE}')
+          f'{loose} matched at {confidence_for(loose)} and not at {CONFIDENCE}, '
+          f'best_score {peak:.3f} present')

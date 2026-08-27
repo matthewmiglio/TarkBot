@@ -240,6 +240,12 @@ class HideoutCraft:
         log('Starting Hideout Craft')
         self._stop.clear()
         started = time.perf_counter()
+        # Craft mode leans hardest on detection (tab, station carousel, panel headers, ingredient
+        # marks), and it is the mode whose misses we are still chasing, so narrate every match and,
+        # on a miss, how close it came. Scoped to this run and restored after, so the flea loop that
+        # would drown in it is untouched. See find.VERBOSE and find.best_score.
+        was_verbose = find.VERBOSE
+        find.VERBOSE = True
         try:
             self._ensure_on(self.jobs[self.index])
             while not self._stop.is_set():
@@ -247,6 +253,7 @@ class HideoutCraft:
         except Stopped:
             log('stopped between steps')
         finally:
+            find.VERBOSE = was_verbose
             log(f'Hideout Craft finished after {time.perf_counter() - started:.0f}s. '
                 + ', '.join(f'{label} {self.stats[key]}' for key, label in STAT_LABELS))
 
