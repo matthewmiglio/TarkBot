@@ -68,7 +68,7 @@ SWIPE_DURATION = 0.3  # seconds the drag itself takes
 SWIPE_SETTLE = 0.5  # seconds after a swipe for the view to stop moving before it is read
 RESET_SWIPES = 5  # swipes left to push the view to one end before searching rightwards
 MAX_SEARCH_SWIPES = 10  # swipes right looking for the nutrition unit before giving up
-TAB_TIMEOUT = 10.0  # seconds for the hideout tab to come back after clicking it
+TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
 NAV_SETTLE = 3.0  # seconds to let a navigation land before reading or clicking again
 
 # Fleece craft, the second one this module runs. Its two inputs and its output each have their own
