@@ -43,14 +43,17 @@ DEFAULT_SOURCE = 'Players'
 
 # Per-ingredient defaults, used when the GUI has no saved value (or a junk one). The max is the most
 # roubles to pay on the flea; the source is who to buy from. These match settings.DEFAULTS.
-DEFAULT_MAX = {'crackers': 22000, 'alyonka': 17500, 'sewing_kit': 38500, 'ux_pro_beanie': 3500}
+DEFAULT_MAX = {'crackers': 22000, 'alyonka': 17500, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
+               'power_cord': 62000, 'pile_of_meds': 16600}
 DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders'}  # anything not listed defaults to players
 
 # Estimated net roubles one finished craft is worth: the output's flea value less its inputs' cost.
 # A single figure per craft, not a live read, so 'Est. profit' below is (crafts collected) * this.
 # ponytail: constants, since input prices and output values drift; update them when they have, or
 # read them off the market if this ever needs to be exact. Fleece's is a placeholder until measured.
-PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321}
+PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321, 'wires': 47235, 'ai2': 3521}
+
+GET_ITEMS_SETTLE = 5.0  # seconds after clicking GET ITEMS; collecting can hang for a beat
 
 # The counters, in the order the GUI lists them. Same shape as sell_bot.STAT_LABELS.
 STAT_LABELS = (('crafts', 'Crafts started'), ('profit', 'Est. profit'))
@@ -99,9 +102,9 @@ class HideoutCraft:
     def _ensure_on(self, job):
         """Get to this craft's station if we are not already looking at it."""
         if craft.station_active(job.craft, self.region):
-            log(f'already on the {job.craft.name} station', 1)
+            log(f'already on the {job.craft.station}', 1)
             return
-        log(f'not on the {job.craft.name} station, navigating there', 1)
+        log(f'not on the {job.craft.station}, navigating there', 1)
         craft.get_to_station(job.craft, self.region)  # raises LookupError if it cannot get there
 
     def _swap(self):
@@ -163,6 +166,7 @@ class HideoutCraft:
         point = sell.jitter(point)
         log(f'collecting the {job.craft.name} craft, clicking GET ITEMS at {point}', 1)
         pyautogui.click(*point)
+        time.sleep(GET_ITEMS_SETTLE)  # collecting sometimes hangs; wait it out before moving on
         self._park(point)
         self.stats['profit'] += PROFIT_PER_CRAFT.get(job.craft.name, 0)
         return point
@@ -276,7 +280,7 @@ def build(prefs, stats):
     """
     screen.use(prefs.get('monitor', screen.AUTO))  # before the runner, which clips to it
     jobs = []
-    for craft_desc in (craft.SLICKERS, craft.FLEECE):
+    for craft_desc in craft.CRAFTS.values():
         if not prefs.get(f'{craft_desc.name}_enabled', True):  # only run the crafts ticked in the GUI
             continue
         max_prices, sources = {}, {}

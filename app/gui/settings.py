@@ -46,10 +46,17 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'sewing_kit_source': 'Players',
             'ux_pro_beanie_max': '3500',
             'ux_pro_beanie_source': 'Traders',
-            # Which crafts the runner actually runs, one <name>_enabled per craft. Both on by
+            # Workbench and medstation crafts, each a single input. Same <stem>_max / _source shape.
+            'power_cord_max': '62000',
+            'power_cord_source': 'Players',
+            'pile_of_meds_max': '16600',
+            'pile_of_meds_source': 'Players',
+            # Which crafts the runner actually runs, one <name>_enabled per craft. All on by
             # default; the GUI refuses to start with none ticked.
             'slickers_enabled': True,
-            'fleece_enabled': True}
+            'fleece_enabled': True,
+            'wires_enabled': True,
+            'ai2_enabled': True}
 
 
 # Keys that changed name, as {old: new}. A settings.json written by an older build still has

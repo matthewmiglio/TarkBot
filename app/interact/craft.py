@@ -79,6 +79,18 @@ BEANIE_TARGET = 'crafting/ux_pro_beanie'
 LAVATORY_TARGET = 'hideout/hideout_tabs/lavatory'  # the fleece craft's station, in the module carousel
 LAVATORY_ACTIVE_TARGET = 'hideout/hideout_station_titles/lavatory'  # its panel header once open
 
+# Workbench craft: a single input, power cord, into wires.
+POWER_CORD_TARGET = 'crafting/power_cord'
+WIRES_TARGET = 'crafting/wires'
+WORKBENCH_TARGET = 'hideout/hideout_tabs/workbench'
+WORKBENCH_ACTIVE_TARGET = 'hideout/hideout_station_titles/workbench'
+
+# Medstation craft: a single input, a pile of meds, into an AI-2.
+PILE_OF_MEDS_TARGET = 'crafting/pile_of_meds'
+AI2_TARGET = 'crafting/ai2'
+MEDSTATION_TARGET = 'hideout/hideout_tabs/medstation'
+MEDSTATION_ACTIVE_TARGET = 'hideout/hideout_station_titles/medstation'
+
 # A craft is everything that differs between the slickers and fleece runs, so one set of reading
 # and navigation functions serves both. ingredients are (name, icon target); the name doubles as
 # the key the runner looks its rouble ceiling and offer source up under, and matches the crafting/
@@ -89,15 +101,23 @@ class PriceTooHigh(Exception):
 
 
 Ingredient = namedtuple('Ingredient', 'name target')
-Craft = namedtuple('Craft', 'name output_target ingredients module_target station_title')
+# station is the human name of the hideout module the craft runs at, for prints: the slickers
+# craft lives at the nutrition unit, the fleece craft at the lavatory. name is the item/output.
+Craft = namedtuple('Craft', 'name output_target ingredients module_target station_title station')
 
 SLICKERS = Craft('slickers', SLICKERS_TARGET,
                  (Ingredient('crackers', CRACKERS_TARGET), Ingredient('alyonka', ALYONKA_TARGET)),
-                 NUTRITION_TARGET, NUTRITION_ACTIVE_TARGET)
+                 NUTRITION_TARGET, NUTRITION_ACTIVE_TARGET, 'nutrition unit')
 FLEECE = Craft('fleece', FLEECE_TARGET,
                (Ingredient('sewing_kit', SEWING_KIT_TARGET), Ingredient('ux_pro_beanie', BEANIE_TARGET)),
-               LAVATORY_TARGET, LAVATORY_ACTIVE_TARGET)
-CRAFTS = {c.name: c for c in (SLICKERS, FLEECE)}
+               LAVATORY_TARGET, LAVATORY_ACTIVE_TARGET, 'lavatory')
+WIRES = Craft('wires', WIRES_TARGET,
+              (Ingredient('power_cord', POWER_CORD_TARGET),),
+              WORKBENCH_TARGET, WORKBENCH_ACTIVE_TARGET, 'workbench')
+AI2 = Craft('ai2', AI2_TARGET,
+            (Ingredient('pile_of_meds', PILE_OF_MEDS_TARGET),),
+            MEDSTATION_TARGET, MEDSTATION_ACTIVE_TARGET, 'medstation')
+CRAFTS = {c.name: c for c in (SLICKERS, FLEECE, WIRES, AI2)}
 
 
 def hideout_tab_brightness(region=None):
@@ -123,7 +143,7 @@ def is_hideout_tab_active(region=None, threshold=HIDEOUT_TAB_ACTIVE_BRIGHTNESS):
 def station_active(craft, region=None):
     """True when this craft's station panel is open, read off its header title."""
     active = find.find(craft.station_title, region) is not None
-    log(f'{craft.name} station panel {"open" if active else "not open"}', 1)
+    log(f'{craft.station} panel {"open" if active else "not open"}', 1)
     return active
 
 
@@ -179,7 +199,7 @@ def get_to_station(craft, region=None):
 
     # Already looking at it? Click it and skip the scrolling entirely.
     if find.find(craft.module_target, region):
-        log(f'{craft.name} station already on screen, no scrolling needed', 1)
+        log(f'{craft.station} already on screen, no scrolling needed', 1)
         return _open_station(craft, region)
 
     icons = hideout_icons(region)
@@ -195,10 +215,10 @@ def get_to_station(craft, region=None):
         _swipe(x, y, -dist)
         time.sleep(SWIPE_SETTLE)
         if find.find(craft.module_target, region):  # spotted it while resetting, stop early
-            log(f'{craft.name} station appeared while resetting left', 1)
+            log(f'{craft.station} appeared while resetting left', 1)
             return _open_station(craft, region)
 
-    log(f'searching right for the {craft.name} station, up to {MAX_SEARCH_SWIPES} swipes', 1)
+    log(f'searching right for the {craft.station}, up to {MAX_SEARCH_SWIPES} swipes', 1)
     found = find.find(craft.module_target, region)
     swipes = 0
     while not found and swipes < MAX_SEARCH_SWIPES:
@@ -207,7 +227,7 @@ def get_to_station(craft, region=None):
         time.sleep(SWIPE_SETTLE)
         found = find.find(craft.module_target, region)
     if not found:
-        raise LookupError(f'{craft.name} station never appeared after {MAX_SEARCH_SWIPES} swipes')
+        raise LookupError(f'{craft.station} never appeared after {MAX_SEARCH_SWIPES} swipes')
     return _open_station(craft, region)
 
 
@@ -217,15 +237,15 @@ def _open_station(craft, region=None):
     Shared by all three ways get_to_station spots the module: already on screen, seen while
     resetting left, or found swiping right.
     """
-    log(f'{craft.name} station found, settling {NAV_SETTLE}s before clicking', 1)
+    log(f'{craft.station} found, settling {NAV_SETTLE}s before clicking', 1)
     time.sleep(NAV_SETTLE)
     box = find.find(craft.module_target, region)
     if not box:
-        raise LookupError(f'lost the {craft.name} station while the screen settled')
+        raise LookupError(f'lost the {craft.station} while the screen settled')
     pyautogui.click(*sell.jitter(pyautogui.center(box)))
     time.sleep(NAV_SETTLE)
     if not station_active(craft, region):
-        raise LookupError(f'clicked the {craft.name} station but its panel never opened')
+        raise LookupError(f'clicked the {craft.station} but its panel never opened')
     return True
 
 
@@ -534,11 +554,11 @@ def return_to_station(craft, region=None):
     deadline = time.monotonic() + NUTRITION_RETURN_WAIT
     while True:
         if find.find(craft.station_title, region) is not None:
-            log(f'back on the {craft.name} station', 1)
+            log(f'back on the {craft.station}', 1)
             return
         if time.monotonic() >= deadline:
             raise LookupError(
-                f'{craft.name} station panel did not reappear within {NUTRITION_RETURN_WAIT}s of '
+                f'{craft.station} panel did not reappear within {NUTRITION_RETURN_WAIT}s of '
                 'leaving the flea')
         time.sleep(NUTRITION_RETURN_POLL)
 

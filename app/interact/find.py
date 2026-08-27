@@ -79,10 +79,16 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # 0.8 clears that with a small margin. The text and icon are distinctive, so another module's
 # header is not expected to reach it, but the off-screen ceiling against other panels is not yet
 # measured; confirm it stays clear before this is trusted for the pre-navigation check.
+# crafting/power_cord is the eighth: the wires craft's input is a thin cable on a dark cell, low
+# contrast, and its best crop peaks ~0.78 on a live 1440p row (found at 0.78, gone by 0.8), so the
+# 0.9 default never locates it and the wires craft loops 'could not find power_cord' forever. 0.75
+# catches it with a little margin; the match is scoped to the one craft row, where nothing else is
+# cable-like, so the loosened threshold has no other icon to catch by mistake.
 CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
                'scav_case': 0.8, 'filter_by_item': 0.7,
                'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
-               'hideout/hideout_station_titles/nutrition_unit': 0.8}
+               'hideout/hideout_station_titles/nutrition_unit': 0.8,
+               'crafting/power_cord': 0.75}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
