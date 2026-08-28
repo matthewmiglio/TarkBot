@@ -242,13 +242,18 @@ def best_score(name, region=None, haystack=None):
     return best, which
 
 
-def _capture_detection(name, image):
-    """Save the exact image a detection just judged, as a frame, when VERBOSE.
+def _capture_detection(name):
+    """Save a full-screen frame of what a detection saw, when VERBOSE.
 
     The point is the miss with no click behind it: find() grabs the screen, matches nothing, and
     returns, so the input-driven frames.watch() never fires and the run leaves a log line about a
-    target it could not see with no picture of the screen it could not see it on. This closes that,
-    reusing the grab find() already has rather than taking a second shot of a moment already gone.
+    target it could not see with no picture of the screen it could not see it on. This closes that.
+
+    Always the whole screen, never the searched region. find() often matches inside a small box (a
+    craft row, a button), and a frame of that strip alone is nearly useless to look at and cannot
+    be recropped into a new reference image, which is the main thing these frames are for. So this
+    grabs the full working monitor (frames.capture with no image does its own screen.grab), one
+    extra grab beyond the region find() matched, which is why it is gated on VERBOSE.
 
     Gated on VERBOSE, not always on, for the same reason VERBOSE itself is: the selling loop calls
     find() several times a second, and a frame each would churn the 250-frame pool in seconds and
@@ -257,7 +262,7 @@ def _capture_detection(name, image):
     geometry self-checks can import find.py without the frames stack.
     """
     import frames
-    frames.capture(f'find-{name.replace("/", "_")}', image=image)  # '/' in a target name is a dir sep
+    frames.capture(f'find-{name.replace("/", "_")}')  # no image -> full screen; '/' is a dir sep
 
 
 def find(name, region=None, confidence=None, haystack=None):
@@ -272,7 +277,7 @@ def find(name, region=None, confidence=None, haystack=None):
     started = time.monotonic()
     image, offset = _haystack(region, haystack)
     if VERBOSE and haystack is None:  # only when we grabbed the live screen, not a passed-in image
-        _capture_detection(name, image)
+        _capture_detection(name)  # a full-screen frame, not the region this call matched
     for index, path in enumerate(paths, start=1):
         try:
             box = _shift(pyautogui.locate(needle(path), image, confidence=confidence), offset)
@@ -319,8 +324,8 @@ def find_all(name, region=None, confidence=None, tolerance=IOU_TOLERANCE, haysta
     boxes = []
     started = time.monotonic()
     image, offset = _haystack(region, haystack)
-    if VERBOSE and haystack is None:  # a frame of the screen this read judged, same as find()
-        _capture_detection(name, image)
+    if VERBOSE and haystack is None:  # a full-screen frame of what this read saw, same as find()
+        _capture_detection(name)
     for path in images(name):
         try:  # locateAll raises rather than yielding nothing when there is no match
             hits = [_shift(box, offset)
