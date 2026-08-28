@@ -164,6 +164,69 @@ def boot_gate():
         return False
 
 
+# The headless twin of _UPDATER_PS: no window, no progress bar, no relaunch. It only waits for
+# the calling process to exit (so the running exe can be overwritten) and installs quietly. The
+# CLI does the download itself and prints its own progress, so all that is left for a detached
+# process is the part that cannot run inside the exe being replaced.
+_INSTALLER_PS = r"""
+$ErrorActionPreference='SilentlyContinue'
+Wait-Process -Id @PID@
+Start-Process msiexec -ArgumentList '/i','@MSI@','/quiet','/norestart','/l*v','@LOG@' -Wait
+"""
+
+
+def _download(url, dest, tag):
+    """Fetch the MSI to dest, printing a one-line percentage. Raises on any network error."""
+    def hook(blocks, block_size, total):
+        if total > 0:
+            pct = min(100, blocks * block_size * 100 // total)
+            print(f'\rupdate: downloading {tag}... {pct}%  ', end='', flush=True)
+    urllib.request.urlretrieve(url, dest, hook)  # follows the GitHub asset redirect on its own
+    print()
+
+
+def _spawn_installer(msi):
+    """Detached, windowless: wait for this process to exit, then msiexec /quiet. See _INSTALLER_PS."""
+    ps = (_INSTALLER_PS.replace('@PID@', str(os.getpid()))
+          .replace('@MSI@', msi).replace('@LOG@', msi + '.log'))
+    subprocess.Popen(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
+                     creationflags=NO_WINDOW, close_fds=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def cli_update(out=print):
+    """Update from the console, no GUI window. For `tarkbot-cli --update`.
+
+    Downloads the newest release and hands off to a detached installer that waits for this
+    process to exit (so it can overwrite the running exe) and installs silently. The caller
+    should exit right after a True so that handoff can proceed. Returns True on success
+    (already current, or installer launched), False on anything that means "did not update"
+    (running from source, check failed, download failed).
+    """
+    if not getattr(sys, 'frozen', False):
+        out('update: only the installed build can update itself (you are running from source)')
+        return False
+    try:
+        found = _latest()
+    except Exception as e:
+        out(f'update: check failed: {e!r}')
+        return False
+    if not found:
+        out(f'update: already up to date at {__version__}')
+        return True
+    tag, url = found
+    msi = os.path.join(tempfile.gettempdir(), url.rsplit('/', 1)[-1])
+    out(f'update: {tag} available (have {__version__})')
+    try:
+        _download(url, msi, tag)
+        _spawn_installer(msi)
+    except Exception as e:
+        out(f'update: failed: {e!r}')
+        return False
+    out(f'update: installing {tag} in the background once this exits; re-run in a few seconds')
+    return True
+
+
 def demo():
     assert _asset({'assets': [{'name': 'notes.txt', 'browser_download_url': 'x'},
                               {'name': 'tarkbot-v9-win64.msi', 'browser_download_url': 'ok'}]}) == 'ok'
@@ -172,6 +235,7 @@ def demo():
     assert _newer(__version__) is False
     assert _newer(None) is False
     assert boot_gate() is False  # not frozen: never gates
+    assert cli_update(out=lambda *a, **k: None) is False  # not frozen: nothing to update
     print('ok. current version:', __version__)
 
 

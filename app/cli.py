@@ -22,6 +22,7 @@ import screen  # noqa: F401  (imported for parity; build() calls screen.use itse
 import sell_bot
 import session_log
 import snipe_bot
+import update
 import window
 from gui import settings
 
@@ -43,8 +44,11 @@ def _parser():
         prog='tarkbot', description=__doc__.split('\n')[0],
         formatter_class=argparse.RawDescriptionHelpFormatter)
     # dest is run_mode, not mode: 'mode' is a settings key (flea-sell source) with its own flag.
-    p.add_argument('--mode', dest='run_mode', required=True, choices=sorted(MODES),
+    # Not required, because --update runs without a mode; main() enforces it for a bot run.
+    p.add_argument('--mode', dest='run_mode', choices=sorted(MODES),
                    help='which bot to run')
+    p.add_argument('--update', action='store_true',
+                   help='download and install the newest release from the console, then exit (no GUI)')
     p.add_argument('--dry-run', action='store_true',
                    help='print the resolved settings and exit without touching the game')
 
@@ -83,6 +87,12 @@ def resolve_prefs(args):
 def main(argv=None):
     parser = _parser()
     args = parser.parse_args(argv)
+
+    if args.update:  # a standalone action; no mode, no game, no session log
+        return 0 if update.cli_update() else 1
+
+    if not args.run_mode:
+        parser.error('--mode is required (or use --update)')
     tab, module = MODES[args.run_mode]
     prefs = resolve_prefs(args)
 
