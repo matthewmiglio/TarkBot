@@ -2,7 +2,10 @@
 
 Not a recording. Frames are grabbed on change: immediately before an input goes to the game
 and immediately again once it has landed, so a pass reads back as before/after pairs rather
-than as thousands of near identical stills. Nothing else takes a frame.
+than as thousands of near identical stills. The one other source is find.py, which saves the
+screen it just judged on every detection while find.VERBOSE is on (craft mode's runs), so a
+target the bot could not see leaves a picture of the screen it could not see it on, not just a
+log line. Nothing takes a frame outside those two paths.
 
 Each file is named for the millisecond it was taken (`1754702835123-pre.png`), which is what
 lets a frame be lined up against the session log: the log line printed right beside it says

@@ -242,6 +242,24 @@ def best_score(name, region=None, haystack=None):
     return best, which
 
 
+def _capture_detection(name, image):
+    """Save the exact image a detection just judged, as a frame, when VERBOSE.
+
+    The point is the miss with no click behind it: find() grabs the screen, matches nothing, and
+    returns, so the input-driven frames.watch() never fires and the run leaves a log line about a
+    target it could not see with no picture of the screen it could not see it on. This closes that,
+    reusing the grab find() already has rather than taking a second shot of a moment already gone.
+
+    Gated on VERBOSE, not always on, for the same reason VERBOSE itself is: the selling loop calls
+    find() several times a second, and a frame each would churn the 250-frame pool in seconds and
+    evict the before/after pairs around real clicks. Craft mode runs VERBOSE, so it is exactly the
+    detection-debugging runs that get these and the steady modes that do not. Lazy import so the
+    geometry self-checks can import find.py without the frames stack.
+    """
+    import frames
+    frames.capture(f'find-{name.replace("/", "_")}', image=image)  # '/' in a target name is a dir sep
+
+
 def find(name, region=None, confidence=None, haystack=None):
     """First match for `name` as Box(left, top, width, height), or None.
 
@@ -253,6 +271,8 @@ def find(name, region=None, confidence=None, haystack=None):
     paths = images(name)
     started = time.monotonic()
     image, offset = _haystack(region, haystack)
+    if VERBOSE and haystack is None:  # only when we grabbed the live screen, not a passed-in image
+        _capture_detection(name, image)
     for index, path in enumerate(paths, start=1):
         try:
             box = _shift(pyautogui.locate(needle(path), image, confidence=confidence), offset)
@@ -299,6 +319,8 @@ def find_all(name, region=None, confidence=None, tolerance=IOU_TOLERANCE, haysta
     boxes = []
     started = time.monotonic()
     image, offset = _haystack(region, haystack)
+    if VERBOSE and haystack is None:  # a frame of the screen this read judged, same as find()
+        _capture_detection(name, image)
     for path in images(name):
         try:  # locateAll raises rather than yielding nothing when there is no match
             hits = [_shift(box, offset)
@@ -376,6 +398,35 @@ if __name__ == '__main__':
     assert peak > 0.95 and crop is not None, f'best_score saw {loose} pasted whole only at {peak}'
     blank = Image.new('RGB', (1920, 1080), (30, 30, 30))
     assert best_score(loose, haystack=blank)[0] < 0.5, 'best_score stays low when the target is gone'
+
+    # A detection saves the screen it judged as a frame, but only with VERBOSE on and only when
+    # find() grabbed the screen itself: a passed-in haystack is the caller's own picture, and a
+    # steady mode with VERBOSE off must leave the input pairs alone. This is the frame the craft
+    # miss left none of.
+    import tempfile
+
+    import frames
+    screen.grab = lambda region=None: Image.new('RGB', (1920, 1080), (30, 30, 30))  # no real screen
+    with tempfile.TemporaryDirectory() as tmp:
+        frames.start(tmp, keep=50)
+        region = (0, 0, 1920, 1080)  # passed so _haystack's offset needs no screen.rect()
+
+        VERBOSE = True
+        find(loose, region=region)  # a live grab under VERBOSE: one frame, named for the target
+        frames.flush()
+        shots = sorted(Path(tmp).glob('*.png'))
+        assert len(shots) == 1, f'a verbose live detection left {len(shots)} frames, not 1'
+        assert f'find-{loose}' in shots[0].name, f'frame named for the target, got {shots[0].name}'
+
+        find(loose, haystack=fake)  # caller's own image: no grab, so no frame
+        frames.flush()
+        assert len(list(Path(tmp).glob('*.png'))) == 1, 'a passed-in haystack takes no frame'
+
+        VERBOSE = False
+        find(loose, region=region)  # steady mode: the pool is left for the input pairs
+        frames.flush()
+        assert len(list(Path(tmp).glob('*.png'))) == 1, 'VERBOSE off takes no detection frame'
+        frames.stop()
 
     print(f'ok, {name} {reference.size} -> {grown.size} found at {box.left, box.top}, '
           f'{loose} matched at {confidence_for(loose)} and not at {CONFIDENCE}, '
