@@ -84,11 +84,37 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # 0.9 default never locates it and the wires craft loops 'could not find power_cord' forever. 0.75
 # catches it with a little margin; the match is scoped to the one craft row, where nothing else is
 # cable-like, so the loosened threshold has no other icon to catch by mistake.
+# crafting/wires is the ninth, and the reason the other three below are crops rather than numbers.
+# The wires craft was skipped in silence on every pass of 2026-08-27: find_all('crafting/wires')
+# came back empty at the workbench, so find_craft had no output row, so get_craft_state answered
+# 'producing' (its reading for an output it cannot see) and the runner moved on without an error.
+# The crops were not the problem. In colour the icon peaks 0.917, comfortably over the default,
+# and in the grey the matcher actually uses it peaks 0.8955: under 0.9 by four thousandths, on
+# every frame, because grey merges the red and blue strands the crop is mostly made of. Nothing
+# about that is close: across the 241 frames of that session it is 0.8753 and up on the 104 with
+# the workbench open and 0.5346 and down on the other 137, the widest separation of any target
+# here. 0.7 is the middle of it. See best_score's note for the colour/grey trap itself, which is
+# what made this look like a mystery for as long as it did.
+# crafting/power_cord moves 0.75 -> 0.65 and crafting/crackers joins at 0.8, both off the same
+# 241 frames read in grey rather than colour. 0.75 was set from a colour reading and sat above
+# the cord's real ceiling: in grey it peaks 0.7503 once and 0.7431 next, against 0.5602 on the
+# 139 frames without the workbench, so the threshold was refusing all but one frame of a target
+# that is plainly there. Crackers is 0.8852 and up on 22 frames and 0.7514 and down on the other
+# 219. Both are the same badge story as the sewing kit below.
+# What every one of these has in common is the white circular-arrows badge Tarkov draws in an
+# input's bottom left corner when the stash is short of it, which is exactly the state the bot
+# has to read to go and buy the thing. The badge sits inside the crop, so every reference image
+# taken from a stocked hideout is the wrong picture of the case that matters.
+# crafting/sewing_kit is the one that got a fourth crop instead of a number, and the reason the
+# others did not: it is a plain blue rectangle, so in grey it scores 0.65 or better on 235 of the
+# 241 frames while peaking only 0.7943 on the ones that have it. There is no gap to put a
+# threshold in. The badged crop cut from 1787874207380-pre.png closes it at the source.
 CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
                'scav_case': 0.8, 'filter_by_item': 0.7,
                'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
                'hideout/hideout_station_titles/nutrition_unit': 0.8,
-               'crafting/power_cord': 0.75}
+               'crafting/power_cord': 0.65, 'crafting/wires': 0.7,
+               'crafting/crackers': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
@@ -185,17 +211,29 @@ def best_score(name, region=None, haystack=None):
     allowed to be the second, slower matcher rather than folded into find()'s hot path.
 
     Same needle() resize and same haystack as find(), so the number is the one find() would judge.
+
+    Grayscale, because pyscreeze.GRAYSCALE_DEFAULT is True and so find() matches on one channel
+    whether or not anybody asked it to. This read was in colour until 2026-08-27 and quietly
+    disagreed with the matcher it exists to explain, always in the optimistic direction: colour
+    keeps the red and blue strands of crafting/wires apart and grey merges them, which scored the
+    same crop on the same frame 0.917 in colour and 0.896 in grey. The 0.9 default therefore
+    refused a target the log was reporting as comfortably over the line, and the number that would
+    have named the problem is the one that hid it.
     """
     import cv2  # a real dependency already (opencv-python backs the confidence matching), lazy so
     import numpy as np  # importing find.py for the geometry self-checks stays cv2-free
 
+    def grey(image):  # the conversion pyscreeze's _load_cv2 does, via BGR, not PIL's 'L'
+        return cv2.cvtColor(cv2.cvtColor(np.asarray(image.convert('RGB')), cv2.COLOR_RGB2BGR),
+                            cv2.COLOR_BGR2GRAY)
+
     image, _ = _haystack(region, haystack)
-    hay = cv2.cvtColor(np.asarray(image.convert('RGB')), cv2.COLOR_RGB2BGR)
+    hay = grey(image)
     best, which = 0.0, None
     for path in images(name):
         grown = needle(path)
-        crop = (cv2.imread(grown) if isinstance(grown, str)
-                else cv2.cvtColor(np.asarray(grown.convert('RGB')), cv2.COLOR_RGB2BGR))
+        crop = (cv2.imread(grown, cv2.IMREAD_GRAYSCALE) if isinstance(grown, str)
+                else grey(grown))
         if crop is None or crop.shape[0] > hay.shape[0] or crop.shape[1] > hay.shape[1]:
             continue  # a crop taller or wider than the search area would make matchTemplate raise
         score = float(cv2.matchTemplate(hay, crop, cv2.TM_CCOEFF_NORMED).max())

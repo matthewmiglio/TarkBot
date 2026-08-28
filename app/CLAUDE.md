@@ -651,6 +651,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
 `test_hotkey_bind.py`, `test_window_overlap.py`, `test_error_popup.py`,
 `test_flea_open_error_dialog.py`, `test_scav_case_fixture.py`, `test_scav_only_fallback.py`,
+`test_craft_input_confidence.py`,
 `test_filter_by_item_backout.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
@@ -817,6 +818,16 @@ test_filter_by_item_backout.py
                              from went away. The reset is sell_bot's, which knows the count this
                              screen needs, so the loop's whole job is to return None. Checks the
                              counts too: INVENTORY_ESCAPES 1, SCAV_ESCAPES 2. No game needed.
+test_craft_input_confidence.py
+                             Are a craft's input icons found on the station they belong to and
+                             not on the other one. Two labelled 1080p frames from the run of
+                             2026-08-27, each the other's negative. The evidence behind
+                             find.CONFIDENCES['crafting/sewing_kit'] and ['crafting/crackers'] at
+                             0.75, and the regression net for the run that logged "could not find
+                             sewing_kit on the craft row to buy it" 22 times and started no
+                             crafts. The absent rows are the load-bearing half: they are what a
+                             blanket loosening of every crafting/ icon fails, since ux_pro_beanie
+                             peaks 0.824 on frames it is not in. No game needed.
 test_scav_case_fixture.py    Does find_all('scav_case') count the cases on real 1440p
                              screenshots. Each fixture's own height drives find.scale(), so the
                              crops are resized here exactly as they are on that player's machine
