@@ -61,7 +61,7 @@ build_exe_options = {
 
 bdist_msi_options = {
     'upgrade_code': UPGRADE_CODE,
-    'add_to_path': False,
+    'add_to_path': True,  # puts the install dir on PATH so `tarkbot-cli --mode ...` works anywhere
     # cx_Freeze 8.4+ dropped bdist_msi's target_version; without these two the MSI ships as
     # v0.0.0 no matter what --target-version said.
     'product_version': PRODUCT_VERSION,
@@ -88,6 +88,16 @@ setup(
         icon=ICON,
         shortcut_name=f'{NAME} {VERSION}',
         shortcut_dir='DesktopFolder',
+        copyright=COPYRIGHT,
+    ), Executable(
+        # The headless entry point, cli.py. A console base (base=None) so --help and the bot's
+        # narration are visible; the GUI exe above stays windowed. Different target_name so the
+        # two exes do not collide. add_to_path (below) puts this on PATH as `tarkbot-cli`.
+        script=ROOT / 'cli.py',
+        base=None,
+        uac_admin=False,
+        target_name='tarkbot-cli.exe',
+        icon=ICON,
         copyright=COPYRIGHT,
     )],
     options={'build_exe': build_exe_options, 'bdist_msi': bdist_msi_options},
