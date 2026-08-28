@@ -651,7 +651,7 @@ picture to `tests/output/`, and exits non-zero on failure. These run with no gam
 `test_window_gone.py`, `test_pack_offer.py`, `test_filter_window_guard.py`,
 `test_hotkey_bind.py`, `test_window_overlap.py`, `test_error_popup.py`,
 `test_flea_open_error_dialog.py`, `test_scav_case_fixture.py`, `test_scav_only_fallback.py`,
-`test_craft_input_confidence.py`,
+`test_craft_input_confidence.py`, `test_craft_state_unreadable.py`,
 `test_filter_by_item_backout.py`,
 `gym/test_generate_roi.py`,
 `gym/test_line_reads.py`, `gym/test_gym_loop.py`,
@@ -818,6 +818,15 @@ test_filter_by_item_backout.py
                              from went away. The reset is sell_bot's, which knows the count this
                              screen needs, so the loop's whole job is to return None. Checks the
                              counts too: INVENTORY_ESCAPES 1, SCAV_ESCAPES 2. No game needed.
+test_craft_state_unreadable.py
+                             A craft row the reader cannot find stops the run. get_craft_state
+                             answered 'producing' for a missing output until 2026-08-28, which is
+                             the one state the runner reacts to by doing nothing and swapping
+                             away, so a blind craft and a running craft were the same event and
+                             the wires craft was skipped every pass with no error at all. Checks
+                             the raise, that the four real states still read, and that the
+                             LookupError escapes start() rather than buying another lap. Stubs
+                             the finders, so no game and no window.
 test_craft_input_confidence.py
                              Are a craft's input icons found on the station they belong to and
                              not on the other one. Two labelled 1080p frames from the run of

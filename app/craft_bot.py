@@ -12,6 +12,8 @@ Per craft the state machine over interact/craft.get_craft_state is:
   - ready, ingredients in the stash    -> click START, confirm the handover
   - ready, ingredients missing         -> buy each missing one off the flea, then look again
   - not started (greyed GET ITEMS)     -> nothing to do here, swap to the next craft
+An output the reader cannot find on screen is none of those: get_craft_state raises LookupError
+and the run ends, rather than the loop guessing a state for a row it cannot see. See its note.
 
 Each craft carries its own rouble ceilings and offer sources (players/traders) per ingredient,
 filled in from the GUI. Same runner shape as gym_bot.py and the two flea modes: a stats dict the

@@ -355,18 +355,27 @@ def get_items_highlighted(box, threshold=GET_ITEMS_HIGHLIGHT_BRIGHTNESS):
 
 
 def get_craft_state(craft, region=None):
-    """One of 'not started', 'done', 'ready', 'producing' for this craft.
+    """One of 'not started', 'done', 'ready', 'producing' for this craft. Raises if unreadable.
 
     Scoped to the craft output's own row so another craft's button cannot be read by mistake:
       - GET ITEMS present and greyed  -> 'not started'
       - GET ITEMS present and lit     -> 'done' (items are waiting to be collected)
       - START button present          -> 'ready' (ingredients are in the stash)
       - none of those                 -> 'producing' (the craft is running)
+
+    An output that is not on screen is a LookupError and ends the run, because it is not a state.
+    It used to answer 'producing', which reads as a sensible default and is the worst possible
+    one: 'producing' is precisely the state the runner responds to by doing nothing and swapping
+    away, so a craft the bot could not see became a craft the bot politely skipped, once per pass,
+    forever, with one indent-1 log line and no error. The wires craft did exactly that on every
+    pass of 2026-08-27 while its output sat on screen the whole time, unmatched because
+    crafting/wires needed a threshold the 0.9 default would not give it. Nothing in the run said
+    so: the counters looked normal and the loop looked healthy. Failing loudly here costs a
+    stopped run on a bad frame and buys the only signal that a craft has gone blind.
     """
     output = output_box(craft, region)
     if output is None:
-        log(f'no {craft.name} output on screen, cannot read the craft state', 1)
-        return 'producing'
+        raise LookupError(f'{craft.name} output not on screen, cannot read the craft state')
     band = _row_band(output, region)
 
     get_items = find.find(GET_ITEMS_TARGET, band)

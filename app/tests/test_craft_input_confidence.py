@@ -12,7 +12,9 @@ craft row to buy it', 22 times, and started 0 crafts, while crafting/start match
 so the craft was startable and only the input read was wrong.
 The silent one: the wires craft was skipped on every single pass without an error, because
 find_all('crafting/wires') came back empty at the workbench, so find_craft had no output row, so
-get_craft_state returned its reading for an output it cannot see, which is 'producing'.
+get_craft_state returned its then-reading for an output it cannot see, which was 'producing'.
+That reading is now a LookupError that ends the run, so this class of blindness cannot be silent
+again: tests/test_craft_state_unreadable.py.
 
 The cause behind both is one picture. Tarkov draws a white circular-arrows badge in an item's
 bottom left corner when the stash is short of it, and that is exactly the state the bot has to
