@@ -354,6 +354,22 @@ def get_items_highlighted(box, threshold=GET_ITEMS_HIGHLIGHT_BRIGHTNESS):
     return button_brightness(box) >= threshold
 
 
+def _on_row(boxes, row_y):
+    """The match whose centre y is within ROW_TOL (scaled) of row_y, nearest one, or None.
+
+    get_craft_state reads START and GET ITEMS off the craft's own row, but _row_band pads the band
+    (SLICKERS_BAND_PAD) and a producing craft has no button of its own, so a band tall enough to
+    frame the row also reaches the next craft's row and borrows its START. On 2026-08-28 that read
+    a fleece craft producing at 7% as 'ready' (a START button 71px below the output, on the row
+    under it, sat inside the 180px band), and the runner looped buying its inputs into an already
+    running craft. Constrain the read to the output's own row, the way output_items constrains the
+    timer: same row means centre y within ROW_TOL.
+    """
+    tol = ROW_TOL * find.scale()
+    on = [b for b in boxes if abs(_center(b)[1] - row_y) <= tol]
+    return min(on, key=lambda b: abs(_center(b)[1] - row_y)) if on else None
+
+
 def get_craft_state(craft, region=None):
     """One of 'not started', 'done', 'ready', 'producing' for this craft. Raises if unreadable.
 
@@ -362,6 +378,11 @@ def get_craft_state(craft, region=None):
       - GET ITEMS present and lit     -> 'done' (items are waiting to be collected)
       - START button present          -> 'ready' (ingredients are in the stash)
       - none of those                 -> 'producing' (the craft is running)
+
+    'On its own row' is the whole point and is enforced against the output's centre y, not just the
+    padded band: the band is deliberately tall enough to frame a row in any state, which means it
+    also overlaps the next craft's row, and a button read anywhere in it can belong to the craft
+    below. See _on_row for the run that cost.
 
     An output that is not on screen is a LookupError and ends the run, because it is not a state.
     It used to answer 'producing', which reads as a sensible default and is the worst possible
@@ -377,11 +398,12 @@ def get_craft_state(craft, region=None):
     if output is None:
         raise LookupError(f'{craft.name} output not on screen, cannot read the craft state')
     band = _row_band(output, region)
+    row_y = _center(output)[1]
 
-    get_items = find.find(GET_ITEMS_TARGET, band)
+    get_items = _on_row(find.find_all(GET_ITEMS_TARGET, band), row_y)
     if get_items:
         state = 'done' if get_items_highlighted(get_items) else 'not started'
-    elif find.find(START_TARGET, band):
+    elif _on_row(find.find_all(START_TARGET, band), row_y):
         state = 'ready'
     else:
         state = 'producing'
@@ -575,3 +597,21 @@ def return_to_station(craft, region=None):
 def return_to_nutrition_unit(region=None):
     """Back-compat wrapper: escape the flea back to the slickers craft's station."""
     return return_to_station(SLICKERS, region)
+
+
+if __name__ == '__main__':
+    # _on_row keeps get_craft_state reading START/GET ITEMS off the output's own row, not the whole
+    # padded band. The band is tall enough to overlap the next craft's row, and a producing craft
+    # has no button of its own, so without this a neighbour's START read as 'ready' and the runner
+    # looped buying inputs into an already running craft (fleece, 2026-08-28). No game needed.
+    from pyscreeze import Box
+
+    find.scale = lambda: 1.0  # no screen to measure against; ROW_TOL is a 1080p number
+    row_y = 714  # a fleece output row centre, from the frame that exposed this
+    same = Box(1600, 700, 56, 20)   # centre y 710, within ROW_TOL (40) of the output row
+    below = Box(1600, 785, 56, 20)  # centre y 795, 81px down: the next craft's START
+    assert _on_row([below], row_y) is None, 'a START on the row below must not count'
+    assert _on_row([same], row_y) is same, 'a START on the output row does'
+    assert _on_row([below, same], row_y) is same, 'the same-row match wins over a neighbour'
+    assert _on_row([], row_y) is None, 'nothing found is nothing'
+    print('ok: get_craft_state reads START/GET ITEMS on the output row only')
