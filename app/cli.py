@@ -84,6 +84,34 @@ def resolve_prefs(args):
     return prefs
 
 
+def hide_own_console():
+    """Hide this process's console window before a bot run, if the console is ours to hide.
+
+    tarkbot-cli.exe is a console-subsystem exe, so double-clicking it or launching it from a
+    scheduler pops a console. Over fullscreen Tarkov that console pulls the taskbar up in front of
+    the game, and the taskbar covers the bottom of the screen: on the laptop it sat exactly over
+    the hideout button, so craft mode read 'hideout tab not on screen' every pass and never
+    started. Hiding the console lets the taskbar retract and the game reclaim the whole screen.
+
+    Only when we own the console. GetConsoleProcessList is just us (count 1) when Windows made the
+    console for this exe; a shared terminal the user launched us from has that shell attached too
+    (count > 1), and hiding the window then would hide the user's own terminal. The bot's narration
+    goes to the session log either way, so a hidden console loses nothing. No-op off Windows and
+    when there is no console at all. Best effort: a failure here must never stop a run.
+    """
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        procs = (ctypes.c_uint * 4)()
+        if k.GetConsoleProcessList(procs, 4) != 1:  # a shared terminal, not our own console
+            return
+        hwnd = k.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 0)  # SW_HIDE: gone from screen and taskbar
+    except Exception:
+        pass
+
+
 def main(argv=None):
     parser = _parser()
     args = parser.parse_args(argv)
@@ -101,6 +129,8 @@ def main(argv=None):
         for key in settings.DEFAULTS:
             print(f'  {key} = {prefs[key]!r}')
         return 0
+
+    hide_own_console()  # before the game is read: a visible console pulls the taskbar over it
 
     # ponytail: no update.boot_gate() here. The GUI gates on a pending MSI and relaunches itself;
     # a CLI run started from a shell should run the bot now, not swap itself for an installer.
