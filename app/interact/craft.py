@@ -38,6 +38,7 @@ MARK_ALIGN_X = 30  # a mark counts as under an icon within this many px of its c
 MARK_DROP_MIN = 40  # ...and at least this far below the icon centre
 MARK_DROP_MAX = 130  # ...and no further than this (the next row's marks are ~170 down)
 MENU_DELAY = 0.33  # after the right click, for the inventory context menu to draw
+MENU_REHOVER_OFFSET = 120  # 1080p px to pull the cursor off a slot before hovering it again
 FLEA_LOAD_DELAY = 3.0  # after 'filter by item', for the flea board and its filter UI to load
 OFFER_WAIT = 10.0  # after the filters go on, how long to keep looking for an offer before giving up
 OFFER_POLL = 0.3  # how often to re-check the board for an offer while waiting
@@ -513,6 +514,33 @@ def validate_slickers_craftable(region=None):
     return validate_craftable(SLICKERS, region)
 
 
+def _open_item_menu(location, region=None, attempts=2):
+    """Right-click a craft input and return the 'filter by item' entry's box, or None.
+
+    Hovers the slot and waits a beat before pressing, because rightClick() teleports the cursor
+    and presses in the same instant: the game can read the button before its own hover has caught
+    up, and then the menu never opens at all. On a miss the cursor is moved off the row and back,
+    so the second try arrives as a fresh mouse-enter rather than a press on a slot the game
+    already thinks is under the cursor.
+
+    Seen on 2026-08-28: a run that had opened this menu nine times in a row missed on the tenth
+    and ended, with the frames showing the cursor on the right slot, its tooltip up, and no menu.
+    """
+    for attempt in range(attempts):
+        if attempt:
+            log(f'no menu on the slot, hovering it again (try {attempt + 1})', 1)
+            pyautogui.moveTo(location[0] - MENU_REHOVER_OFFSET * find.scale(), location[1])
+            time.sleep(MENU_DELAY)
+        pyautogui.moveTo(*location)
+        time.sleep(MENU_DELAY)  # let the hover register before the press
+        pyautogui.rightClick(*location)
+        time.sleep(MENU_DELAY)
+        box = find.find('filter_by_item', region)
+        if box:
+            return box
+    return None
+
+
 def buy_craft_input_item(location, max_price, region=None, source='players', craft=SLICKERS):
     """Buy one craft ingredient off the flea, if the cheapest offer is at or under max_price.
 
@@ -526,13 +554,11 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     Returns True if it bought, False otherwise (too dear, or the price could not be read safely).
     Raises LookupError if the 'filter by item' menu entry never appears, since without it there
     is no way to narrow the board to this ingredient and nothing after this step would mean
-    anything.
+    anything. craft_bot catches that and swaps craft rather than ending the run: one slot the
+    game will not open a menu on says nothing about the other crafts.
     """
     log(f'buying craft input at {location}, ceiling {max_price}')
-    pyautogui.rightClick(*location)
-    time.sleep(MENU_DELAY)
-
-    box = find.find('filter_by_item', region)
+    box = _open_item_menu(location, region)
     if not box:
         raise LookupError('no filter by item in the menu, cannot narrow the board to this item')
     point = sell.jitter(pyautogui.center(box), y=0)  # a 6px tall crop says nothing about the row

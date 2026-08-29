@@ -229,6 +229,14 @@ class HideoutCraft:
                 log(f'{name} {e}, swapping to the next craft', 1)
                 self._swap()
                 return
+            except LookupError as e:
+                # The game would not open a context menu on that slot, so this input cannot be
+                # bought this pass. Same shape as too dear: nothing was opened, the station is
+                # still up, and the other crafts are unaffected. Swapping costs a pass; raising
+                # here used to cost the whole run.
+                log(f'{name}: {e}, swapping to the next craft', 1)
+                self._swap()
+                return
 
         ready, still_missing = craft.validate_craftable(job.craft, self.region)
         if ready:
