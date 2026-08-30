@@ -2,7 +2,7 @@
 
     python -m cli --mode craft
     python -m cli --mode craft --no-wires-enabled --crackers-max 20000
-    python -m cli --game open        (and status / close / restart)
+    python -m cli --game open --character seasonal   (also status / close / restart)
 
 The same seam the GUI uses (each mode module's build(prefs, stats) -> runner with
 start/stop), driven by settings.json plus per-run overrides. See docs/cli.md.
@@ -52,15 +52,19 @@ def game_status():
     return True
 
 
-def game_restart():
-    """Close the game and boot it again. False if either half fails."""
-    return tarkov.close_game() and tarkov.start_tarkov()
+# --character's values, its own name for each profile on the game's select screen.
+CHARACTERS = {c.name.lower(): c for c in tarkov.Character}
 
-
-# --game actions, each returning True on success. Every one of them is safe to run with the game
-# already in the state it asks for: opening an open game and closing a closed one both say True.
-GAME_ACTIONS = {'status': game_status, 'open': tarkov.start_tarkov,
-                'close': tarkov.close_game, 'restart': game_restart}
+# --game actions, each taking the parsed args and returning True on success. Every one of them is
+# safe to run with the game already in the state it asks for: opening an open game and closing a
+# closed one both say True.
+GAME_ACTIONS = {
+    'status': lambda args: game_status(),
+    'open': lambda args: tarkov.start_tarkov(CHARACTERS[args.character]),
+    'close': lambda args: tarkov.close_game(),
+    'restart': lambda args: tarkov.close_game() and tarkov.start_tarkov(
+        CHARACTERS[args.character]),
+}
 
 
 def _parser():
@@ -78,6 +82,8 @@ def _parser():
     p.add_argument('--game', choices=sorted(GAME_ACTIONS),
                    help='drive the game itself instead of running a bot: '
                         'status, open (through the launcher), close, or restart')
+    p.add_argument('--character', choices=sorted(CHARACTERS), default='pve',
+                   help='which profile --game open and --game restart boot onto (default pve)')
 
     # One flag per settings key, generated from DEFAULTS so a new preference needs no change here.
     g = p.add_argument_group('config overrides', 'any settings.json key, applied for this run only')
@@ -147,7 +153,7 @@ def main(argv=None):
         return 0 if update.cli_update() else 1
 
     if args.game:  # drive the game itself; no mode, no bot, no session log
-        ok = GAME_ACTIONS[args.game]()
+        ok = GAME_ACTIONS[args.game](args)
         if args.game != 'status':
             print(f'{args.game}  {"ok" if ok else "failed"}')
         return 0 if ok else 1

@@ -20,8 +20,15 @@ PLAY_TARGET = "launcher_play"
 CLOSE_TIMEOUT = 60  # seconds to wait for the window to go before calling the close a failure
 CLOSE_POLL = 0.5  # seconds between window checks while waiting
 LAUNCHER_TIMEOUT = 60  # seconds to wait for the launcher's own window after starting it
-START_TIMEOUT = 180  # seconds to wait for the game window after Play is clicked (28s measured)
-START_POLL = 1.0  # seconds between window checks while the game boots
+PLAY_TIMEOUT = 30  # ...then for its Play button to be on screen
+PROFILE_TIMEOUT = 120  # ...then for the profile screen and its three SELECT buttons
+LOBBY_TIMEOUT = 180  # ...then for the lobby, which is both tabs being up (28s measured to here)
+START_POLL = 1.0  # seconds between looks while any of those are awaited
+
+HIDEOUT_TAB_TARGET = 'hideout/hideout_tab'  # the two the lobby is recognised by, both required:
+FLEA_TAB_TARGET = 'flea_icon'  # either alone is on screen during the loading that precedes it
+PROFILE_TARGET = 'profile_select'
+BUTTONS_APART = 200  # px between two SELECT centres that are different buttons (real gap is 547)
 DISPLAY_NAME = "Escape from Tarkov"  # the launcher's own uninstall entry, not Arena's
 
 # Where Windows records installed programs. The 32-bit view is listed too because BSG's
@@ -99,10 +106,10 @@ def close_game(timeout=CLOSE_TIMEOUT):
 
 
 class Character(enum.Enum):
-    """The character the launcher offers to play as."""
-    PVE = "pve"
-    SEASONAL = "seasonal"
-    PERMANENT = "permanent"
+    """A profile on the SELECT PROFILE AND MODE screen. The value is its column, left to right."""
+    PVE = 0
+    PERMANENT = 1  # PvP Zone, the regular character
+    SEASONAL = 2  # PvP Season, the one that resets
 
 
 def _launcher_window():
@@ -130,20 +137,85 @@ def _play_point(hwnd):
         screen.use(was.name)
 
 
-def start_tarkov(installation_path=None, timeout=START_TIMEOUT):
-    """Boot the game through the launcher and block until its window is up. True/False.
+def _wait(look, timeout, poll=START_POLL):
+    """Poll look() until it answers with something truthy, or the timeout runs out. Its answer.
 
-    Three steps, because the game will not start from either of the first two alone: the exe on
-    its own runs and never draws a window (it is waiting on a session token), and the launcher on
-    its own opens and sits there. Play has to be clicked. Measured on 2026-08-30: the game window
-    came up 28 seconds after the click.
+    None on the timeout, so a caller can tell "it never showed" from whatever look() returns.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        found = look()
+        if found:
+            return found
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(poll)
 
+
+def _game_region():
+    """The game window as a region, and the matcher pointed at its monitor. None if it is not up.
+
+    Called from a poll, but screen.use only runs on the look that finds the window, which is the
+    same look that stops the polling, so the monitor is chosen once and not once a second.
+    """
+    try:
+        left, top, right, bottom = window.bounds(window.handle())
+    except window.WindowError:
+        return None
+    screen.use(screen.containing((left, top)).name)
+    return (left, top, right - left, bottom - top)
+
+
+def _profile_buttons(region):
+    """The profile screen's three SELECT buttons, left to right, or [] until all three are up.
+
+    Each button matches a full crop of itself and a sub-crop of itself, and those two overlap by
+    about a third, which is under find's IOU dedupe, so every button comes back twice. Cluster on
+    centre instead and keep the widest box of each cluster. Fewer than three means the screen is
+    still drawing, so the caller keeps waiting rather than clicking a card that has no neighbours
+    yet and might not be the one it thinks.
+    """
+    kept = []
+    for box in sorted(find.find_all(PROFILE_TARGET, region), key=lambda b: b.left):
+        centre = box.left + box.width // 2
+        near = [b for b in kept if abs(b.left + b.width // 2 - centre) < BUTTONS_APART]
+        if not near:
+            kept.append(box)
+        elif box.width > near[0].width:
+            kept[kept.index(near[0])] = box
+    return kept if len(kept) == 3 else []
+
+
+def in_lobby(region=None):
+    """Is the game sat in the lobby, ie are both the hideout tab and the flea tab on screen.
+
+    Both, because either alone shows up during the loading that precedes the lobby, and a click
+    aimed at a half-drawn screen lands on nothing.
+    """
+    return bool(find.find(HIDEOUT_TAB_TARGET, region) and find.find(FLEA_TAB_TARGET, region))
+
+
+def start_tarkov(character=Character.PVE, installation_path=None):
+    """Boot the game onto `character`'s profile and wait for the lobby. True once it is there.
+
+    Four steps, each with its own budget, because the game will not start from any one of them
+    alone: EscapeFromTarkov.exe runs and never draws a window (it wants a session token from the
+    launcher), the launcher opens and then just sits there, and the profile screen waits for a
+    card to be picked. Measured on 2026-08-30.
+
+      1. start BsgLauncher.exe, unless its window is already up   (LAUNCHER_TIMEOUT)
+      2. wait for its Play button and click it                    (PLAY_TIMEOUT)
+      3. wait for the three SELECT buttons and click this one     (PROFILE_TIMEOUT)
+      4. wait for the lobby, both tabs                            (LOBBY_TIMEOUT)
+
+    character is a Character, whose value is the card's column, left to right on that screen.
     installation_path defaults to find_game(); the launcher is taken from beside it. Returns
-    False if the launcher never opens, Play is never found, or the game never appears in time.
+    False at whichever step timed out, having said which in the log.
     """
     if is_running():
         return True
     exe = Path(installation_path) if installation_path else find_game()
+
     hwnd = _launcher_window()
     if hwnd is None:
         launcher = exe.parent / "BsgLauncher" / LAUNCHER
@@ -151,34 +223,49 @@ def start_tarkov(installation_path=None, timeout=START_TIMEOUT):
             print(f"no launcher at {launcher}")
             return False
         subprocess.Popen([str(launcher)], cwd=str(launcher.parent))
-        deadline = time.monotonic() + LAUNCHER_TIMEOUT
-        while hwnd is None and time.monotonic() < deadline:
-            time.sleep(START_POLL)
-            hwnd = _launcher_window()
+        hwnd = _wait(_launcher_window, LAUNCHER_TIMEOUT)
         if hwnd is None:
             print(f"the launcher window never appeared in {LAUNCHER_TIMEOUT}s")
             return False
 
-    point = _play_point(hwnd)
+    point = _wait(lambda: _play_point(hwnd), PLAY_TIMEOUT)
     if point is None:
-        print("no Play button on the launcher")
+        print(f"no Play button on the launcher after {PLAY_TIMEOUT}s")
         return False
+    print(f"clicking Play at {point}")
     pyautogui.click(*point)
 
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if is_running():
-            return True
-        time.sleep(START_POLL)
-    return is_running()
+    deadline = time.monotonic() + PROFILE_TIMEOUT
+    region = _wait(_game_region, PROFILE_TIMEOUT)
+    if region is None:
+        print(f"the game window never appeared in {PROFILE_TIMEOUT}s")
+        return False
+    if not select_character_type(character, region, max(1.0, deadline - time.monotonic())):
+        print(f"the three profile buttons never appeared in {PROFILE_TIMEOUT}s")
+        return False
+
+    if _wait(lambda: in_lobby(region), LOBBY_TIMEOUT) is None:
+        print(f"the lobby never appeared in {LOBBY_TIMEOUT}s")
+        return False
+    return True
 
 
-def select_character_type(type):
-    """SKELETON, not implemented yet. Pick PVE / seasonal / permanent on the character screen.
+def select_character_type(character, region=None, timeout=PROFILE_TIMEOUT):
+    """Wait for the profile screen and click `character`'s card. True if it was there to click.
 
-    Takes a Character. Returns nothing: the caller checks the result by reading the screen.
+    The card is picked by column rather than by a crop of its own: the three SELECT buttons are
+    pixel-identical, so which one is which is their order on screen and nothing else.
     """
-    raise NotImplementedError("select_character_type")
+    region = region if region is not None else _game_region()
+    if region is None:
+        return False
+    buttons = _wait(lambda: _profile_buttons(region), timeout)
+    if not buttons:
+        return False
+    box = buttons[character.value]
+    print(f"selecting {character.name} at column {character.value}, box {box}")
+    pyautogui.click(box.left + box.width // 2, box.top + box.height // 2)
+    return True
 
 
 if __name__ == "__main__":

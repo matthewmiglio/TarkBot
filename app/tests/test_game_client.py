@@ -1,19 +1,21 @@
-"""Booting and closing the game: what each step does, and what it refuses to do.
+"""Booting and closing the game: the four steps, what each refuses to do, and which card is clicked.
 
 Run:  python tests/test_game_client.py
 
-No game needed. The launcher, the mouse, the matcher and the clock are stubbed, so this is about
-the order the steps go out in and what each answer leads to, not about matching pixels.
+No game needed. The launcher, the mouse, the matcher and the clock are all stubbed, so this is
+about the order the steps go out in and what each answer leads to, not about matching pixels.
 
-What this pins. start_tarkov is three steps because the first two do not work on their own, and
-that was measured rather than assumed on 2026-08-30: EscapeFromTarkov.exe runs and never draws a
-window (it wants a session token), BsgLauncher.exe opens and then just sits there, and the game
-only appears about 28 seconds after Play is clicked. Each of those is easy to "simplify" away
-later by someone who has not watched it fail, so the click and the wait are checked here.
+What this pins. start_tarkov is four waits because none of the earlier steps work alone, and that
+was measured rather than guessed on 2026-08-30: EscapeFromTarkov.exe runs and never draws a
+window (it wants a session token), BsgLauncher.exe opens and then sits there, and the profile
+screen waits for a card. Each of those is easy to "simplify" away later by someone who has not
+watched it fail, so the clicks and the waits are checked here.
 
-The no-click cases are the load-bearing half. Clicking Play at a game that is already running
-would put a second launcher press into a live session, and clicking when the button was never
-found would put a click at wherever the cursor happened to be, on a screen holding the game.
+Two things carry the most risk and get the most attention. Which card is clicked is decided by
+column and nothing else, because the three SELECT buttons are pixel-identical, so a bug there
+picks the wrong profile in silence rather than failing. And every step that cannot find what it
+needs must click nothing at all: a click aimed at a button that was never found lands wherever
+the cursor happened to be, on a screen showing the game.
 """
 import sys
 import types
@@ -23,34 +25,47 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'game_client'))
 import tarkov  # noqa: E402
 
-PLAY = (-571, 1204)
+PLAY = (-570, 1204)
+REGION = (-2560, 260, 2560, 1440)
+# The three SELECT buttons as they really came back, evenly spaced 547px apart.
+CARDS = [types.SimpleNamespace(left=x, top=1435, width=129, height=40)
+         for x in (-1892, -1345, -798)]
+CENTRES = [(-1828, 1455), (-1281, 1455), (-734, 1455)]
 
 
-def start_with(running, play_point=PLAY, launcher=object()):
-    """Run start_tarkov against stubbed answers. Returns (result, clicks).
+def ticking_clock(step=10.0):
+    """A monotonic that moves on every read, so a wait that never succeeds still times out."""
+    state = {'now': 0.0}
 
-    running is what is_running() answers on each call in turn, then False forever. play_point is
-    what the Play search comes back with, and launcher is the window handle (None for one that
-    never opens).
-    """
+    def monotonic():
+        state['now'] += step
+        return state['now']
+    return types.SimpleNamespace(monotonic=monotonic, sleep=lambda s: None)
+
+
+def start_with(character=None, running=(False,), play=PLAY, region=REGION,
+               buttons=None, lobby=True, launcher=object()):
+    """Run start_tarkov against stubbed answers. Returns (result, clicks)."""
     clicks = []
-    saved = (tarkov.is_running, tarkov._launcher_window, tarkov._play_point,
-             tarkov.pyautogui, tarkov.time, tarkov.find_game, tarkov.subprocess)
+    names = ('is_running', '_launcher_window', '_play_point', '_game_region', '_profile_buttons',
+             'in_lobby', 'pyautogui', 'time', 'find_game', 'subprocess')
+    saved = {n: getattr(tarkov, n) for n in names}
     answers = list(running)
     tarkov.is_running = lambda: answers.pop(0) if answers else False
     tarkov._launcher_window = lambda: launcher
-    tarkov._play_point = lambda hwnd: play_point
+    tarkov._play_point = lambda hwnd: play
+    tarkov._game_region = lambda: region
+    tarkov._profile_buttons = lambda r: (CARDS if buttons is None else buttons)
+    tarkov.in_lobby = lambda r=None: lobby
     tarkov.pyautogui = types.SimpleNamespace(click=lambda x, y: clicks.append((x, y)))
-    tarkov.time = types.SimpleNamespace(monotonic=lambda: 0.0, sleep=lambda s: None)
+    tarkov.time = ticking_clock()
     tarkov.find_game = lambda: Path(r'D:\Battlestate Games\EscapeFromTarkov.exe')
-    tarkov.subprocess = types.SimpleNamespace(
-        Popen=lambda *a, **k: None,
-        run=lambda *a, **k: types.SimpleNamespace(stdout=''))
+    tarkov.subprocess = types.SimpleNamespace(Popen=lambda *a, **k: None)
     try:
-        return tarkov.start_tarkov(timeout=0), clicks
+        return tarkov.start_tarkov(character or tarkov.Character.PVE), clicks
     finally:
-        (tarkov.is_running, tarkov._launcher_window, tarkov._play_point,
-         tarkov.pyautogui, tarkov.time, tarkov.find_game, tarkov.subprocess) = saved
+        for name, value in saved.items():
+            setattr(tarkov, name, value)
 
 
 def close_with(running):
@@ -61,48 +76,66 @@ def close_with(running):
     tarkov.is_running = lambda: answers.pop(0) if answers else False
     tarkov.subprocess = types.SimpleNamespace(
         run=lambda cmd, **k: kills.append(cmd) or types.SimpleNamespace(stdout=''))
-    tarkov.time = types.SimpleNamespace(monotonic=lambda: 0.0, sleep=lambda s: None)
+    tarkov.time = ticking_clock()
     try:
         return tarkov.close_game(timeout=0), kills
     finally:
         tarkov.is_running, tarkov.subprocess, tarkov.time = saved
 
 
+def cluster(boxes):
+    """_profile_buttons over a stubbed find_all."""
+    saved = tarkov.find
+    tarkov.find = types.SimpleNamespace(find_all=lambda *a, **k: boxes)
+    try:
+        return tarkov._profile_buttons(REGION)
+    finally:
+        tarkov.find = saved
+
+
 if __name__ == '__main__':
-    # A game already up is left alone. No Play click into a live session.
-    result, clicks = start_with([True])
-    assert result is True, f'a running game should report started, got {result}'
-    assert clicks == [], f'nothing should have been clicked, got {clicks}'
+    # Every profile is clicked at its own column, and that is the whole of how they are told
+    # apart: the three buttons are pixel-identical, so an off-by-one here is a silent wrong
+    # profile rather than a failure.
+    for character, centre in zip(tarkov.Character, CENTRES):
+        assert character.value == CENTRES.index(centre), f'{character} is not its column'
+        result, clicks = start_with(character)
+        assert result is True, f'{character.name} should have booted, got {result}'
+        assert clicks == [PLAY, centre], f'{character.name} clicked {clicks}, wanted {centre}'
 
-    # The normal boot: not running, launcher up, Play found and pressed, window appears.
-    result, clicks = start_with([False, True])
-    assert result is True, 'the game window came up and that has to count'
-    assert clicks == [PLAY], f'Play was not clicked once at its centre: {clicks}'
+    # A game already up is left alone: no second Play press into a live session.
+    result, clicks = start_with(running=(True,))
+    assert result is True and clicks == [], f'clicked at a running game: {clicks}'
 
-    # A launcher with no Play button on it gives up without clicking anywhere. A click here
-    # would land wherever the cursor was, on a screen showing the game.
-    result, clicks = start_with([False], play_point=None)
-    assert result is False, 'no Play button cannot report a successful start'
-    assert clicks == [], f'clicked with no button found: {clicks}'
+    # Nothing found means nothing clicked, at each of the three things that can go missing.
+    for label, kwargs, expected in (
+            ('no launcher', {'launcher': None}, []),
+            ('no Play button', {'play': None}, []),
+            ('no profile buttons', {'buttons': []}, [PLAY]),
+            ('no lobby', {'lobby': False}, [PLAY, CENTRES[0]])):
+        result, clicks = start_with(**kwargs)
+        assert result is False, f'{label} must not report a successful start'
+        assert clicks == expected, f'{label} clicked {clicks}, wanted {expected}'
 
-    # A launcher that never opens is a False, not a crash, and still nothing is clicked.
-    result, clicks = start_with([False], launcher=None)
-    assert result is False, 'no launcher window cannot report a successful start'
-    assert clicks == [], f'clicked with no launcher: {clicks}'
+    # The clustering. Every button matches its full crop and its sub-crop, and those overlap by
+    # about a third, under find's IOU dedupe, so all six come back and have to be collapsed to
+    # three by centre. The widest of each pair is the one kept.
+    subs = [types.SimpleNamespace(left=c.left + 8, top=c.top + 5, width=59, height=29)
+            for c in CARDS]
+    both = [b for pair in zip(CARDS, subs) for b in pair]
+    assert cluster(both) == CARDS, 'six matches did not collapse to the three full boxes'
+    assert cluster(CARDS) == CARDS, 'three clean matches should pass straight through'
 
-    # Play clicked but no game window inside the timeout is a False, not a hopeful True.
-    result, clicks = start_with([False, False])
-    assert result is False, 'a game that never appeared must not report started'
-    assert clicks == [PLAY], 'the click still went out'
+    # A half-drawn screen is not a screen to click on. Two buttons is not three.
+    assert cluster(CARDS[:2]) == [], 'two buttons must read as not ready'
+    assert cluster([]) == [], 'no buttons must read as not ready'
 
-    # Closing: a game that is already gone is not killed again.
+    # Closing: a game already gone is not killed again, and a live one is forced rather than
+    # asked, since this game ignores the polite request.
     result, kills = close_with([False])
-    assert result is True and kills == [], f'closed a game that was not running: {kills}'
-
-    # And a live one is forced, not asked. The polite request is ignored by this game, which is
-    # why /F is there rather than a WM_CLOSE first.
+    assert result is True and kills == [], f'killed a game that was not running: {kills}'
     result, kills = close_with([True, False])
     assert result is True, 'the window went, so the close worked'
     assert kills == [['taskkill', '/F', '/IM', tarkov.EXE]], f'not a forced kill: {kills}'
 
-    print('ok: boots through Play, refuses to click without one, and forces the close')
+    print('ok: boots each profile at its own column, clicks nothing it cannot see, forces closes')
