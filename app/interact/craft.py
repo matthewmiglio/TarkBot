@@ -71,6 +71,7 @@ RESET_SWIPES = 5  # swipes left to push the view to one end before searching rig
 MAX_SEARCH_SWIPES = 10  # swipes right looking for the nutrition unit before giving up
 TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
 NAV_SETTLE = 3.0  # seconds to let a navigation land before reading or clicking again
+OPEN_ATTEMPTS = 2  # clicks on a station tab before giving up on its panel opening
 
 # Fleece craft, the second one this module runs. Its two inputs and its output each have their own
 # reference folder under crafting/, same as the slickers craft's above.
@@ -237,17 +238,28 @@ def _open_station(craft, region=None):
 
     Shared by all three ways get_to_station spots the module: already on screen, seen while
     resetting left, or found swiping right.
+
+    The click gets OPEN_ATTEMPTS goes, re-finding the tab in between because the carousel is
+    still drifting for a second or so after a swipe. One look was enough to end two runs an hour
+    into them: on 2026-08-29 a Windows low disk notification took focus and ate the click, and on
+    2026-08-30 the screen went black for a few seconds and the panel could not be read at all.
+    Neither says the station is unreachable, and both pass on a second look.
     """
     log(f'{craft.station} found, settling {NAV_SETTLE}s before clicking', 1)
     time.sleep(NAV_SETTLE)
     box = find.find(craft.module_target, region)
     if not box:
         raise LookupError(f'lost the {craft.station} while the screen settled')
-    pyautogui.click(*sell.jitter(pyautogui.center(box)))
-    time.sleep(NAV_SETTLE)
-    if not station_active(craft, region):
-        raise LookupError(f'clicked the {craft.station} but its panel never opened')
-    return True
+    for attempt in range(OPEN_ATTEMPTS):
+        if attempt:
+            log(f'the {craft.station} panel did not open, clicking it again '
+                f'(try {attempt + 1})', 1)
+        pyautogui.click(*sell.jitter(pyautogui.center(box)))
+        time.sleep(NAV_SETTLE)
+        if station_active(craft, region):
+            return True
+        box = find.find(craft.module_target, region) or box  # the carousel drifts between tries
+    raise LookupError(f'clicked the {craft.station} but its panel never opened')
 
 
 def get_to_nutrition_unit(region=None):
