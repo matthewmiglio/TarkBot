@@ -2,6 +2,7 @@
 
     python -m cli --mode craft
     python -m cli --mode craft --no-wires-enabled --crackers-max 20000
+    python -m cli --game open        (and status / close / restart)
 
 The same seam the GUI uses (each mode module's build(prefs, stats) -> runner with
 start/stop), driven by settings.json plus per-run overrides. See docs/cli.md.
@@ -24,6 +25,7 @@ import session_log
 import snipe_bot
 import update
 import window
+from game_client import tarkov
 from gui import settings
 
 # Friendly CLI mode name -> (settings tab key, mode module). The tab key is what the GUI stores
@@ -39,6 +41,28 @@ INTERNAL_KEYS = {'tab', 'last_run_mode'}
 FLAG_ALIASES = {'mode': 'source'}
 
 
+def game_status():
+    """Print where the game is installed and whether it is up. Always succeeds."""
+    try:
+        print(f'install  {tarkov.find_game()}')
+    except FileNotFoundError as e:
+        print(f'install  {e}')
+    running = tarkov.is_running()
+    print(f'running  {running}')
+    return True
+
+
+def game_restart():
+    """Close the game and boot it again. False if either half fails."""
+    return tarkov.close_game() and tarkov.start_tarkov()
+
+
+# --game actions, each returning True on success. Every one of them is safe to run with the game
+# already in the state it asks for: opening an open game and closing a closed one both say True.
+GAME_ACTIONS = {'status': game_status, 'open': tarkov.start_tarkov,
+                'close': tarkov.close_game, 'restart': game_restart}
+
+
 def _parser():
     p = argparse.ArgumentParser(
         prog='tarkbot', description=__doc__.split('\n')[0],
@@ -51,6 +75,9 @@ def _parser():
                    help='download and install the newest release from the console, then exit (no GUI)')
     p.add_argument('--dry-run', action='store_true',
                    help='print the resolved settings and exit without touching the game')
+    p.add_argument('--game', choices=sorted(GAME_ACTIONS),
+                   help='drive the game itself instead of running a bot: '
+                        'status, open (through the launcher), close, or restart')
 
     # One flag per settings key, generated from DEFAULTS so a new preference needs no change here.
     g = p.add_argument_group('config overrides', 'any settings.json key, applied for this run only')
@@ -119,8 +146,14 @@ def main(argv=None):
     if args.update:  # a standalone action; no mode, no game, no session log
         return 0 if update.cli_update() else 1
 
+    if args.game:  # drive the game itself; no mode, no bot, no session log
+        ok = GAME_ACTIONS[args.game]()
+        if args.game != 'status':
+            print(f'{args.game}  {"ok" if ok else "failed"}')
+        return 0 if ok else 1
+
     if not args.run_mode:
-        parser.error('--mode is required (or use --update)')
+        parser.error('--mode is required (or use --update or --game)')
     tab, module = MODES[args.run_mode]
     prefs = resolve_prefs(args)
 

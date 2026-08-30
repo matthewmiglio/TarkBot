@@ -7,9 +7,21 @@ import winreg
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))  # ponytail: app/ is the import root
+import pyautogui
+
+import screen
 import window
+from interact import find
 
 EXE = "EscapeFromTarkov.exe"
+LAUNCHER = "BsgLauncher.exe"  # the game will not boot without it, see start_tarkov
+LAUNCHER_TITLE = "BsgLauncher"
+PLAY_TARGET = "launcher_play"
+CLOSE_TIMEOUT = 60  # seconds to wait for the window to go before calling the close a failure
+CLOSE_POLL = 0.5  # seconds between window checks while waiting
+LAUNCHER_TIMEOUT = 60  # seconds to wait for the launcher's own window after starting it
+START_TIMEOUT = 180  # seconds to wait for the game window after Play is clicked (28s measured)
+START_POLL = 1.0  # seconds between window checks while the game boots
 DISPLAY_NAME = "Escape from Tarkov"  # the launcher's own uninstall entry, not Arena's
 
 # Where Windows records installed programs. The 32-bit view is listed too because BSG's
@@ -68,31 +80,21 @@ def is_running():
     return bool(window._handles())
 
 
-def close_game(timeout=20):
-    """Close Tarkov and wait for its window to go. True once it is gone, False if it hangs on.
+def close_game(timeout=CLOSE_TIMEOUT):
+    """Force Tarkov shut and block until its window is gone. True once it is, False on timeout.
 
-    Asks first (taskkill with no /F posts WM_CLOSE), and only forces if the game is still up
-    when the timeout runs out. A game sitting in the hideout has nothing to lose either way, but
-    a raid does, so the polite request goes first.
+    Straight to /F, no WM_CLOSE first: the game ignores the polite request, so asking only ever
+    bought a wait before forcing anyway. Returns only on the verified answer, either the window
+    being gone or the timeout running out with it still there.
     """
     if not is_running():
         return True
-    subprocess.run(['taskkill', '/IM', EXE], capture_output=True)
-    if _gone_within(timeout):
-        return True
-    log = f'{EXE} ignored the close request after {timeout}s, forcing it'
-    print(log)
     subprocess.run(['taskkill', '/F', '/IM', EXE], capture_output=True)
-    return _gone_within(timeout)
-
-
-def _gone_within(timeout):
-    """Poll until the game's window is gone, or the timeout runs out."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if not is_running():
             return True
-        time.sleep(0.5)
+        time.sleep(CLOSE_POLL)
     return not is_running()
 
 
@@ -103,12 +105,72 @@ class Character(enum.Enum):
     PERMANENT = "permanent"
 
 
-def start_tarkov(installation_path=None):
-    """SKELETON, not implemented yet. Boot the game and return True once it is up.
+def _launcher_window():
+    """The launcher's window, or None if it is not open."""
+    try:
+        return window.handle(LAUNCHER_TITLE)
+    except window.WindowError:
+        return None
 
-    installation_path defaults to find_game(). Returns False if the game never appears.
+
+def _play_point(hwnd):
+    """Where the launcher's Play button is on screen, or None if it cannot be found.
+
+    The launcher is a movable window rather than the fullscreen game, so the search is scoped to
+    its own rect and the matcher is pointed at whichever monitor the window is sitting on. That
+    monitor is put back afterwards: find.scale() reads it, and a caller mid-bot-run is measuring
+    against the game's screen, not this one.
     """
-    raise NotImplementedError("start_tarkov")
+    left, top, right, bottom = window.bounds(hwnd)
+    was = screen.current()
+    screen.use(screen.containing((left, top)).name)
+    try:
+        return find.find_center(PLAY_TARGET, (left, top, right - left, bottom - top))
+    finally:
+        screen.use(was.name)
+
+
+def start_tarkov(installation_path=None, timeout=START_TIMEOUT):
+    """Boot the game through the launcher and block until its window is up. True/False.
+
+    Three steps, because the game will not start from either of the first two alone: the exe on
+    its own runs and never draws a window (it is waiting on a session token), and the launcher on
+    its own opens and sits there. Play has to be clicked. Measured on 2026-08-30: the game window
+    came up 28 seconds after the click.
+
+    installation_path defaults to find_game(); the launcher is taken from beside it. Returns
+    False if the launcher never opens, Play is never found, or the game never appears in time.
+    """
+    if is_running():
+        return True
+    exe = Path(installation_path) if installation_path else find_game()
+    hwnd = _launcher_window()
+    if hwnd is None:
+        launcher = exe.parent / "BsgLauncher" / LAUNCHER
+        if not launcher.is_file():
+            print(f"no launcher at {launcher}")
+            return False
+        subprocess.Popen([str(launcher)], cwd=str(launcher.parent))
+        deadline = time.monotonic() + LAUNCHER_TIMEOUT
+        while hwnd is None and time.monotonic() < deadline:
+            time.sleep(START_POLL)
+            hwnd = _launcher_window()
+        if hwnd is None:
+            print(f"the launcher window never appeared in {LAUNCHER_TIMEOUT}s")
+            return False
+
+    point = _play_point(hwnd)
+    if point is None:
+        print("no Play button on the launcher")
+        return False
+    pyautogui.click(*point)
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if is_running():
+            return True
+        time.sleep(START_POLL)
+    return is_running()
 
 
 def select_character_type(type):
