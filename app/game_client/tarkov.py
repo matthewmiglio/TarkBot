@@ -1,6 +1,8 @@
-"""Where Tarkov is installed on this machine, and whether it is running right now."""
+"""Where Tarkov is installed on this machine, whether it is running, and how to close it."""
 import enum
+import subprocess
 import sys
+import time
 import winreg
 from pathlib import Path
 
@@ -66,6 +68,34 @@ def is_running():
     return bool(window._handles())
 
 
+def close_game(timeout=20):
+    """Close Tarkov and wait for its window to go. True once it is gone, False if it hangs on.
+
+    Asks first (taskkill with no /F posts WM_CLOSE), and only forces if the game is still up
+    when the timeout runs out. A game sitting in the hideout has nothing to lose either way, but
+    a raid does, so the polite request goes first.
+    """
+    if not is_running():
+        return True
+    subprocess.run(['taskkill', '/IM', EXE], capture_output=True)
+    if _gone_within(timeout):
+        return True
+    log = f'{EXE} ignored the close request after {timeout}s, forcing it'
+    print(log)
+    subprocess.run(['taskkill', '/F', '/IM', EXE], capture_output=True)
+    return _gone_within(timeout)
+
+
+def _gone_within(timeout):
+    """Poll until the game's window is gone, or the timeout runs out."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not is_running():
+            return True
+        time.sleep(0.5)
+    return not is_running()
+
+
 class Character(enum.Enum):
     """The character the launcher offers to play as."""
     PVE = "pve"
@@ -95,3 +125,6 @@ if __name__ == "__main__":
     except FileNotFoundError as e:
         print(f"install  {e}")
     print(f"running  {is_running()}")
+    if "--close" in sys.argv:  # ponytail: opt in, so a plain run never shuts the game
+        print(f"closed   {close_game()}")
+        print(f"running  {is_running()}")
