@@ -37,7 +37,7 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # Crafts mode's two max buy prices, in roubles, typed into a digits-only field.
             # A blank or non-numeric value falls back to craft_bot's default at startup.
             'crackers_max': '22000',
-            'alyonka_max': '17500',
+            'alyonka_max': '22500',
             # Who to buy each ingredient from: a craft_bot.SOURCES label ('Players'/'Traders').
             'crackers_source': 'Players',
             'alyonka_source': 'Players',
@@ -51,12 +51,33 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'power_cord_source': 'Players',
             'pile_of_meds_max': '16600',
             'pile_of_meds_source': 'Players',
+            # Booze generator, the lavatory's cordura craft and the workbench's red gunpowder
+            # craft. Cordura's sewing kit is the fleece craft's input under the same name, so the
+            # two crafts share one ceiling and one source by design.
+            'purified_water_max': '135000',
+            'purified_water_source': 'Players',
+            'sugar_max': '48900',
+            'sugar_source': 'Players',
+            'sling_bag_max': '11000',
+            'sling_bag_source': 'Traders',
+            'green_gunpowder_max': '50000',
+            'green_gunpowder_source': 'Players',
+            'matches_max': '20000',
+            'matches_source': 'Players',
+            # The water collector's only input. Bought by name off the flea rather than off a
+            # craft row, see craft.buy_water_filter, but configured like any other ingredient.
+            'water_filter_max': '70000',
+            'water_filter_source': 'Players',
             # Which crafts the runner actually runs, one <name>_enabled per craft. All on by
             # default; the GUI refuses to start with none ticked.
             'slickers_enabled': True,
             'fleece_enabled': True,
             'wires_enabled': True,
             'ai2_enabled': True,
+            'moonshine_enabled': True,
+            'cordura_enabled': True,
+            'red_gunpowder_enabled': True,
+            'water_collector_enabled': True,
             # The last mode (tab key) a run was actually started in. When the next run is a
             # different mode, the GUI wipes the logs and frames first so a mode's debug artifacts
             # are only ever its own; same mode twice running just accumulates. See gui/app.App.start.

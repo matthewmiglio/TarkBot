@@ -47,24 +47,27 @@ def menu_with(hits):
 def step_with(buy):
     """One craft_bot step whose only missing input is bought by `buy`. Returns what it did."""
     did = []
-    runner = object.__new__(craft_bot.Runner)  # ponytail: skip __init__, it wants a live window
+    runner = object.__new__(craft_bot.HideoutCraft)  # ponytail: skip __init__, it wants a window
     runner.jobs = [types.SimpleNamespace(craft=types.SimpleNamespace(name='wires'))]
     runner.index = 0
     runner.region = None
     runner._ensure_on = lambda job: None
     runner._pause = lambda *a: None
     runner._swap = lambda: did.append('swap')
-    runner.start_craft = lambda job: did.append('start')
+    runner.start_craft = lambda job, read: did.append('start')
     runner.buy_input = buy
-    saved = (craft.get_craft_state, craft.craft_plan, craft.validate_craftable)
-    craft.get_craft_state = lambda *a, **k: 'ready'
-    craft.craft_plan = lambda *a, **k: [('power_cord', False, (500, 400))]
-    craft.validate_craftable = lambda *a, **k: (False, ['power_cord'])  # still short after buying
+    # One stub, because a pass now reads the row once: read_craft hands back the state, the
+    # boxes and the input queue together. There is nothing to keep in step with a second read
+    # any more, and no validate_craftable pass after buying.
+    saved = craft.read_craft
+    craft.read_craft = lambda *a, **k: craft.CraftRead(
+        state='ready', output=None, band=None, start=None, get_items=None,
+        inputs=[('power_cord', False, (500, 400))])
     try:
         runner.step()
         return did
     finally:
-        craft.get_craft_state, craft.craft_plan, craft.validate_craftable = saved
+        craft.read_craft = saved
 
 
 if __name__ == '__main__':

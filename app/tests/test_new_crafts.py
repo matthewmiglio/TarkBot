@@ -10,8 +10,9 @@ import craft_bot
 from gui import settings
 from interact import craft
 
-# All four crafts are present and cycle in a stable order.
-assert list(craft.CRAFTS) == ['slickers', 'fleece', 'wires', 'ai2'], list(craft.CRAFTS)
+# These two crafts are present and lead the cycle. The crafts added after them are
+# tests/test_more_crafts.py's, which owns the full order.
+assert list(craft.CRAFTS)[:4] == ['slickers', 'fleece', 'wires', 'ai2'], list(craft.CRAFTS)
 
 # The two new ones are single-input, at the right station, producing the right item.
 wires = craft.CRAFTS['wires']

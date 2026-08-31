@@ -35,6 +35,8 @@ from sell_bot import Stopped  # shared runner plumbing, see the _pause note belo
 START_SETTLE = 3.0  # seconds after START for the row to flip to producing before the next look
 HANDOVER_TARGET = 'hideout/handover_button'  # the confirm button the START click brings up
 HANDOVER_DELAY = 1.0  # seconds after START for the handover confirm button to appear
+MAX_HANDOVER_LOOPS = 3  # re-clicks of a handover button that will not go away, see _confirm_handover
+HANDOVER_SETTLE = 2.0  # seconds between a handover click and the look that checks it landed
 COLLECT_SETTLE = 2.0  # seconds after collecting for the row to flip back to ready
 PARK_OFFSET = 100  # 1080p px to shove the cursor right after a click, so it stops covering the row
 
@@ -45,21 +47,45 @@ DEFAULT_SOURCE = 'Players'
 
 # Per-ingredient defaults, used when the GUI has no saved value (or a junk one). The max is the most
 # roubles to pay on the flea; the source is who to buy from. These match settings.DEFAULTS.
-DEFAULT_MAX = {'crackers': 22000, 'alyonka': 17500, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
-               'power_cord': 62000, 'pile_of_meds': 16600}
-DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders'}  # anything not listed defaults to players
+DEFAULT_MAX = {'crackers': 22000, 'alyonka': 22500, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
+               'power_cord': 62000, 'pile_of_meds': 16600, 'purified_water': 135000,
+               'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 50000, 'matches': 20000,
+               'water_filter': 70000}
+# anything not listed defaults to players
+DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders', 'sling_bag': 'traders'}
 
 # Estimated net roubles one finished craft is worth: the output's flea value less its inputs' cost.
 # A single figure per craft, not a live read, so 'Est. profit' below is (crafts collected) * this.
 # ponytail: constants, since input prices and output values drift; update them when they have, or
 # read them off the market if this ever needs to be exact. Fleece's is a placeholder until measured.
-PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321, 'wires': 47235, 'ai2': 3521}
+PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321, 'wires': 47235, 'ai2': 3521,
+                    'moonshine': 32111, 'cordura': 27984, 'red_gunpowder': 40250}
+# The water collector has no figure here on purpose: nothing was measured for it, and a
+# guess would inflate 'Est. profit' rather than leave a gap. Collecting it books 0 until
+# one is. Same as any craft the dict does not list, see collect_craft.
 
 GET_ITEMS_SETTLE = 5.0  # seconds after clicking GET ITEMS; collecting can hang for a beat
 
-# The counters, in the order the GUI lists them. Same shape as sell_bot.STAT_LABELS.
-STAT_LABELS = (('crafts', 'Crafts started'), ('profit', 'Est. profit'))
-TINT_STAT = 'profit'  # the row that goes green: estimated profit is the working signal, like money
+# The crafts the GUI draws a STARTED and a PROFIT column against, in craft.CRAFTS' order so the
+# stat keys and the GUI's rows name the same crafts.
+CRAFT_NAMES = tuple(craft.CRAFTS)
+# The counters. Two per craft (started, profit), plus the totals they foot into. Same flat
+# {key: int} shape the other modes use, so the GUI's tick() fills every one of these by key with
+# no crafts-specific code: 'started:<name>' rises on Start, 'profit:<name>' on collect, and the
+# GUI reads them by the same craft names it draws rows for. TINT is the profit total, the working
+# signal like the sell mode's money.
+STAT_LABELS = (('total_started', 'Total started'), ('total_profit', 'Total profit'),
+               *((f'started:{name}', name) for name in CRAFT_NAMES),
+               *((f'profit:{name}', name) for name in CRAFT_NAMES))
+TINT_STAT = 'total_profit'
+
+
+def _book_profit(stats, name):
+    """Add craft `name`'s estimated profit to its own counter and the total. Unlisted crafts
+    (the water collector) book 0, same as they always did."""
+    profit = PROFIT_PER_CRAFT.get(name, 0)
+    stats[f'profit:{name}'] += profit
+    stats['total_profit'] += profit
 
 # One craft's config: the craft.Craft descriptor plus the per-ingredient ceilings and sources the
 # GUI set, both keyed by ingredient name (craft.Ingredient.name).
@@ -110,111 +136,216 @@ class HideoutCraft:
         craft.get_to_station(job.craft, self.region)  # raises LookupError if it cannot get there
 
     def _swap(self):
-        """Move to the next craft in the cycle and navigate to its station."""
+        """Move to the next craft in the cycle, navigating only if it is at another station.
+
+        The jobs are grouped by station (see build), so the next craft is usually another one at
+        the station already on screen, and navigating to a station we are stood in front of is
+        worse than pointless: its tab is the selected one, so clicking it navigates back out.
+        _ensure_on does the check, and the two lavatory crafts and the two workbench crafts get
+        tended without a trip through the carousel between them.
+        """
         if len(self.jobs) < 2:
             return  # only one craft; nothing to swap to
         self.index = (self.index + 1) % len(self.jobs)
         job = self.jobs[self.index]
         log(f'swapping to the {job.craft.name} craft')
-        craft.get_to_station(job.craft, self.region)  # raises if it cannot get there
+        self._ensure_on(job)  # raises if it cannot get there
 
-    def start_craft(self, job):
-        """Start this craft: click START, then confirm on the handover button.
+    def start_craft(self, job, read):
+        """Start this craft: click the START the read already found, then confirm the handover.
 
-        Two clicks, not one. START opens a handover dialog (it hands the ingredients over from the
-        stash), and the craft only begins once that is confirmed. Returns the START point clicked,
-        or None if there was no START button to click.
+        Two clicks, not one. START opens a handover dialog (it hands the ingredients over from
+        the stash), and the craft only begins once that is confirmed. Returns the START point.
+
+        `read` is this pass's CraftRead and the button comes out of it rather than being searched
+        for again. It was matched moments ago and nothing has been clicked since, so the second
+        search could only ever agree, while costing a find_all of the timer icon plus one of the
+        output item. When it disagreed, which a flaky match does, the pass logged 'no START
+        button in the row' and quietly did nothing, and the next lap did the same.
         """
-        band = craft.find_craft(job.craft, self.region)
-        if band is None:
-            log(f'no {job.craft.name} craft on screen to start', 1)
-            return None
-        point = find.find_center(craft.START_TARGET, band)
-        if point is None:
-            log(f'no START button in the {job.craft.name} row', 1)
-            return None
-        point = sell.jitter(point)
+        point = sell.jitter(pyautogui.center(read.start))
         log(f'starting the {job.craft.name} craft, clicking START at {point}', 1)
         pyautogui.click(*point)
 
         time.sleep(HANDOVER_DELAY)
-        confirm = find.find_center(HANDOVER_TARGET, self.region)
-        if confirm is None:
-            log('START clicked but no handover button appeared to confirm it', 1)
+        if not self._confirm_handover():
+            log(f'START clicked but the {job.craft.name} handover was never confirmed, '
+                f'so nothing was started', 1)
             self._park(point)
-            return point  # the click went out; the counter below still reflects the attempt
-        confirm = sell.jitter(confirm)
-        log(f'confirming the handover at {confirm}', 1)
-        pyautogui.click(*confirm)
-        self._park(confirm)
-        self.stats['crafts'] += 1
+            return None
+        self.stats[f'started:{job.craft.name}'] += 1
+        self.stats['total_started'] += 1
         return point
 
-    def collect_craft(self, job):
-        """Collect a finished craft: click its GET ITEMS button. Returns the point, or None.
+    def _confirm_handover(self):
+        """Click the handover dialog's confirm until it is gone. True once it is, False if it stays.
 
-        The row has no timer in the done state, so the band comes from craft_row_band (which works
-        in any state) rather than find_craft. Profit is booked here, not at Start: an estimate is
-        only real once the craft is actually collected.
+        START does not start anything on its own: it opens a dialog that hands the ingredients
+        over from the stash, and the craft only runs once that is confirmed. A single click that
+        misses leaves the craft un-started with nothing in the log to say so, which is how the
+        wires craft bought a power cord and then sat there on 2026-08-30.
+
+        So the dialog going away is the success test, not the click going out. Look, click, wait
+        HANDOVER_SETTLE, look again, up to MAX_HANDOVER_LOOPS re-clicks. The cursor is parked off
+        the button between looks, because the click's own hover highlight changes the very pixels
+        the next look matches against.
+
+    worse than saying so. Returning False rather than raising keeps that to a lost pass: the
+        row is still ready, so the next lap tries again.
+
+        No dialog at all is different, and is Blind. START was clicked, so the dialog is what
+        comes next; never seeing one means the click did not land on the button we had just
+        matched, or the dialog's crops do not match what the game drew. Either way the craft may
+        or may not have begun, and the next pass's row read cannot tell those apart.
         """
-        band = craft.craft_row_band(job.craft, self.region)
-        if band is None:
-            log(f'no {job.craft.name} craft on screen to collect', 1)
-            return None
-        point = find.find_center(craft.GET_ITEMS_TARGET, band)
-        if point is None:
-            log(f'no GET ITEMS button in the {job.craft.name} row', 1)
-            return None
-        point = sell.jitter(point)
+        loops = 0
+        while True:
+            point = find.find_center(HANDOVER_TARGET, self.region)
+            if point is None:
+                if loops == 0:
+                    raise craft.Blind(
+                        'no handover dialog appeared after clicking START, so there is no way '
+                        'to tell whether the craft began')
+                return True
+            if loops > MAX_HANDOVER_LOOPS:
+                log(f'the handover button is still on screen after {loops} clicks', 1)
+                return False
+            point = sell.jitter(point)
+            log(f'confirming the handover at {point} (click {loops + 1})', 1)
+            pyautogui.click(*point)
+            self._park(point)
+            loops += 1
+            time.sleep(HANDOVER_SETTLE)
+
+    def collect_craft(self, job, read):
+        """Collect a finished craft: click the GET ITEMS the read already found.
+
+        Profit is booked here, not at Start: an estimate is only real once the craft is actually
+        collected. The button comes out of `read` for the reason start_craft gives, and this one
+        cost two searches rather than one, since craft_row_band went looking for the output all
+        over again to frame a row the read had already framed.
+        """
+        point = sell.jitter(pyautogui.center(read.get_items))
         log(f'collecting the {job.craft.name} craft, clicking GET ITEMS at {point}', 1)
         pyautogui.click(*point)
         time.sleep(GET_ITEMS_SETTLE)  # collecting sometimes hangs; wait it out before moving on
         self._park(point)
-        self.stats['profit'] += PROFIT_PER_CRAFT.get(job.craft.name, 0)
+        _book_profit(self.stats, job.craft.name)
         return point
 
     def buy_input(self, job, item, location):
         """Buy one missing ingredient off the flea at its ceiling, at a location already found on
         the craft row. True if it bought. No band read here: the caller read the whole row once."""
-        ceiling = job.max_prices.get(item)
-        if ceiling is None:
-            log(f'no price ceiling set for {item}, skipping it this pass', 1)
-            return False
+        # build() refuses to construct a job with a ceiling missing, so this cannot be absent
+        # once a run is going: a KeyError here would mean the job was built by hand.
+        ceiling = job.max_prices[item]
         if location is None:
-            log(f'could not find {item} on the craft row to buy it', 1)
-            return False
+            # read_craft raises before it can hand one of these over, so this is a guard rather
+            # than a path anything takes. It stays because the alternative is a right click at
+            # None.
+            raise craft.Blind(f'no place to click for {item} on the {job.craft.name} row')
         source = job.sources.get(item, 'players')
         log(f'buying {item} at up to {ceiling} from {source}', 1)
         return craft.buy_craft_input_item(location, ceiling, self.region, source=source,
                                           craft=job.craft)
 
+    def tend_water_collector(self, job):
+        """The water collector's pass, which is not the state machine the other crafts use.
+
+        There is no START here and no row of ingredients to fill: the station runs the moment a
+        water filter is in its slot, so the whole job is collecting what is finished and keeping
+        a filter in that slot.
+
+          1. collect a lit GET ITEMS if there is one
+          2. slot reads 'fitted'  -> it is producing, done
+          3a. slot reads 'empty'  -> open the dropdown; if it lists any, fit one and check the
+              slot reads 'fitted'
+          3b. the dropdown lists none -> buy one off the flea, come back, open the dropdown
+              again, fit one and check the slot reads 'fitted'
+
+        The check at the end of 3a and 3b is the point of the rewrite. Fitting used to be judged
+        on the click going out, with confirmation left to the next pass, so a click that missed
+        read as a producing collector for a whole lap.
+
+        A greyed GET ITEMS is left alone, the same rule read_craft uses: greyed means nothing has
+        finished, and clicking it would book profit for a collection that did not happen.
+        """
+        box = find.find(craft.GET_ITEMS_TARGET, self.region)
+        if box is not None and craft.get_items_highlighted(box):
+            point = sell.jitter(pyautogui.center(box))
+            log(f'collecting the water collector, clicking GET ITEMS at {point}', 1)
+            pyautogui.click(*point)
+            self._pause(GET_ITEMS_SETTLE)
+            self._park(point)
+            _book_profit(self.stats, job.craft.name)
+
+        if craft.water_filter_state(self.region) == 'fitted':
+            log('a water filter is in the collector, leaving it to produce', 1)
+            self._swap()
+            return
+
+        listed = craft.open_filter_dropdown(self.region)
+        if not listed:
+            # 3b. Nothing in the stash to fit, so go and buy one, then come back and fit it in
+            # this same pass rather than leaving the collector idle for a lap.
+            ceiling = job.max_prices['water_filter']  # build() guarantees it
+            source = job.sources.get('water_filter', 'players')
+            log(f'no water filter in the stash, buying one at up to {ceiling} from {source}')
+            if not craft.buy_water_filter(ceiling, self.region, source=source, craft=job.craft):
+                log('no water filter bought this pass, leaving the collector empty', 1)
+                self._swap()
+                return
+            listed = craft.open_filter_dropdown(self.region)
+            if not listed:
+                log('bought a water filter but the dropdown still lists none', 1)
+                self._swap()
+                return
+
+        # 3a, and the tail of 3b: fit one and check the slot took it.
+        if craft.fit_water_filter(listed, self.region):
+            log('water filter fitted, the collector is producing')
+            self._pause(START_SETTLE)
+        self._swap()
+
     def step(self):
-        """One pass of the state machine over the craft currently in front of us."""
+        """One pass of the state machine over the craft currently in front of us.
+
+        One read of the row per pass, and everything after it acts on the boxes that read
+        found. It used to search the same row four times: once for the state, twice inside
+        craft_plan, and the whole of craft_plan again through validate_craftable after buying.
+        On a 1440p screen that was 4.4 of a 7.1 second lap spent re-answering a settled
+        question, since nothing is clicked between those looks.
+
+        There is no re-read after buying either. The queue is bought and the pass ends; the next
+        pass reads the row once and starts the craft if it is ready. That costs one lap of
+        latency and removes a whole duplicate read, and the check it replaced was the thing
+        printing 'still missing X after buying, will retry' once every seven seconds.
+        """
         job = self.jobs[self.index]
         self._ensure_on(job)
-        state = craft.get_craft_state(job.craft, self.region)
+        if job.craft.name == craft.WATER_COLLECTOR_NAME:  # no START, no ingredient row: its own pass
+            self.tend_water_collector(job)
+            return
 
-        if state == 'producing':  # nothing to do here; go straight to tending the other craft
+        read = craft.read_craft(job.craft, self.region)
+
+        if read.state == 'producing':  # nothing to do here; go tend another craft
             log(f'{job.craft.name} is producing, swapping to the next craft')
             self._pause()  # a Stop lands here; no wait, the swap's own navigation paces the loop
             self._swap()
             return
-        if state == 'done':
-            self.collect_craft(job)
+        if read.state == 'done':
+            self.collect_craft(job, read)
             self._pause(COLLECT_SETTLE)  # let the row flip back to ready before the next look
             return
-        if state == 'not started':  # greyed GET ITEMS: this loop cannot start it, move on
+        if read.state == 'not started':  # greyed GET ITEMS: this loop cannot start it, move on
             log(f'{job.craft.name} is not started, swapping to the next craft')
             self._swap()
             return
 
-        # Read the whole row once into a to-buy queue (name + where it sits), buy the queue in a
-        # row, then read the row again to confirm it is ready before starting. One band read for
-        # the plan, not one per ingredient.
-        plan = craft.craft_plan(job.craft, self.region)
-        queue = [(name, location) for name, ready, location in plan if not ready]
+        queue = [(name, location) for name, ready, location in read.inputs if not ready]
         if not queue:
-            self.start_craft(job)
+            self.start_craft(job, read)
             self._pause(START_SETTLE)  # give the click time to flip the row to producing
             return
 
@@ -223,27 +354,25 @@ class HideoutCraft:
             self._pause()  # a Stop between buys lands here
             try:
                 self.buy_input(job, name, location)
-            except craft.PriceTooHigh as e:
-                # Too dear right now. buy_input already backed out to the station; leave the rest
-                # of the queue and go tend the other craft rather than overpaying or waiting.
+            except craft.Unbuyable as e:
+                # Not worth staying on the flea for: too dear, locked behind a spent trader
+                # limit, or outbid every try. buy_input already backed out to the station; leave
+                # the rest of the queue and go tend another craft rather than overpaying or
+                # waiting. e says which of the three it was, so a log reads back unambiguously.
                 log(f'{name} {e}, swapping to the next craft', 1)
                 self._swap()
                 return
             except LookupError as e:
-                # The game would not open a context menu on that slot, so this input cannot be
-                # bought this pass. Same shape as too dear: nothing was opened, the station is
-                # still up, and the other crafts are unaffected. Swapping costs a pass; raising
-                # here used to cost the whole run.
+                # The game would not open a context menu on that slot, even after clearing an
+                # Error dialog off it. Nothing was opened, the station is still up, and the
+                # other crafts are unaffected, so this costs a pass rather than the run.
+                #
+                # craft.Blind is deliberately not caught here or anywhere else: it means a read
+                # came back empty for something that is definitely drawn, which no amount of
+                # swapping fixes. See craft.Blind.
                 log(f'{name}: {e}, swapping to the next craft', 1)
                 self._swap()
                 return
-
-        ready, still_missing = craft.validate_craftable(job.craft, self.region)
-        if ready:
-            self.start_craft(job)
-            self._pause(START_SETTLE)
-        else:
-            log(f'{job.craft.name} still missing {still_missing} after buying, will retry', 1)
 
     def start(self):
         """Navigate to the first craft's station, then run the craft cycle until stop(). Blocks."""
@@ -265,7 +394,8 @@ class HideoutCraft:
         finally:
             find.VERBOSE = was_verbose
             log(f'Hideout Craft finished after {time.perf_counter() - started:.0f}s. '
-                + ', '.join(f'{label} {self.stats[key]}' for key, label in STAT_LABELS))
+                f"Crafts started {self.stats['total_started']}, "
+                f"Est. profit {self.stats['total_profit']}")
 
     def stop(self):
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""
@@ -293,7 +423,7 @@ def build(prefs, stats):
 
     One CraftJob per craft in craft.CRAFTS. Each ingredient stores <name>_max (a typed rouble
     string) and <name>_source (a SOURCES label) in prefs; parse them into the {name: value} dicts
-    the runner buys against, keyed by the ingredient names validate_craftable returns.
+    the runner buys against, keyed by the ingredient names read_craft returns.
     """
     screen.use(prefs.get('monitor', screen.AUTO))  # before the runner, which clips to it
     jobs = []
@@ -302,10 +432,28 @@ def build(prefs, stats):
             continue
         max_prices, sources = {}, {}
         for ing in craft_desc.ingredients:
+            if ing.name not in DEFAULT_MAX:
+                # Here rather than mid-pass, because it is a hole in this file and not something
+                # the screen did: a craft was added to interact.craft without a rouble ceiling,
+                # and every pass that reaches its buying step would find None and skip the input
+                # forever. Refusing to build says so once, before a run starts.
+                raise ValueError(
+                    f'{craft_desc.name} has an ingredient with no default ceiling: '
+                    f'add {ing.name!r} to craft_bot.DEFAULT_MAX and '
+                    f'{ing.name}_max to gui.settings.DEFAULTS')
             max_prices[ing.name] = _ceiling(prefs.get(f'{ing.name}_max'), DEFAULT_MAX[ing.name])
             sources[ing.name] = _source(prefs.get(f'{ing.name}_source'),
                                         DEFAULT_SOURCE_BY.get(ing.name, 'players'))
         jobs.append(CraftJob(craft_desc, max_prices, sources))
+    # Group the cycle by station, so every craft at one station is tended before the carousel is
+    # touched again: both lavatory crafts together, both workbench crafts together. Sorted by
+    # where each station first appears rather than by name, so the cycle keeps craft.CRAFTS'
+    # order and only the duplicates move. Navigation is the slowest and least reliable thing this
+    # mode does, and ungrouped jobs paid for it twice a lap.
+    order = {}
+    for craft_desc in craft.CRAFTS.values():
+        order.setdefault(craft_desc.station, len(order))
+    jobs.sort(key=lambda job: order[job.craft.station])
     if not jobs:
         raise ValueError('No crafts are enabled. Tick at least one craft to run.')
     return HideoutCraft(jobs, stats=stats)

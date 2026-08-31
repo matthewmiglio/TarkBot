@@ -7,8 +7,8 @@ the screen, undercuts it, and lists the item on the flea market. Loops until tol
 ## Lay of the land
 
 ```
-sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like the other two:
-                     it was called Tarkbot while it was the only mode, which left one of three
+sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like the other three:
+                     it was called Tarkbot while it was the only mode, which left one of four
                      runners wearing the whole app's name.
                      sell_one() is one full pass, start() repeats it until stop().
                      stop() sets a threading.Event; _pause() is the checkpoint every wait and
@@ -98,11 +98,11 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      money on its own. A listing under a quarter of trader value is refused.
                      interact/snipe.read_price refuses a clipped crop outright; this catches the
                      reads that come back looking sane.
-                     Same shape as the other two modes (stats dict, _pause checkpoint,
+                     Same shape as the other three modes (stats dict, _pause checkpoint,
                      start/stop, build). Its _pause is the third copy of FleaSeller._pause, which
                      is the third mode gym_bot.py's note said would settle it: hoist _pause,
-                     _stop and stop() into a Runner before any of the three grows a checkpoint
-                     the other two do not have.
+                     _stop and stop() into a Runner before any of the four grows a checkpoint
+                     the other three do not have.
                      Self-check, no game needed: python -m snipe_bot
 snipe_targets.csv    That watchlist: name, trader, trader price, 24h flea average, gap, category.
                      Generated, not hand written. _price_scraper/rouble_flips.py writes it from
@@ -193,6 +193,71 @@ gym_bot.py           HideoutGym: the third mode, hitting the workout skill check
                      30% error in the speed. And the aimed wait is time.sleep via _sleep(), not
                      Event.wait via _pause(): Event.wait rounds up to that same tick, 45ms for
                      a 31ms ask, which is a press landing 4 columns late at speed.
+craft_bot.py         HideoutCraft: the fourth mode, keeping several hideout crafts running and
+                     buying what each one needs. Same shape as the other three (stats dict, _pause
+                     checkpoint, start/stop, build), named to pair with gym_bot.py and so it cannot
+                     be mistaken for interact/craft.py. Nothing to do with the flea except that it
+                     buys off it.
+                     More than one craft runs at once, each at its own station (slickers at the
+                     nutrition unit, fleece and cordura at the lavatory, wires and red gunpowder at
+                     the workbench, ai2 at the medstation, moonshine at the booze generator, plus
+                     the water collector). step() works the craft in front of it and the moment that
+                     craft is only producing swaps to the next station, so while one craft's timer
+                     runs the bot is off tending another rather than watching a progress bar.
+                     The per-craft state machine over craft.get_craft_state: producing -> wait and
+                     swap; done -> collect (GET ITEMS) and look again; ready with the ingredients in
+                     the stash -> click START and confirm the handover; ready with an ingredient
+                     missing -> buy each off the flea and look again; not started (greyed GET ITEMS)
+                     -> nothing to do here, swap. An output the reader cannot find on screen is none
+                     of those and raises out of the run rather than being guessed at, see
+                     interact/craft.py.
+                     start_craft is two clicks, not one: START opens a handover dialog that hands
+                     the ingredients over from the stash, and the craft only begins once that is
+                     confirmed. _confirm_handover makes the dialog going away the success test, not
+                     the click going out: look, click, wait, look again, up to MAX_HANDOVER_LOOPS
+                     re-clicks, and never having seen the dialog at all counts as a failure since
+                     START must have missed. A single click that missed left a craft un-started with
+                     nothing in the log to say so, which is how the wires craft bought a power cord
+                     and then sat there on 2026-08-30. The cursor is parked off every clicked button
+                     (_park, PARK_OFFSET) because the click's own hover highlight changes the very
+                     pixels the next read matches against.
+                     collect_craft books the profit, not start_craft: an estimate is only real once
+                     the craft is actually collected. PROFIT_PER_CRAFT is a flat per-craft figure,
+                     not a live read (ponytail: constants, update them when input prices and output
+                     values drift), and a craft the dict does not list (the water collector) books 0
+                     rather than a guess that would inflate the total.
+                     buy_input buys one missing ingredient at its GUI ceiling from its GUI source.
+                     Unbuyable and LookupError (the game would not open a context menu on the slot)
+                     both make step() swap craft rather than end the run: one bad slot or one
+                     sniped offer says nothing about the other crafts, and raising there used to
+                     cost the whole run. Unbuyable covers the three ways the flea is not worth
+                     standing on for this ingredient, and its message says which, because they
+                     want the same response and not the same entry in the log: the offer is over
+                     the ceiling, no row has a PURCHASE button (a spent trader limit shows the
+                     offer as LOCKED, at a price that still reads as a bargain, and an empty board
+                     looks the same), or six tries were all outbid. It was called PriceTooHigh
+                     while it carried all three, so a run read back afterwards said "too
+                     expensive" about an item whose price was never the problem.
+                     tend_water_collector is its own pass, not the state machine: there is no START
+                     and no ingredient row, the station produces the moment a filter is in its slot,
+                     so the whole job is collecting what has finished and keeping a filter fitted,
+                     buying one off the flea only when the stash has none.
+                     CRAFT_NAMES and STAT_LABELS are two counters per craft (started, profit) plus
+                     the totals they foot into, the same flat {key: int} the other modes use so the
+                     GUI fills every one by name with no crafts-specific code; TINT_STAT is
+                     total_profit, the working signal like the sell mode's money. build() reads a
+                     per-ingredient ceiling and source out of prefs for each enabled craft, then
+                     groups the cycle by station so both lavatory crafts (and both workbench crafts)
+                     are tended before the carousel is touched again: navigation is the slowest,
+                     least reliable thing this mode does, and ungrouped jobs paid for it twice a lap.
+                     Raises if no craft is enabled.
+                     start() forces find.VERBOSE on for the length of the run and restores it after:
+                     this mode leans hardest on detection and its misses are the ones still being
+                     chased, so every match is narrated while the flea loop that would drown in it
+                     is left untouched.
+                     No standalone self-check; the craft tests are the net (test_new_crafts,
+                     test_more_crafts, test_craft_state_unreadable, test_craft_input_confidence,
+                     test_craft_buy_retry, test_craft_menu_retry, test_craft_station_grouping).
 window.py            Locates windows via ctypes/user32. Load bearing: bot, gui and every test
                      import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h),
                      bounds() -> (l,t,r,b). Raises WindowError if the window is missing or
@@ -298,7 +363,7 @@ scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at t
 scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
                      after editing the svg; the ico is committed. Wants cairosvg.
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored state lamp, one
-                     tab per mode (FLEA SELL / FLEA SNIPE / HIDEOUT GYM) and the pickers each
+                     tab per mode (FLEA SELL / FLEA SNIPE / HIDEOUT GYM / CRAFTS) and the pickers each
                      mode needs. FLEA SNIPE's MARGIN and TRADER dropdowns sit in the same two
                      header slots as FLEA SELL's UNDERCUT and SOURCE: a tab's dropdowns are never
                      on screen with another tab's, so they share the positions rather than each
@@ -341,15 +406,16 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      with no symptom until somebody presses it. tests/test_hotkey_bind.py.
                      Modes are rows in TABS, and each mode's module supplies exactly three
                      things: STAT_LABELS (rows to draw), TINT_STAT (the row that goes green,
-                     or None) and build(prefs, stats) -> a runner with start/stop/stats. A
-                     third mode is a row in TABS plus a module, not a new branch through the
-                     drawing code. Per-tab canvas items carry a 'tab:<key>' tag and switching
+                     or None) and build(prefs, stats) -> a runner with start/stop/stats. A new mode is
+                     usually just a row in TABS plus a module, with no new branch through the
+                     drawing code; crafts is the exception, adding its own _draw_crafts_tab family
+                     for the per-craft rows and settings panel. Per-tab canvas items carry a 'tab:<key>' tag and switching
                      is itemconfigure(state=hidden/normal), so nothing is redrawn and the item
                      ids stay stable for tick(). Switching tabs stops whatever the tab being
                      left was running and waits for it, rather than refusing the switch: the
                      window must never show one mode while another is still clicking. Tabs in
                      DISABLED_TABS are drawn greyed and cannot be switched to at all. It is
-                     empty today, so all three modes are selectable; put a key back in it to
+                     empty today, so all four modes are selectable; put a key back in it to
                      grey one out.
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in
@@ -375,7 +441,7 @@ gui/settings.py      Preferences in %APPDATA%/tarkbot/settings.json. Never raise
                      file is ignored so the GUI always opens. Self-check: python -m gui.settings
 gui/backgrounds/     The photos the picker offers. Drop a png in and it appears in the list.
 gui/characters/      The figure on the left panel, one png per mode named for its tab key
-                     (flea.png, gym.png, snipe.png), swapped by repainting the backdrop on tab
+                     (flea.png, gym.png, snipe.png, crafts.png), swapped by repainting the backdrop on tab
                      switch. The filename is the whole wiring: a new mode drops a png in here
                      named for its tab and theme.py needs no change.
 gui/tarkbot.svg, gui/tarkbot.ico   Window, taskbar and exe icon. The svg is the source; the
@@ -546,6 +612,77 @@ interact/gym.py      The same for the hideout gym. Separate module on purpose: t
                      gym_bot.HideoutGym.do_one_rep, on read_lines, so the stub is gone rather
                      than shadowing the name it lost to.
                      Self-check, no game needed: python -m interact.gym
+interact/craft.py    Everything the craft bot does to a screen, and the descriptors that let one
+                     set of reads and one navigation serve every craft. Reuses interact/sell.py and
+                     interact/snipe.py's shipping flea reads rather than copying them.
+                     A Craft namedtuple is everything that differs between crafts: the output item,
+                     its ingredients (each an Ingredient of name + icon target), the module's
+                     carousel label, its panel header and the station's human name. CRAFTS is the
+                     eight of them keyed by name; the runner iterates it and every function takes a
+                     Craft, so nothing is hard-coded to one craft. The old slickers-only names
+                     survive as thin back-compat wrappers (get_slickers_craft_state,
+                     find_slickers_craft, return_to_nutrition_unit, ...).
+                     get_craft_state returns one of 'not started', 'done', 'ready', 'producing',
+                     read off the craft output's own row: GET ITEMS greyed is not started, GET ITEMS
+                     lit is done, a START button is ready, none of those is producing. START and GET
+                     ITEMS lit-vs-greyed is a brightest-channel threshold on the button box
+                     (button_brightness, START_READY_BRIGHTNESS 150), the same read as
+                     sell.more_offers_available, because the button keeps its dark plate in both
+                     states and only its label lights. Two bugs are designed against here. _on_row
+                     constrains the read to the output's centre y within ROW_TOL, not just the
+                     padded band: the band is deliberately tall enough to frame a row in any state,
+                     so it overlaps the next craft's row, and on 2026-08-28 a fleece craft producing
+                     at 7% read a START button 71px below as its own and looped buying inputs into
+                     an already running craft. And an output not on screen raises LookupError rather
+                     than answering 'producing': 'producing' is exactly the state the runner skips,
+                     so a craft it could not see became one it politely skipped every pass forever
+                     with no error, which is what the wires craft did on 2026-08-27 while its output
+                     sat unmatched under the 0.9 default. See find.CONFIDENCES.
+                     find_craft / output_items / output_box locate the craft's row by its output
+                     bar, which is the item match with a timer clock (TIMER_TARGET) to its left on
+                     the same row; the same item used as an ingredient elsewhere has no timer and is
+                     ignored. find_craft returns a full-width band (SLICKERS_BAND_PAD around the
+                     output, less SLICKERS_BAND_TOP_DROP off the top) to hand to find as the region
+                     for that craft's ingredients, marks and START. craft_row_band is the
+                     state-independent version off output_box, for reading GET ITEMS or START when a
+                     timer is not on the row.
+                     craft_plan reads the whole row once and reports (name, ready, location) per
+                     ingredient: ready is a checkmark (CHECK_TARGET) sitting under the icon, not
+                     ready is an X or nothing or the icon off screen, matched by _mark_beneath (a
+                     mark belongs to an icon within MARK_ALIGN_X of its centre x and MARK_DROP_MIN to
+                     MARK_DROP_MAX below it). validate_craftable is the missing-ingredient list off
+                     that. One band read for the plan, not one per ingredient.
+                     get_to_station is the navigation, and the slowest, least reliable thing the
+                     mode does. It makes the hideout tab active, then treats the module row as a
+                     horizontal carousel: sweep right up to MAX_SEARCH_SWIPES, then back left up to
+                     twice that, until the station's label appears, stopping early when the row
+                     stops moving (_row_moved off a grey-difference strip, since the hideout is
+                     never perfectly still). Every dead end raises LookupError rather than clicking
+                     blind. It replaced a reset-to-one-end-first sweep that spent five swipes and
+                     eleven seconds every navigation and re-ran for every craft every pass: 366
+                     swipes in one 71-minute run on 2026-08-30. _open_station clicks the label
+                     exactly once and polls up to PANEL_TIMEOUT for the panel: a second click
+                     navigates back out of the station just entered (its tab is already the selected
+                     one), which is what ended a run on 2026-08-30 with the Medstation tab already
+                     lit in the captured frame, and the long poll is because the hideout flies the
+                     camera to the room before drawing anything.
+                     buy_craft_input_item is the flea sniper's flow aimed from a right click rather
+                     than a typed search: _open_item_menu right-clicks the ingredient in the row for
+                     its 'filter by item' entry (hovering first and waiting, because rightClick
+                     teleports the cursor and presses in one instant and the menu then never opens,
+                     seen on 2026-08-28), narrow the board to it, apply the filters (no condition
+                     filter: a consumed input need not be pristine), read the top offer and buy it
+                     when it is at or under the ceiling, retrying on a REFRESH_KEY reload up to
+                     BUY_ATTEMPTS times since a buy can lose a race to another buyer. A board with no
+                     PURCHASE button (a spent trader limit shows the offer as LOCKED, an empty board
+                     looks the same) is handled like an over-ceiling price: back out and let the
+                     runner swap. buy_water_filter is the exception, narrowing the board by typing
+                     the name the way the sniper does, since a filter the collector lacks sits on no
+                     craft row to right-click, and it keeps the condition filter on because a filter
+                     is consumed over its whole durability. fit_water_filter / water_filter_missing
+                     are the collector's slot. return_to_station escapes the flea back to the panel
+                     a purchase left it sitting over, raising if the panel never comes back.
+                     Self-check, no game needed: python -m interact.craft
 interact/ocr.py      Reads the numbers Tarkov prints. Not an OCR engine: the prices are a fixed
                      bitmap font, so it cuts the crop into glyphs and pixel-matches each against
                      a reference. read_number() is all or nothing, None if any glyph is
@@ -824,15 +961,16 @@ test_craft_state_unreadable.py
                              the one state the runner reacts to by doing nothing and swapping
                              away, so a blind craft and a running craft were the same event and
                              the wires craft was skipped every pass with no error at all. Checks
-                             the raise, that the four real states still read, and that the
+                             the raise, that two of its four states still read, and that the
                              LookupError escapes start() rather than buying another lap. Stubs
                              the finders, so no game and no window.
 test_craft_input_confidence.py
                              Are a craft's input icons found on the station they belong to and
                              not on the other one. Two labelled 1080p frames from the run of
-                             2026-08-27, each the other's negative. The evidence behind
-                             find.CONFIDENCES['crafting/sewing_kit'] and ['crafting/crackers'] at
-                             0.75, and the regression net for the run that logged "could not find
+                             2026-08-27, each the other's negative. The evidence behind the crafting/
+                             input-icon thresholds (wires 0.70, power_cord 0.65, crackers 0.80) and
+                             why crafting/sewing_kit stayed at the 0.9 default, and the regression
+                             net for the run that logged "could not find
                              sewing_kit on the craft row to buy it" 22 times and started no
                              crafts. The absent rows are the load-bearing half: they are what a
                              blanket loosening of every crafting/ icon fails, since ux_pro_beanie
@@ -912,8 +1050,9 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. Four entries today, and every one of them is a 1440p
-  screen losing a target the 1080p crop convention cannot reach once `needle()` grows it back.
+  number can be seen to sit in the gap. Ten entries today. The four described below are each a 1440p
+  screen losing a target the 1080p crop convention cannot reach once `needle()` grows it back; the
+  captcha, nutrition and crafting entries have other causes (small, low-structure icons).
   `offer_creation_window_title` at 0.8: its title is a thin strip of small text that scores 0.88
   on a 1440p screen once `needle()` has grown it, and 0.58 when the window is not there.
   `autoselect_similar` at 0.85: 0.889 to 0.944 across every frame it is in at either resolution,

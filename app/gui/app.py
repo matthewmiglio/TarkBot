@@ -59,7 +59,8 @@ PAD = 24  # panel inset used for every label and value
 # arrow, the output icon); the per-input buy settings live behind the gear on their own view. So
 # the tab has two states, flipped by _show_craft_view: the list, and one craft's settings panel.
 CRAFT_ICONS_DIR = Path(__file__).resolve().parent / 'craft_icons'
-CRAFT_ICON = 44  # input/output icon square, px
+CRAFT_ICON = 44  # input/output icon square, px, in a craft's settings view
+CRAFT_LIST_ICON = 24  # smaller square for the list rows, which are pitched tighter
 RUBLE_ICON = 'ruble.png'  # the rouble glyph shown right of each max field
 RUBLE_ICON_H = 15  # its height, px; width follows the glyph's aspect
 RUBLE_GOLD = (206, 168, 64)  # the goldish colour the (black) glyph is tinted to
@@ -67,14 +68,20 @@ RUBLE_GAP = 5  # px between the max field's right edge and the rouble glyph
 # List view: one row per craft. Icons left-pack from a fixed column and the arrow and output sit
 # at fixed columns, so one-input and two-input crafts line up down the list.
 CRAFT_LIST_TOP = 200  # first row's centre, under the tab rule (TAB_ROW + 32 = 170)
-CRAFT_LIST_STEP = 46  # row pitch; four crafts fit above the stats
+CRAFT_LIST_STEP = 26  # row pitch; eight crafts fit above the stats at this and CRAFT_LIST_ICON
 CRAFT_CHECK_DX = 8  # enable box centre, right of the panel inset
 CRAFT_GEAR_DX = 32  # settings gear centre
 CRAFT_CTRL_SIZE = 16  # px square for both the enable box and the gear, so the pair match
 CRAFT_INPUT_DX = 74  # first input icon centre
-CRAFT_INPUT_STEP = 52  # between input icons
-CRAFT_ARROW_DX = -120  # arrow centre, left of the right inset (fixed so outputs align)
-CRAFT_OUTPUT_DX = -24  # output icon centre, left of the right inset
+CRAFT_INPUT_STEP = 30  # between input icons, to suit CRAFT_LIST_ICON
+CRAFT_ARROW_DX = -220  # arrow centre, left of the right inset (fixed so outputs align)
+CRAFT_OUTPUT_DX = -186  # output icon centre; pulled left of the STARTED/PROFIT columns
+# Two right-hand stat columns per row (right edges, from the right inset), the arrow and output
+# now sit left of. A STARTED count and a PROFIT total against each craft, headed and footed.
+CRAFT_STARTED_DX = -92  # STARTED value's right edge
+CRAFT_PROFIT_DX = 0  # PROFIT value's right edge, on the inset
+CRAFT_HEAD_Y = CRAFT_LIST_TOP - 22  # the STARTED / PROFIT column headers, above the first row
+CRAFT_TOTAL_GOLD = '#d9b038'  # the Total line, echoing the rouble gold used elsewhere
 # Settings view: a titled section per input, then a SAVE button back to the list.
 CRAFT_CFG_TOP = 196  # first section's title centre
 CRAFT_CFG_STEP = 116  # between input sections
@@ -82,7 +89,7 @@ CRAFT_CFG_ICON_DX = 320  # the input icon, right of its section title (clear of 
 CRAFT_CFG_FIELD_RIGHT_DX = 300  # dropdown / max-field right edge, from the panel inset
 CRAFT_CFG_FIELD_WIDTH = 120  # dropdown / max-field width
 CRAFT_SAVE_GREEN = '#425139'  # theme.RUNNING blended ~45% onto the plate; canvas has no real alpha
-CRAFTS_ROW_TOP = 392  # first stat row baseline, clear of the four craft rows
+CRAFTS_ROW_TOP = 412  # first stat row baseline, clear of the eight craft rows
 CRAFTS_ROW_STEP = 26  # tighter than ROW_STEP: the crafts leave less room for the stat rows
 # Each craft is (name, output icon file, inputs); each input is (label, settings key stem, icon
 # file). The max field stores <stem>_max, the source picker <stem>_source, and the enable box
@@ -92,7 +99,17 @@ CRAFTS = (('slickers', 'slickers.png', (('CRACKERS', 'crackers', 'crackers.png')
           ('fleece', 'fleece.png', (('SEWING KIT', 'sewing_kit', 'sewing_kit.png'),
                                     ('UX PRO BEANIE', 'ux_pro_beanie', 'ux_pro_beanie.png'))),
           ('wires', 'wires.png', (('POWER CORD', 'power_cord', 'power_cord.png'),)),
-          ('ai2', 'ai2.png', (('PILE OF MEDS', 'pile_of_meds', 'pile_of_meds.png'),)))
+          ('ai2', 'ai2.png', (('PILE OF MEDS', 'pile_of_meds', 'pile_of_meds.png'),)),
+          ('moonshine', 'moonshine.png', (('PURIFIED WATER', 'purified_water',
+                                           'purified_water.png'),
+                                          ('SUGAR', 'sugar', 'sugar.png'))),
+          ('cordura', 'cordura.png', (('SEWING KIT', 'sewing_kit', 'sewing_kit.png'),
+                                      ('SLING BAG', 'sling_bag', 'sling_bag.png'))),
+          ('red_gunpowder', 'red_gunpowder.png', (('GREEN GUNPOWDER', 'green_gunpowder',
+                                                   'green_gunpowder.png'),
+                                                  ('MATCHES', 'matches', 'matches.png'))),
+          ('water_collector', 'purified_water.png', (('WATER FILTER', 'water_filter',
+                                                      'water_filter.png'),)))
 LOG_DROP = 40  # px below the status row for the activity line, in the band under the buttons
 LOG_BOX = 17  # half the height of the box drawn round that line, and its inset from the text
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
@@ -359,7 +376,8 @@ class App:
         self._draw_chrome()
         self._draw_tabs()
         for key, _, module in TABS:
-            self._draw_stats(key, module)
+            if key != 'crafts':  # crafts draws its stats inline per row, in _draw_crafts_tab
+                self._draw_stats(key, module)
         self._draw_footer()
         self._draw_controls()
         self._show_tab(self.tab)  # paints the backdrop, hides the other tab's rows and dropdowns
@@ -559,11 +577,13 @@ class App:
         self.craft_enabled = {}
         self._craft_icons = []
         self._craft_cfg_vars = []
+        self.values['crafts'] = {}  # per-craft stat items live here, filled by tick() like any tab
         ruble, ruble_w = self._gold_ruble()  # one shared PhotoImage for every max field
         self._craft_icons.append(ruble)
         for i, (name, output_icon, inputs) in enumerate(CRAFTS):
             self._draw_craft_row(i, name, output_icon, inputs, inner_l, inner_r)
             self._draw_craft_cfg(name, inputs, inner_l, inner_r, ruble, ruble_w)
+        self._draw_craft_stats(inner_l, inner_r)
 
     def _draw_craft_row(self, i, name, output_icon, inputs, inner_l, inner_r):
         """One list row: enable box, settings gear, the input icons, an arrow, the output icon.
@@ -585,10 +605,46 @@ class App:
                                   width=CRAFT_CTRL_SIZE, height=CRAFT_CTRL_SIZE)
         for j, (label, _stem, icon_file) in enumerate(inputs):
             self._draw_craft_icon(inner_l + CRAFT_INPUT_DX + j * CRAFT_INPUT_STEP, y,
-                                  icon_file, label, list_tags)
+                                  icon_file, label, list_tags, size=CRAFT_LIST_ICON)
         self.canvas.create_text(inner_r + CRAFT_ARROW_DX, y, text='→', fill=theme.INK_DIM,
                                 font=self.fonts['value'], tags=list_tags)
-        self._draw_craft_icon(inner_r + CRAFT_OUTPUT_DX, y, output_icon, 'output', list_tags)
+        self._draw_craft_icon(inner_r + CRAFT_OUTPUT_DX, y, output_icon, 'output', list_tags,
+                              size=CRAFT_LIST_ICON)
+        # This craft's STARTED and PROFIT cells, keyed to match craft_bot's stat dict so tick()
+        # writes them with no crafts-specific code, the way it fills every other tab's rows.
+        for key, dx in ((f'started:{name}', CRAFT_STARTED_DX), (f'profit:{name}', CRAFT_PROFIT_DX)):
+            self.values['crafts'][key] = self.canvas.create_text(
+                inner_r + dx, y, anchor='e', text='0', fill=theme.INK,
+                font=self.fonts['value'], tags=list_tags)
+
+    def _draw_craft_stats(self, inner_l, inner_r):
+        """The STARTED / PROFIT column headers over the rows, and the Total and Run time lines under
+        them. The per-row cells are drawn in _draw_craft_row; these are the frame around them. Every
+        item carries craft:list, so a settings panel hides the stats along with the rows."""
+        list_tags = ('tab:crafts', 'craft:list')
+        for text, dx in (('STARTED', CRAFT_STARTED_DX), ('PROFIT', CRAFT_PROFIT_DX)):
+            self.canvas.create_text(inner_r + dx, CRAFT_HEAD_Y, anchor='e', text=text,
+                                    fill=theme.INK_DIM, font=self.fonts['label'], tags=list_tags)
+        # Total: gold label, and the two footed columns. total_profit is craft_bot.TINT_STAT, so
+        # tick() recolours it green once it is non-zero; total_started stays gold with the label.
+        total_y = CRAFTS_ROW_TOP
+        self.canvas.create_line(inner_l, total_y - 13, inner_r, total_y - 13,
+                                fill='#2a2c2a', tags=list_tags)
+        self.canvas.create_text(inner_r + CRAFT_ARROW_DX, total_y, anchor='w', text='Total',
+                                fill=CRAFT_TOTAL_GOLD, font=self.fonts['value'], tags=list_tags)
+        self.values['crafts']['total_started'] = self.canvas.create_text(
+            inner_r + CRAFT_STARTED_DX, total_y, anchor='e', text='0', fill=CRAFT_TOTAL_GOLD,
+            font=self.fonts['value'], tags=list_tags)
+        self.values['crafts']['total_profit'] = self.canvas.create_text(
+            inner_r + CRAFT_PROFIT_DX, total_y, anchor='e', text='0', fill=CRAFT_TOTAL_GOLD,
+            font=self.fonts['value'], tags=list_tags)
+        # Run time, its own line at the foot, filled by tick() like every other tab's runtime row.
+        run_y = CRAFTS_ROW_TOP + CRAFTS_ROW_STEP
+        self.canvas.create_text(inner_l, run_y, anchor='w', text=spaced('RUN TIME'),
+                                fill=theme.INK_DIM, font=self.fonts['label'], tags=list_tags)
+        self.values['crafts']['runtime'] = self.canvas.create_text(
+            inner_r, run_y, anchor='e', text='-', fill=theme.INK,
+            font=self.fonts['value'], tags=list_tags)
 
     def _draw_craft_cfg(self, name, inputs, inner_l, inner_r, ruble, ruble_w):
         """One craft's settings view: a titled section per input (icon, source picker, max-price
@@ -671,18 +727,19 @@ class App:
         gold = gold.resize((width, RUBLE_ICON_H), Image.LANCZOS)
         return ImageTk.PhotoImage(gold), width
 
-    def _draw_craft_icon(self, cx, cy, icon_file, label, tags):
+    def _draw_craft_icon(self, cx, cy, icon_file, label, tags, size=CRAFT_ICON):
         """One item's icon centred at (cx, cy), or a labelled placeholder box if it will
-        not load. Icons come from gui/craft_icons/."""
+        not load. Icons come from gui/craft_icons/. size is the square to draw it at: the
+        settings view has room for CRAFT_ICON, the tighter list rows want CRAFT_LIST_ICON."""
         from PIL import Image, ImageTk
         try:
             image = Image.open(CRAFT_ICONS_DIR / icon_file).convert('RGBA')
-            image = image.resize((CRAFT_ICON, CRAFT_ICON), Image.LANCZOS)
+            image = image.resize((size, size), Image.LANCZOS)
             photo = ImageTk.PhotoImage(image)
             self._craft_icons.append(photo)
             self.canvas.create_image(cx, cy, image=photo, tags=tags)
         except (OSError, ValueError):  # missing or unreadable png: a plain box keeps the layout
-            r = CRAFT_ICON // 2
+            r = size // 2
             self.canvas.create_rectangle(cx - r, cy - r, cx + r, cy + r,
                                          outline=theme.LINE, tags=tags)
             self.canvas.create_text(cx, cy, text=label.split()[0].title(), fill=theme.INK_FAINT,

@@ -7,6 +7,7 @@ because they are not. That is sell.more_offers_available's problem exactly (a bu
 its dark plate in both states and only lights its label), so it is read the same way: the
 brightest channel in the button box, thresholded.
 """
+import random
 import time
 from collections import namedtuple
 
@@ -42,6 +43,16 @@ MENU_REHOVER_OFFSET = 120  # 1080p px to pull the cursor off a slot before hover
 FLEA_LOAD_DELAY = 3.0  # after 'filter by item', for the flea board and its filter UI to load
 OFFER_WAIT = 10.0  # after the filters go on, how long to keep looking for an offer before giving up
 OFFER_POLL = 0.3  # how often to re-check the board for an offer while waiting
+BUY_ATTEMPTS = 6  # tries at one ingredient before giving up on it, see buy_craft_input_item
+REFRESH_KEY = 'f5'  # what reloads the flea board without losing the filters already on it
+REFRESH_DELAY = 2.0  # seconds after that refresh before the board is read again
+# An offer over the ceiling used to end the ingredient on the spot. It does not any more: the
+# board is already filtered to this one item and the trip to get here (right click, filter by
+# item, open the filter window, set it, OK out) costs about twenty seconds, so throwing that away
+# over one reading of a market that turns over constantly was the expensive move. Stay on the
+# board, wait, refresh, look again, and only give up once every look has been too dear.
+DEAR_REFRESHES = 5  # refreshes spent waiting for a cheaper offer before giving up on the item
+DEAR_DELAY = 5.0  # seconds to let the board turn over before each of those refreshes
 BOUGHT_SETTLE = 2.0  # seconds after a purchase before the caller does anything else
 NUTRITION_RETURN_WAIT = 10.0  # how long to wait for the nutrition panel after escaping the flea
 NUTRITION_RETURN_POLL = 0.2  # how often to re-check for it while waiting
@@ -64,14 +75,28 @@ HIDEOUT_TAB_ACTIVE_BRIGHTNESS = 90
 NUTRITION_TARGET = 'hideout/hideout_tabs/nutrition_unit'  # the module we are navigating to
 NUTRITION_ACTIVE_TARGET = 'hideout/hideout_station_titles/nutrition_unit'  # the panel header shown once it is open
 HIDEOUT_DIR = 'hideout/hideout_tabs'  # the folder of module-label references, one subfolder per module
+# The module carousel always lists its stations in this fixed left-to-right order. Only some have
+# reference crops (see hideout_module_targets); the rest are here so the indices reflect the real
+# geography, and so a crop added later slots in without renumbering. Names are the hideout_tabs
+# subfolder names. Used to swipe toward a station instead of blindly sweeping both ways: any known
+# icon on screen places us in this list, and the target's position says which way it lies.
+STATION_ORDER = [
+    'gear_rack', 'scav_case', 'weapon_rack', 'bitcoin_farm', 'hall_of_fame', 'heating',
+    'intelligence_center', 'medstation', 'shooting_range', 'airfiltering_unit', 'booze_generator',
+    'cultist_circle', 'generator', 'gym', 'illumination', 'lavatory', 'library', 'nutrition_unit',
+    'rest_space', 'security', 'solar_power', 'stash', 'vents', 'water_collector', 'workbench',
+]
+STATION_INDEX = {name: i for i, name in enumerate(STATION_ORDER)}
 SWIPE_DISTANCE = 500  # px to drag the hideout view per swipe, 1080p, scaled at swipe time
 SWIPE_DURATION = 0.3  # seconds the drag itself takes
 SWIPE_SETTLE = 0.5  # seconds after a swipe for the view to stop moving before it is read
-RESET_SWIPES = 5  # swipes left to push the view to one end before searching rightwards
-MAX_SEARCH_SWIPES = 10  # swipes right looking for the nutrition unit before giving up
+MAX_SEARCH_SWIPES = 10  # swipes one way looking for a station before turning around
+SWIPE_STRIP_HEIGHT = 80  # px tall strip of the module row read to tell whether a swipe moved it
+SWIPE_STUCK_DIFF = 3.0  # mean grey change below this means the row did not move at all
 TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
 NAV_SETTLE = 3.0  # seconds to let a navigation land before reading or clicking again
-OPEN_ATTEMPTS = 2  # clicks on a station tab before giving up on its panel opening
+PANEL_TIMEOUT = 15.0  # seconds to wait for a station panel after clicking its tab, see _open_station
+PANEL_POLL = 0.5  # seconds between looks while that panel is awaited
 
 # Fleece craft, the second one this module runs. Its two inputs and its output each have their own
 # reference folder under crafting/, same as the slickers craft's above.
@@ -93,13 +118,77 @@ AI2_TARGET = 'crafting/ai2'
 MEDSTATION_TARGET = 'hideout/hideout_tabs/medstation'
 MEDSTATION_ACTIVE_TARGET = 'hideout/hideout_station_titles/medstation'
 
+# Booze generator: purified water + sugar -> moonshine.
+MOONSHINE_TARGET = 'crafting/moonshine'
+PURIFIED_WATER_TARGET = 'crafting/purified_water'
+SUGAR_TARGET = 'crafting/sugar'
+BOOZE_TARGET = 'hideout/hideout_tabs/booze_generator'
+BOOZE_ACTIVE_TARGET = 'hideout/hideout_station_titles/booze_generator'
+
+# The lavatory's other craft: sewing kit + sling bag -> cordura. The sewing kit is the fleece
+# craft's input under the same name, so it shares that craft's ceiling and offer source.
+CORDURA_TARGET = 'crafting/cordura'
+SLING_BAG_TARGET = 'crafting/sling_bag'
+
+# The workbench's other craft: green gunpowder + matches -> red gunpowder.
+RED_GUNPOWDER_TARGET = 'crafting/red_gunpowder'
+GREEN_GUNPOWDER_TARGET = 'crafting/green_gunpowder'
+MATCHES_TARGET = 'crafting/matches'
+
+# The water collector, which does not work like the others: see tend_water_collector in craft_bot.
+# There is no START and no ingredient row. A water filter goes in the slot and the station begins
+# producing on its own, so the whole job is keeping a filter in that slot.
+WATER_FILTER_TARGET = 'crafting/water_filter'  # a filter itself, on the panel or in the dropdown
+WATER_FILTER_DROPDOWN_TARGET = 'crafting/water_filter_dropdown'  # opens the list of filters to fit
+MISSING_WATER_FILTER_TARGET = 'crafting/missing_water_filter'  # the empty slot: no filter is in
+WATER_COLLECTOR_TARGET = 'hideout/hideout_tabs/water_collector'
+# The panel header's crop folder is named water_filter rather than water_collector, because that
+# is the folder the crop was added to. The station is the water collector.
+WATER_COLLECTOR_ACTIVE_TARGET = 'hideout/hideout_station_titles/water_filter'
+WATER_FILTER_NAME = 'water filter'  # what to type into the flea search to find one
+WATER_DROPDOWN_DELAY = 1.0  # after opening the filter dropdown, for its list to draw
+WATER_FIT_SETTLE = 1.0  # after clicking a filter, before reading the slot back
+
 # A craft is everything that differs between the slickers and fleece runs, so one set of reading
 # and navigation functions serves both. ingredients are (name, icon target); the name doubles as
 # the key the runner looks its rouble ceiling and offer source up under, and matches the crafting/
 # folder, so buying can aim at crafting/<name> without a second lookup.
-class PriceTooHigh(Exception):
-    """Raised by buy_craft_input_item when the cheapest offer is over the ceiling: the caller has
-    already backed out to the station, and this says to stop buying and move on to the next craft."""
+class Blind(Exception):
+    """An element that has to be drawn was not on screen, so the bot cannot see what it is doing.
+
+    Never caught by the runner, and that is the whole point of it being its own class. Every
+    other failure in a craft pass is a thing the game is legitimately doing (too dear, no offers,
+    nothing in the dropdown) and the answer is to go tend another craft. This one means a read
+    came back empty for something that is definitely drawn: an ingredient icon on a row the game
+    is showing, a START button the state read just matched, a filter window that is open. That is
+    a broken reference crop or a screen we are not really looking at, and neither gets better by
+    trying again.
+
+    It is deliberately not a LookupError. step() catches LookupError to swap crafts, which is
+    right for the one recoverable case it is for (Tarkov's Error dialog eating a right-click
+    menu) and exactly wrong here: on 2026-08-30 the green gunpowder crops stopped matching, the
+    runner read "not ready, nowhere to click", logged one line and did the identical pass again
+    every seven seconds for seven minutes, buying nothing and raising nothing. Subclassing
+    LookupError would have turned that silent loop into a noisy one and nothing more.
+    """
+
+
+class Unbuyable(Exception):
+    """Raised by buy_craft_input_item when this ingredient is not worth staying on the flea for.
+
+    Three different things end that way and the runner answers all three the same, by backing out
+    and going to tend another craft, so they share one exception rather than one each. What they
+    must not share is a name: this was called Unbuyable while it also carried a locked offer
+    and a lost race, so a log or a traceback said "too expensive" about an item whose price was
+    fine. The cause lives in the message, and each of the three is worded differently on purpose,
+    because reading back a run and telling them apart is the whole point:
+
+      - "<price> over the <ceiling> ceiling"           the offer really is too dear
+      - "has no PURCHASE button, ..."                  a spent trader limit, or an empty board
+      - "could not be bought in <n> attempts"          outbid, over and over
+
+    The caller has already backed out to the station by the time this is raised.
+    """
 
 
 Ingredient = namedtuple('Ingredient', 'name target')
@@ -119,7 +208,28 @@ WIRES = Craft('wires', WIRES_TARGET,
 AI2 = Craft('ai2', AI2_TARGET,
             (Ingredient('pile_of_meds', PILE_OF_MEDS_TARGET),),
             MEDSTATION_TARGET, MEDSTATION_ACTIVE_TARGET, 'medstation')
-CRAFTS = {c.name: c for c in (SLICKERS, FLEECE, WIRES, AI2)}
+MOONSHINE = Craft('moonshine', MOONSHINE_TARGET,
+                  (Ingredient('purified_water', PURIFIED_WATER_TARGET),
+                   Ingredient('sugar', SUGAR_TARGET)),
+                  BOOZE_TARGET, BOOZE_ACTIVE_TARGET, 'booze generator')
+CORDURA = Craft('cordura', CORDURA_TARGET,
+                (Ingredient('sewing_kit', SEWING_KIT_TARGET),
+                 Ingredient('sling_bag', SLING_BAG_TARGET)),
+                LAVATORY_TARGET, LAVATORY_ACTIVE_TARGET, 'lavatory')
+RED_GUNPOWDER = Craft('red_gunpowder', RED_GUNPOWDER_TARGET,
+                      (Ingredient('green_gunpowder', GREEN_GUNPOWDER_TARGET),
+                       Ingredient('matches', MATCHES_TARGET)),
+                      WORKBENCH_TARGET, WORKBENCH_ACTIVE_TARGET, 'workbench')
+# The water collector's "output" and its one "ingredient" are both the water filter, so the
+# normal row reads have something to aim at, but craft_bot never runs the ready/producing state
+# machine over it: WATER_COLLECTOR_NAME sends it down tend_water_collector instead. The
+# ingredient entry exists so the GUI gives the filter a max-price field like any other input.
+WATER_COLLECTOR = Craft('water_collector', WATER_FILTER_TARGET,
+                        (Ingredient('water_filter', WATER_FILTER_TARGET),),
+                        WATER_COLLECTOR_TARGET, WATER_COLLECTOR_ACTIVE_TARGET, 'water collector')
+WATER_COLLECTOR_NAME = WATER_COLLECTOR.name  # craft_bot tests against this to pick its own branch
+CRAFTS = {c.name: c for c in (SLICKERS, FLEECE, WIRES, AI2, MOONSHINE, CORDURA, RED_GUNPOWDER,
+                              WATER_COLLECTOR)}
 
 
 def hideout_tab_brightness(region=None):
@@ -169,6 +279,49 @@ def hideout_icons(region=None):
     return boxes
 
 
+def _module_basename(target):
+    """The station key ('nutrition_unit') out of a module target ('hideout/hideout_tabs/nutrition_unit')."""
+    return target.rsplit('/', 1)[-1]
+
+
+def visible_station_positions(region=None):
+    """STATION_ORDER indices of every known module icon on screen, sorted. [] when none show.
+
+    Only the modules with reference crops (hideout_module_targets) can be seen, a subset of
+    STATION_ORDER, but any one of them places us: the carousel shows a contiguous run of the order,
+    so a single known icon says roughly where in the list we are looking.
+    """
+    positions = []
+    for target in hideout_module_targets():
+        i = STATION_INDEX.get(_module_basename(target))
+        if i is not None and find.find_all(target, region):
+            positions.append(i)
+    return sorted(positions)
+
+
+def _preferred_first_dx(craft, dist, region=None):
+    """The drag to try first, +dist or -dist, or None when the target's side cannot be told.
+
+    STATION_ORDER runs left to right. Dragging the row left (negative dx) reveals stations further
+    right in that order, dragging right (positive dx) reveals ones further left. So a target past
+    every icon on screen lies to the right (drag left for it); one before them all lies to the left
+    (drag right); one inside the visible span is already at hand and the blind order is fine. Only a
+    hint: get_to_station sweeps the other way too when this one comes up empty, so a wrong guess (or
+    a carousel that drags the opposite way to this assumption) costs a reversal, not the station.
+    """
+    target_i = STATION_INDEX.get(_module_basename(craft.module_target))
+    if target_i is None:
+        return None
+    visible = visible_station_positions(region)
+    if not visible:
+        return None
+    if target_i > visible[-1]:
+        return -dist
+    if target_i < visible[0]:
+        return dist
+    return None
+
+
 def _swipe(x, y, dx):
     """Drag the hideout view horizontally by dx from (x, y). Negative dx swipes left."""
     log(f'swiping from ({x}, {y}) by {dx}', 2)
@@ -176,14 +329,38 @@ def _swipe(x, y, dx):
     pyautogui.dragTo(x + dx, y, duration=SWIPE_DURATION, button='left')
 
 
+def _row_strip(y, region=None):
+    """A thin strip across the module row, read only to tell whether a swipe moved anything."""
+    left, top, width, height = region if region is not None else screen.rect()
+    half = round(SWIPE_STRIP_HEIGHT * find.scale() / 2)
+    y = min(max(round(y), top + half), top + height - half)  # keep the strip inside the window
+    return np.asarray(screen.grab((left, y - half, width, half * 2)).convert('L'), dtype=float)
+
+
+def _row_moved(before, after):
+    """Did the carousel actually shift, or is it up against its end and ignoring the drag.
+
+    Compared as a mean grey difference rather than pixel for pixel: the hideout is never perfectly
+    still, so an exact match would only ever happen on a frozen screen. A row that moved changes
+    this strip by tens of levels; one that did not moves it by well under one.
+    """
+    moved = float(np.abs(after - before).mean())
+    log(f'module row changed by {moved:.1f} vs {SWIPE_STUCK_DIFF}', 2)
+    return moved >= SWIPE_STUCK_DIFF
+
+
 def get_to_station(craft, region=None):
     """Navigate the hideout to this craft's station and open it. True on success, else raises.
 
     Ensures the hideout tab is the active one (clicking it if not), then treats the module row as
-    a horizontal carousel: swipe left RESET_SWIPES times to reach one end, swipe right up to
-    MAX_SEARCH_SWIPES times until the station's module label appears, then click it. Every dead
-    end (no tab, tab will not activate, no module row to grab, station never found or lost while
-    the screen settles) raises LookupError rather than clicking blind.
+    a horizontal carousel. The station icons appear in a fixed order (STATION_ORDER), so a known
+    icon on screen usually says which way the target lies and that direction is swept first
+    (_preferred_first_dx); with nothing placeable on screen it falls back to a blind sweep right up
+    to MAX_SEARCH_SWIPES, then back left up to twice that. Either way both directions are swept and
+    each stops early once the row stops moving, so a station that is not there can never swipe
+    forever and a wrong direction guess only costs a reversal.
+    Every dead end (no tab, tab will not activate, no module row to grab, station never found or
+    lost while the screen settles) raises LookupError rather than clicking blind.
     """
     if is_hideout_tab_active(region):
         log('already on the hideout tab, skipping to the module search', 1)
@@ -212,25 +389,41 @@ def get_to_station(craft, region=None):
     log(f'module row grab point ({x}, {y}) off {len(icons)} icons', 1)
 
     dist = round(SWIPE_DISTANCE * find.scale())
-    log(f'resetting: up to {RESET_SWIPES} swipes left by {dist}', 1)
-    for _ in range(RESET_SWIPES):
-        _swipe(x, y, -dist)
-        time.sleep(SWIPE_SETTLE)
-        if find.find(craft.module_target, region):  # spotted it while resetting, stop early
-            log(f'{craft.station} appeared while resetting left', 1)
-            return _open_station(craft, region)
-
-    log(f'searching right for the {craft.station}, up to {MAX_SEARCH_SWIPES} swipes', 1)
-    found = find.find(craft.module_target, region)
-    swipes = 0
-    while not found and swipes < MAX_SEARCH_SWIPES:
-        _swipe(x, y, dist)
-        swipes += 1
-        time.sleep(SWIPE_SETTLE)
-        found = find.find(craft.module_target, region)
-    if not found:
-        raise LookupError(f'{craft.station} never appeared after {MAX_SEARCH_SWIPES} swipes')
-    return _open_station(craft, region)
+    # The carousel lists stations in a fixed order (STATION_ORDER), so a known icon on screen
+    # usually says which way the target lies: sweep that way first. Falls back to the old blind
+    # order (right, then twice as far back left) when nothing placeable is on screen. Either way
+    # both directions are swept and each stops early against the end of the row, so a bad guess only
+    # costs a reversal. The old reset-to-one-end sweep spent five swipes and eleven seconds every
+    # navigation, and the bot re-navigates for every craft on every pass: 366 swipes in one 71
+    # minute run on 2026-08-30.
+    first = _preferred_first_dx(craft, dist, region)
+    if first is None:
+        # The return sweep gets twice the budget because it has to undo the outbound one to reach a
+        # station that was behind the starting point.
+        sweeps = [(dist, 'right', MAX_SEARCH_SWIPES), (-dist, 'left', MAX_SEARCH_SWIPES * 2)]
+    else:
+        # Head the predicted way first; give both directions the full return budget, since after a
+        # wrong guess the second sweep may have to cross the whole carousel.
+        sweeps = [(first, 'right' if first > 0 else 'left', MAX_SEARCH_SWIPES * 2),
+                  (-first, 'left' if first > 0 else 'right', MAX_SEARCH_SWIPES * 2)]
+        log(f'{craft.station} icon sits {"ahead of" if first < 0 else "behind"} what is on screen, '
+            f'sweeping {"left" if first < 0 else "right"} for it first', 1)
+    for dx, label, limit in sweeps:
+        log(f'searching {label} for the {craft.station}, up to {limit} swipes', 1)
+        before = _row_strip(y, region)
+        for _ in range(limit):
+            _swipe(x, y, dx)
+            time.sleep(SWIPE_SETTLE)
+            if find.find(craft.module_target, region):
+                log(f'{craft.station} appeared while swiping {label}', 1)
+                return _open_station(craft, region)
+            after = _row_strip(y, region)
+            if not _row_moved(before, after):  # against the end of the carousel, stop shoving
+                log(f'the module row stopped moving {label}, turning around', 1)
+                break
+            before = after
+    raise LookupError(f'{craft.station} never appeared after searching both ways, '
+                      f'up to {MAX_SEARCH_SWIPES} swipes right and {MAX_SEARCH_SWIPES * 2} left')
 
 
 def _open_station(craft, region=None):
@@ -239,27 +432,31 @@ def _open_station(craft, region=None):
     Shared by all three ways get_to_station spots the module: already on screen, seen while
     resetting left, or found swiping right.
 
-    The click gets OPEN_ATTEMPTS goes, re-finding the tab in between because the carousel is
-    still drifting for a second or so after a swipe. One look was enough to end two runs an hour
-    into them: on 2026-08-29 a Windows low disk notification took focus and ate the click, and on
-    2026-08-30 the screen went black for a few seconds and the panel could not be read at all.
-    Neither says the station is unreachable, and both pass on a second look.
+    Exactly one click, then wait up to PANEL_TIMEOUT for the panel. Clicking a second time is
+    worse than useless: the tab is already the selected one by then, so the second click navigates
+    back out of the station it just entered. That is what a two-click retry was really doing when
+    it ended a run on 2026-08-30 with the Medstation tab already lit up in the captured frame.
+
+    The wait is long because the hideout flies the camera to the room before drawing anything, and
+    a fixed 3s sleep plus a single look lands inside that animation: the frame that ended the run
+    was a half-painted room on a mostly black screen. Polling costs nothing when the panel is
+    already up, since the first look returns.
     """
     log(f'{craft.station} found, settling {NAV_SETTLE}s before clicking', 1)
     time.sleep(NAV_SETTLE)
     box = find.find(craft.module_target, region)
     if not box:
         raise LookupError(f'lost the {craft.station} while the screen settled')
-    for attempt in range(OPEN_ATTEMPTS):
-        if attempt:
-            log(f'the {craft.station} panel did not open, clicking it again '
-                f'(try {attempt + 1})', 1)
-        pyautogui.click(*sell.jitter(pyautogui.center(box)))
-        time.sleep(NAV_SETTLE)
+    pyautogui.click(*sell.jitter(pyautogui.center(box)))
+    log(f'clicked the {craft.station}, waiting up to {PANEL_TIMEOUT}s for its panel', 1)
+    deadline = time.monotonic() + PANEL_TIMEOUT
+    while True:
         if station_active(craft, region):
             return True
-        box = find.find(craft.module_target, region) or box  # the carousel drifts between tries
-    raise LookupError(f'clicked the {craft.station} but its panel never opened')
+        if time.monotonic() >= deadline:
+            raise LookupError(f'clicked the {craft.station} but its panel never opened '
+                              f'within {PANEL_TIMEOUT}s')
+        time.sleep(PANEL_POLL)
 
 
 def get_to_nutrition_unit(region=None):
@@ -303,14 +500,26 @@ def output_items(craft, region=None):
     used as an ingredient has no timer left of it. Same row means centre y within ROW_TOL (scaled),
     to the left means the timer's centre x is smaller.
     """
+    return _output_matches(craft, region)[0]
+
+
+def _output_matches(craft, region=None):
+    """(the timer-anchored outputs, every match of the output item). One search of each.
+
+    Split out so output_box can ask both questions from one pass over the screen. It used to
+    call output_items and then, when that came back empty, search the output item all over
+    again for its fallback: two find_alls of the same target, about 0.3s each on a 1440p screen,
+    every time a craft was producing or done.
+    """
     tol = ROW_TOL * find.scale()
     timers = find.find_all(TIMER_TARGET, region)
+    items = find.find_all(craft.output_target, region)
     outputs = []
-    for item in find.find_all(craft.output_target, region):
+    for item in items:
         ix, iy = _center(item)
         if any(_center(t)[0] < ix and abs(_center(t)[1] - iy) <= tol for t in timers):
             outputs.append(item)
-    return outputs
+    return outputs, items
 
 
 def output_box(craft, region=None):
@@ -320,11 +529,10 @@ def output_box(craft, region=None):
     item match when there is no timer, which is every other state: the output sits at the far
     right of its row, right of the ingredients, so it is the rightmost match of the item on screen.
     """
-    timed = output_items(craft, region)
+    timed, items = _output_matches(craft, region)
     if timed:
         return max(timed, key=lambda b: b.left)
-    boxes = find.find_all(craft.output_target, region)
-    return max(boxes, key=lambda b: b.left) if boxes else None
+    return max(items, key=lambda b: b.left) if items else None
 
 
 def output_slickers(region=None):
@@ -383,6 +591,67 @@ def _on_row(boxes, row_y):
     return min(on, key=lambda b: abs(_center(b)[1] - row_y)) if on else None
 
 
+# One look at a craft's row. state is the same four strings get_craft_state answers with;
+# output/band/start/get_items are the boxes that answer was based on, so a caller acting on the
+# state never has to search for them again; inputs is [(name, ready, where to click)] in the
+# craft's ingredient order, and is None in every state but 'ready' because nothing else needs it.
+CraftRead = namedtuple('CraftRead', 'state output band start get_items inputs')
+
+
+def read_craft(craft, region=None):
+    """Read this craft's whole row once and hand back everything a pass acts on.
+
+    The runner used to search the same row four times a pass: get_craft_state looked for the
+    output, craft_plan looked for it twice more (once through find_craft, once through
+    output_box), and validate_craftable then ran the whole of craft_plan again. Each of those
+    searches is a find_all of the timer icon plus a find_all of the output item, about 0.55s a
+    pair on a 1440p screen, so a red gunpowder pass spent 4.4 of its 7.1 seconds re-answering
+    a question it had already answered. Nothing is clicked between those looks, so they could
+    only ever agree, and when one disagreed (a flaky match) the pass silently did nothing.
+
+    So: one search, and the boxes come back with the answer. start_craft clicks read.start,
+    collect_craft clicks read.get_items, and the buying loop walks read.inputs.
+
+    The ingredient and checkmark searches only happen in the 'ready' state, since that is the
+    only state with a queue to build.
+
+    Raises Blind when the output is not on screen, or when an ingredient icon is not on a row
+    the game is drawing. Both mean a read came back empty for something that is definitely
+    there, and neither is a state the runner can do anything sensible with.
+    """
+    output = output_box(craft, region)
+    if output is None:
+        raise Blind(f'{craft.name} output not on screen, cannot read the craft row')
+    band = _row_band(output, region)
+    row_y = _center(output)[1]
+
+    start = None
+    get_items = _on_row(find.find_all(GET_ITEMS_TARGET, band), row_y)
+    if get_items:
+        state = 'done' if get_items_highlighted(get_items) else 'not started'
+    else:
+        start = _on_row(find.find_all(START_TARGET, band), row_y)
+        state = 'ready' if start else 'producing'
+    log(f'{craft.name} craft state: {state}', 1)
+
+    inputs = None
+    if state == 'ready':
+        checks = find.find_all(CHECK_TARGET, band)
+        inputs = []
+        for ing in craft.ingredients:
+            icons = find.find_all(ing.target, band)
+            if not icons:
+                raise Blind(
+                    f'{ing.name} icon is not on the {craft.name} row, which the game is drawing '
+                    f'right now: every input is shown there with a tick or a cross under it. The '
+                    f'crops in reference_images/{ing.target} do not match what is on screen')
+            icon = min(icons, key=lambda b: abs(_center(b)[1] - row_y))
+            ready = _mark_beneath(icon, checks) is not None
+            log(f'{ing.name}: {"ready" if ready else "not ready"}', 1)
+            inputs.append((ing.name, ready, _center(icon)))
+    return CraftRead(state, output, band, start, get_items, inputs)
+
+
 def get_craft_state(craft, region=None):
     """One of 'not started', 'done', 'ready', 'producing' for this craft. Raises if unreadable.
 
@@ -407,21 +676,7 @@ def get_craft_state(craft, region=None):
     so: the counters looked normal and the loop looked healthy. Failing loudly here costs a
     stopped run on a bad frame and buys the only signal that a craft has gone blind.
     """
-    output = output_box(craft, region)
-    if output is None:
-        raise LookupError(f'{craft.name} output not on screen, cannot read the craft state')
-    band = _row_band(output, region)
-    row_y = _center(output)[1]
-
-    get_items = _on_row(find.find_all(GET_ITEMS_TARGET, band), row_y)
-    if get_items:
-        state = 'done' if get_items_highlighted(get_items) else 'not started'
-    elif _on_row(find.find_all(START_TARGET, band), row_y):
-        state = 'ready'
-    else:
-        state = 'producing'
-    log(f'{craft.name} craft state: {state}', 1)
-    return state
+    return read_craft(craft, region).state
 
 
 def get_slickers_craft_state(region=None):
@@ -441,8 +696,7 @@ def find_craft(craft, region=None):
     """
     boxes = output_items(craft, region)
     if not boxes:
-        log(f'no {craft.name} craft output on screen', 1)
-        return None
+        raise Blind(f'no {craft.name} craft output on screen, so there is no row to frame')
     top = min(b.top for b in boxes) - SLICKERS_BAND_PAD + SLICKERS_BAND_TOP_DROP
     bottom = max(b.top + b.height for b in boxes) + SLICKERS_BAND_PAD
     left, _, width, _ = region if region else screen.rect()
@@ -550,6 +804,17 @@ def _open_item_menu(location, region=None, attempts=2):
         box = find.find('filter_by_item', region)
         if box:
             return box
+        # Tarkov's plain Error dialog is modal, so while it is up the right click landed on it
+        # and no menu exists at all. It is the one reason to miss here that costs nothing to
+        # undo, and every other mode already clears it on a failure like this. Only worth a
+        # look on the last try: the earlier ones are the hover race above, not a dialog.
+        if attempt == attempts - 1 and sell.dismiss_error_popup(region):
+            log('an Error dialog was over the menu; cleared it and trying the slot once more', 1)
+            pyautogui.moveTo(*location)
+            time.sleep(MENU_DELAY)
+            pyautogui.rightClick(*location)
+            time.sleep(MENU_DELAY)
+            return find.find('filter_by_item', region)
     return None
 
 
@@ -563,11 +828,27 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     board to this one item through the inventory menu, put the filters on, read the top offer's
     price, and buy that row only when it is cheap enough.
 
-    Returns True if it bought, False otherwise (too dear, or the price could not be read safely).
-    Raises LookupError if the 'filter by item' menu entry never appears, since without it there
-    is no way to narrow the board to this ingredient and nothing after this step would mean
-    anything. craft_bot catches that and swaps craft rather than ending the run: one slot the
-    game will not open a menu on says nothing about the other crafts.
+    Two things send it round again on the same board rather than back out to the station, both
+    by refreshing with REFRESH_KEY and reading the new top offer:
+
+      - a purchase that lost a race to another buyer, up to BUY_ATTEMPTS times in all
+      - a top offer over the ceiling, DEAR_REFRESHES more looks at DEAR_DELAY apart
+
+    The second one is the newer of the two and is worth the wait for the same reason as the
+    first: the board is already filtered to this one item, and getting back to this point from
+    the station is a right click, a menu, a filter window and about twenty seconds. A single
+    reading of a market that turns over constantly is a thin reason to spend that.
+
+    Returns True if it bought, False if the price could not be read (which no refresh fixes:
+    the digits are clipped or will not read, and the same board comes back). Raises Unbuyable
+    when every look was over the ceiling, when no row has a PURCHASE button to click (a spent
+    trader limit shows the offer as LOCKED, and an empty board looks the same), or when
+    BUY_ATTEMPTS ran out.
+    All of those mean the same thing: leave this ingredient and go tend another craft. Raises LookupError if the 'filter by item'
+    menu entry never appears, since without it there is no way to narrow the board to this
+    ingredient and nothing after this step would mean anything. craft_bot catches both and swaps
+    craft rather than ending the run: one slot the game will not open a menu on, or one offer
+    that keeps getting sniped, says nothing about the other crafts.
     """
     log(f'buying craft input at {location}, ceiling {max_price}')
     box = _open_item_menu(location, region)
@@ -580,34 +861,239 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     time.sleep(FLEA_LOAD_DELAY)  # the flea board opens from scratch here, give its UI time to draw
     # No condition filter: a craft input is consumed, not resold, so a scuffed one is fine and
     # filtering on 100% only hides the cheaper offers we are here for.
-    sell.apply_flea_filters(region, source=source, set_condition=False)
+    #
+    # The return value is checked, which it was not until 2026-08-31. Every price read after
+    # this is only meaningful because the board is in roubles and showing the right offer
+    # source; an unfiltered board answers with a number that looks exactly as valid and is
+    # about a different market. apply_flea_filters only comes back False when it could not
+    # read its own controls, which is a window it cannot see rather than a filter the game
+    # refused, so it is Blind rather than something to shrug at.
+    if not sell.apply_flea_filters(region, source=source, set_condition=False):
+        raise Blind('the flea filters could not be confirmed, so no price on this board can be '
+                    'trusted')
 
-    # The board reloads after the filters go on and offers do not all appear at once, so poll for
-    # the first purchase button rather than reading once: up to OFFER_WAIT, every OFFER_POLL.
+    # Read the top offer and buy it, and go round again on either of the two things that leave
+    # us still wanting the item, refreshing the board with REFRESH_KEY each time rather than
+    # walking back out to the station and starting the twenty second trip over from the top:
+    #
+    #   - the money did not actually leave. snipe.buy answers that off the rouble balance either
+    #     side of the click, so a race lost to another buyer is a False here and not a silent
+    #     nothing. BUY_ATTEMPTS tries in all.
+    #   - the top offer is over the ceiling. DEAR_REFRESHES more looks, DEAR_DELAY apart, since
+    #     the board is a live market and the cheap offer that is not there now may be there in
+    #     half a minute. Counted separately from the races: they are different waits for
+    #     different reasons and one should not eat the other's tries.
+    # Two counters, not one, because the two reasons to go round again are different waits for
+    # different reasons and neither should eat the other's tries.
+    dear = 0  # looks that came back over the ceiling
+    races = 0  # purchase clicks whose money never left
+    while True:
+        top = _top_offer(region)
+        if top is None:
+            # No PURCHASE button on any row. Two things look like this and neither is worth
+            # standing here for: a trader offer showing LOCKED because its per-hour limit is
+            # spent, and a board with nothing on it at all. The price beside a locked row can be
+            # perfectly good, which is the trap: the row reads as a bargain and can never be
+            # bought, so a bot that waits on it waits until the hour turns over.
+            #
+            # Backing out lets the runner swap craft, which comes back round to this one next
+            # lap with the limit that much closer to reset. That does mean any other input still
+            # queued for this craft goes unbought this pass, and for the same reason as ever:
+            # the craft cannot start without this one anyway.
+            log('no PURCHASE button on the filtered board, so this cannot be bought right now '
+                '(a trader limit shows the offer as LOCKED), backing out', 1)
+            return_to_station(craft, region)
+            raise Unbuyable('has no PURCHASE button, most likely a spent trader limit')
+
+        price = snipe.read_price(top)
+        if price is None:
+            # Not a market condition, so there is nothing to wait for: the crop was clipped or
+            # the digits would not read, and a refresh brings back the same board.
+            log('not buying (price unreadable), backing out', 1)
+            return_to_station(craft, region)  # esc off the flea, back to the hideout station
+            return False
+
+        if price > max_price:
+            if dear >= DEAR_REFRESHES:
+                log(f'{price} still over the {max_price} ceiling after {dear} refresh(es), '
+                    f'backing out', 1)
+                return_to_station(craft, region)
+                raise Unbuyable(f'over the {max_price} ceiling on all {dear + 1} looks, '
+                                f'cheapest {price}')
+            dear += 1
+            # ponytail: a plain sleep, so a Stop pressed here lands up to DEAR_DELAY late. The
+            # same is already true of FLEA_LOAD_DELAY and OFFER_WAIT on this path. Thread the
+            # runner's stop Event down the way sell.wait_for_offer_slot takes one if it grates.
+            log(f'{price} is over the {max_price} ceiling; waiting {DEAR_DELAY:.0f}s on the '
+                f'board for a cheaper offer (look {dear} of {DEAR_REFRESHES})', 1)
+            time.sleep(DEAR_DELAY)
+            _refresh_board()
+            continue
+
+        log(f'{price} is at or under {max_price}, buying', 1)
+        if snipe.buy(top, region):
+            time.sleep(BOUGHT_SETTLE)
+            return_to_station(craft, region)  # the buy leaves the flea up over the panel
+            return True
+
+        races += 1
+        log('the purchase did not go through, most likely someone else took the offer', 1)
+        if races >= BUY_ATTEMPTS:
+            # Out of tries. Same answer as a board that stayed dear, because it means the same
+            # thing to the runner: there is no sense standing on the flea for this ingredient
+            # any longer, so back out and let it go tend another craft.
+            log(f'gave up after {BUY_ATTEMPTS} attempts, backing out', 1)
+            return_to_station(craft, region)
+            raise Unbuyable(f'could not be bought in {BUY_ATTEMPTS} attempts')
+        log(f'refreshing the board with {REFRESH_KEY.upper()} and buying again '
+            f'(attempt {races + 1} of {BUY_ATTEMPTS})', 1)
+        _refresh_board()
+
+
+def _refresh_board():
+    """Reload the flea board without losing the filters already on it, and let it redraw."""
+    pyautogui.press(REFRESH_KEY)
+    time.sleep(REFRESH_DELAY)
+
+
+def _top_offer(region=None):
+    """The cheapest offer's PURCHASE button on the filtered board, or None if none arrives.
+
+    The board reloads after the filters go on, and again after a refresh, and offers do not all
+    appear at once, so this polls rather than reading once: up to OFFER_WAIT, every OFFER_POLL.
+    """
     deadline = time.monotonic() + OFFER_WAIT
     while True:
         buttons = snipe.purchase_buttons(region)
         if buttons:
-            break
+            return buttons[0]
         if time.monotonic() >= deadline:
-            log(f'no offers on the filtered board after {OFFER_WAIT}s, nothing to buy', 1)
-            return False
+            return None
         time.sleep(OFFER_POLL)
-    top = buttons[0]
-    price = snipe.read_price(top)
 
-    if price is None or price > max_price:
-        why = 'unreadable' if price is None else f'{price} over the {max_price} ceiling'
-        log(f'not buying ({why}), backing out', 1)
-        return_to_station(craft, region)  # esc off the flea, back to the hideout station
-        if price is not None:  # a real price over the ceiling: tell the runner to move on
-            raise PriceTooHigh(f'{price} over the {max_price} ceiling')
+
+def water_filter_state(region=None):
+    """'fitted' or 'empty' for the water collector's input slot. Raises Blind if it will not read.
+
+    Two crops for two states, read positively, the way browse_button_selected and
+    browse_button_unselected already split the flea's browse tab. The old version asked one
+    question, "is the missing-filter icon on screen", and answered False for both "a filter is
+    in" and "I could not see the missing icon". A blind read came back as the good state, so a
+    crop that stopped matching read as a collector quietly producing and the runner swapped away
+    from a station that was doing nothing.
+
+    Neither crop matching is Blind, and so is both matching: one of the two sets would then be
+    loose enough to match the other state, and nothing here can say which.
+    """
+    fitted = find.find(WATER_FILTER_TARGET, region)
+    empty = find.find(MISSING_WATER_FILTER_TARGET, region)
+    if fitted and empty:
+        raise Blind('the water collector slot matched both a fitted filter and the empty-slot '
+                    'icon, so one of those two crop sets is too loose to tell them apart')
+    if fitted:
+        return 'fitted'
+    if empty:
+        return 'empty'
+    raise Blind('the water collector slot matched neither a fitted filter nor the empty-slot '
+                'icon, so its state cannot be read; the panel is open, so one of them is drawn')
+
+
+def open_filter_dropdown(region=None):
+    """Click the collector's filter dropdown open and return what it lists.
+
+    A list of the water filter boxes in it, empty when it has none to offer, which is the
+    honest answer that sends the caller off to buy one. The dropdown itself not being on the
+    panel is Blind: the panel is open and the slot just read as empty, so the control is drawn.
+
+    The wait after the click is the list drawing. Reading it before it has drawn turns a stash
+    with filters in it into a trip to the flea.
+    """
+    point = find.find_center(WATER_FILTER_DROPDOWN_TARGET, region)
+    if point is None:
+        raise Blind('no water filter dropdown on the water collector panel, which is open and '
+                    'showing an empty slot, so the control is there to be clicked')
+    point = sell.jitter(point)
+    log(f'opening the water filter dropdown at {point}', 1)
+    pyautogui.click(*point)
+    time.sleep(WATER_DROPDOWN_DELAY)
+    listed = find.find_all(WATER_FILTER_TARGET, region)
+    log(f'the dropdown lists {len(listed)} water filter(s)', 1)
+    return listed
+
+
+def fit_water_filter(listed, region=None):
+    """Click one of the filters the dropdown listed, then check the slot took it.
+
+    A random one rather than the topmost: they are interchangeable, and always taking the first
+    means always taking the same slot in a list the game is free to reorder.
+
+    True once the slot reads 'fitted', at which point the station is producing on its own; there
+    is no START here to press afterwards. False means the click went out and the slot still
+    reads empty, which is a real thing the game does and worth another pass rather than an
+    error. A slot that will not read at all is Blind, from water_filter_state.
+    """
+    box = random.choice(listed)
+    point = sell.jitter(pyautogui.center(box))
+    log(f'fitting a water filter at {point}, one of {len(listed)} listed', 1)
+    pyautogui.click(*point)
+    time.sleep(WATER_FIT_SETTLE)
+    fitted = water_filter_state(region) == 'fitted'
+    log('the collector has a filter in it and is producing' if fitted
+        else 'the slot still reads empty after the click', 1)
+    return fitted
+
+
+def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLECTOR):
+    """Buy one water filter off the flea, if the cheapest offer is at or under max_price.
+
+    Not buy_craft_input_item, and the difference is where the board's item filter comes from.
+    Every other ingredient sits in a craft row that can be right clicked into 'filter by item';
+    a water filter the collector does not have is on no row at all, so the board is narrowed by
+    typing the name the way the sniper does. The condition filter is on here for the same
+    reason it is off there: a filter is fitted and consumed over its whole durability, so a
+    scuffed one is worth proportionally less rather than being just as good.
+
+    Returns True if it bought. False covers every way it did not: the flea would not open, the
+    search came back locked or empty, the price could not be read, or the top offer was over the
+    ceiling. The station is back on screen either way.
+    """
+    log(f'buying a water filter off the flea, ceiling {max_price}')
+    # Both of these are Blind rather than a shrug, for the same reason. open_clean_board comes
+    # back False when the flea icon is not on screen or the click did not take, which is a
+    # screen we are not really looking at rather than the game declining to open. And an
+    # unfiltered board answers a price read with a number that looks exactly as valid and is
+    # about a different market.
+    if not snipe.open_clean_board(region):
+        raise Blind('the flea would not open, so there is no board to buy a water filter from')
+    if not sell.apply_flea_filters(region, reset=True, source=source, set_condition=True):
+        raise Blind('the flea filters could not be confirmed, so no price on this board can be '
+                    'trusted')
+
+    box = snipe.find_search_box(region)
+    if snipe.search_for(WATER_FILTER_NAME, box, region) is None:
+        log('water filter came back locked, not buying', 1)
+        return_to_station(craft, region)
+        return False
+    time.sleep(snipe.BOARD_DELAY)  # the board repopulates after the suggestion is clicked
+
+    buttons = snipe.purchase_buttons(region)
+    if not buttons:
+        log('no water filter offers on the board, nothing to buy', 1)
+        return_to_station(craft, region)
         return False
 
-    log(f'{price} is at or under {max_price}, buying', 1)
+    top = buttons[0]
+    price = snipe.read_price(top)
+    if price is None or price > max_price:
+        why = 'unreadable' if price is None else f'{price} over the {max_price} ceiling'
+        log(f'not buying a water filter ({why}), backing out', 1)
+        return_to_station(craft, region)
+        return False
+
+    log(f'{price} is at or under {max_price}, buying a water filter', 1)
     bought = snipe.buy(top, region)
     time.sleep(BOUGHT_SETTLE)
-    return_to_station(craft, region)  # the buy leaves the flea up over the panel; get back to it
+    return_to_station(craft, region)
     return bought
 
 
@@ -653,3 +1139,19 @@ if __name__ == '__main__':
     assert _on_row([below, same], row_y) is same, 'the same-row match wins over a neighbour'
     assert _on_row([], row_y) is None, 'nothing found is nothing'
     print('ok: get_craft_state reads START/GET ITEMS on the output row only')
+
+    # _preferred_first_dx points the first sweep at the target's side of the carousel off the icons
+    # on screen, and abstains when it cannot tell. visible_station_positions is stubbed so no game
+    # is needed; the indices are STATION_ORDER positions.
+    Fake = namedtuple('Fake', 'module_target station')
+    med = Fake('hideout/hideout_tabs/medstation', 'medstation')    # index 7
+    work = Fake('hideout/hideout_tabs/workbench', 'workbench')      # index 24, the last
+    lav = Fake('hideout/hideout_tabs/lavatory', 'lavatory')        # index 15
+    visible_station_positions = lambda region=None: [17]           # nutrition unit (17) on screen
+    assert _preferred_first_dx(med, 100) == 100, 'target left of the visible icon: drag right'
+    assert _preferred_first_dx(work, 100) == -100, 'target right of the visible icon: drag left'
+    visible_station_positions = lambda region=None: [7, 24]        # target between them: no hint
+    assert _preferred_first_dx(lav, 100) is None, 'target inside the visible span: no hint'
+    visible_station_positions = lambda region=None: []             # nothing placeable on screen
+    assert _preferred_first_dx(med, 100) is None, 'no known icons on screen: no hint'
+    print('ok: _preferred_first_dx points at the target side and abstains when blind')

@@ -58,7 +58,7 @@ CASES = (
     # The reported failure: an interrupted scav run leaves the offer window over the case, and
     # over a scav case there is no inventory ALL tab, which is what detection used to need.
     ((SCAV, sell.OFFER_TARGET), 2, 'offer window over a scav case, no inventory in sight'),
-    # _set_dropdown gives up with the filter window open and a list unrolled over it, on purpose,
+    # _pick_from_dropdown gives up with the filter window open and a list unrolled over it,
     # so that it can be read. Recovery is what clears it, and it is matched on the title bar
     # because the open list can be sat over everything below it.
     ((FILTERS,), 1, 'the flea filter window a failed dropdown left open'),

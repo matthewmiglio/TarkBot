@@ -34,26 +34,33 @@ def check(label, condition):
         failures.append(label)
 
 
-# 1. No output on screen is a LookupError, not a state.
+# 1. No output on screen is a raise, not a state. It became craft.Blind on 2026-08-31, when
+# every "a thing that is drawn did not match" failure was given one class of its own. The
+# stricter half is that Blind is NOT a LookupError, so step()'s catch (which swaps crafts for a
+# right-click menu that would not open) cannot swallow it back into another lap.
 craft.output_box = lambda c, region=None: None
 try:
     craft.get_craft_state(craft.WIRES)
     check('an output that is not on screen raises', False)
-except LookupError as e:
+except craft.Blind as e:
     check(f'an output that is not on screen raises: {e}', True)
+check('and Blind is not a LookupError, so the swap catch cannot eat it',
+      not issubclass(craft.Blind, LookupError))
 
 # 2. With an output there, the reader still returns the states it always did.
 craft.output_box = lambda c, region=None: BOX
-find.find = lambda name, region=None, confidence=None, haystack=None: (
-    BOX if name == craft.START_TARGET else None)
+find.scale = lambda: 1.0  # ROW_TOL is a 1080p number and there is no screen to measure
+READY_ROW = {craft.START_TARGET, *(i.target for i in craft.WIRES.ingredients)}
+find.find_all = lambda name, region=None, confidence=None, haystack=None: (
+    [BOX] if name in READY_ROW else [])
 check("a row with START on it still reads 'ready'",
       craft.get_craft_state(craft.WIRES) == 'ready')
 
-find.find = lambda name, region=None, confidence=None, haystack=None: None
+find.find_all = lambda name, region=None, confidence=None, haystack=None: []
 check("a row with neither button still reads 'producing'",
       craft.get_craft_state(craft.WIRES) == 'producing')
 
-# 3. The raise ends the run. start() catches Stopped and nothing else, so a LookupError from the
+# 3. The raise ends the run. start() catches Stopped and nothing else, so a Blind from the
 # state read has to travel out through step() to the caller (gui/app.py's _run, which reddens the
 # lamp and files the crash) rather than being swallowed into another lap of the loop.
 runner = craft_bot.HideoutCraft.__new__(craft_bot.HideoutCraft)  # no game, no window, no monitor
@@ -77,9 +84,9 @@ def counting_step(self):
 craft_bot.HideoutCraft.step = counting_step
 try:
     runner.start()
-    check('the LookupError escapes start() rather than being swallowed', False)
-except LookupError:
-    check('the LookupError escapes start() rather than being swallowed', True)
+    check('the Blind escapes start() rather than being swallowed', False)
+except craft.Blind:
+    check('the Blind escapes start() rather than being swallowed', True)
 finally:
     craft_bot.HideoutCraft.step = original_step
 check(f'the loop stopped on the first bad read (took {len(laps)} lap(s))', len(laps) == 1)
