@@ -1050,7 +1050,7 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. Ten entries today. The four described below are each a 1440p
+  number can be seen to sit in the gap. Eleven entries today. The four described below are each a 1440p
   screen losing a target the 1080p crop convention cannot reach once `needle()` grows it back; the
   captcha, nutrition and crafting entries have other causes (small, low-structure icons).
   `offer_creation_window_title` at 0.8: its title is a thin strip of small text that scores 0.88

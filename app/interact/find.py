@@ -115,7 +115,7 @@ CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
                'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
                'hideout/hideout_station_titles/nutrition_unit': 0.8,
                'crafting/power_cord': 0.65, 'crafting/wires': 0.7,
-               'crafting/crackers': 0.8}
+               'crafting/crackers': 0.8, 'crafting/cordura': 0.8}
 IOU_TOLERANCE = 0.5  # overlap at which two matches are treated as the same thing
 REFERENCE_HEIGHT = 1080  # every png under reference_images/ was cropped from a 1080p screen
 
