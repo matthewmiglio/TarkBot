@@ -42,7 +42,7 @@ assert craft.WATER_COLLECTOR_NAME == 'water_collector'
 
 # The user's ceilings and sources reach the runner's defaults. The sling bag is the only one of
 # these bought from traders.
-for name, ceiling in (('purified_water', 135000), ('sugar', 48900), ('sling_bag', 11000),
+for name, ceiling in (('purified_water', 140000), ('sugar', 48900), ('sling_bag', 11000),
                       ('green_gunpowder', 50000), ('matches', 20000), ('water_filter', 70000)):
     assert craft_bot.DEFAULT_MAX[name] == ceiling, name
 assert craft_bot.DEFAULT_SOURCE_BY.get('sling_bag') == 'traders'

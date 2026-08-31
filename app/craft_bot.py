@@ -48,7 +48,7 @@ DEFAULT_SOURCE = 'Players'
 # Per-ingredient defaults, used when the GUI has no saved value (or a junk one). The max is the most
 # roubles to pay on the flea; the source is who to buy from. These match settings.DEFAULTS.
 DEFAULT_MAX = {'crackers': 22000, 'alyonka': 22500, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
-               'power_cord': 62000, 'pile_of_meds': 16600, 'purified_water': 135000,
+               'power_cord': 62000, 'pile_of_meds': 16600, 'purified_water': 140000,
                'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 50000, 'matches': 20000,
                'water_filter': 70000}
 # anything not listed defaults to players

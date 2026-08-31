@@ -54,7 +54,7 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # Booze generator, the lavatory's cordura craft and the workbench's red gunpowder
             # craft. Cordura's sewing kit is the fleece craft's input under the same name, so the
             # two crafts share one ceiling and one source by design.
-            'purified_water_max': '135000',
+            'purified_water_max': '140000',
             'purified_water_source': 'Players',
             'sugar_max': '48900',
             'sugar_source': 'Players',
