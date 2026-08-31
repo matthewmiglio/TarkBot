@@ -67,6 +67,19 @@ RECOVER_DELAY = 0.33
 CLICK_JITTER = 3  # px each way, for anything button sized
 GEAR_JITTER = 2  # the flea filter gear, small enough to want less
 FLEA_OPEN_BRIGHTNESS = 90  # mean channel value: measured 57 closed, 117 open
+# How long to let the flea come up after the taskbar entry is clicked, and how often to look.
+# Polled rather than slept through, for the reason wait_for exists: WINDOW_DELAY's flat 1.0s is
+# a guess at the slowest case, and it was measured opening the flea from the stash.
+#
+# Opening it from a hideout station is much slower, because the game has to leave the 3D room
+# first. Measured on 2026-08-31 with the water collector panel up: the entry reads 63.7 with the
+# flea shut, 73.1 one second after the click while the screen is still changing, and 118.6 once
+# it has actually opened, about four seconds in. So the old wait read the middle number, called
+# the flea shut, and craft.buy_water_filter raised Blind over a flea that was opening normally.
+# The threshold itself was never the problem: 63.7 against 118.6 straddles 90 on the hideout's
+# lit background just as well as 57 against 117 does on the stash's dark one.
+FLEA_OPEN_TIMEOUT = 12.0  # seconds before giving up on the click having taken
+FLEA_OPEN_POLL = 0.4  # seconds between reads; each read parks the cursor and matches the entry
 # The suggested price readout, as (left, top, right, bottom) fractions of the window.
 # Measured at 1920x1080: left 1339, top 147, right 1498, bottom 186.
 PRICE_FRACTIONS = (1339 / 1920, 147 / 1080, 1498 / 1920, 186 / 1080)
@@ -472,10 +485,30 @@ def open_flea(region=None):
     point = find.find_center(FLEA_ICON_TARGET, region)
     log(f'flea icon brightness {brightness:.0f} < {FLEA_OPEN_BRIGHTNESS}, clicking it at {point}', 1)
     pyautogui.click(*point)
-    time.sleep(WINDOW_DELAY)
-    opened = is_flea_open(region)
+    opened = wait_for_flea(region)
     log(f'flea {"open" if opened else "still shut after the click"}', 1)
     return opened
+
+
+def wait_for_flea(region=None, timeout=FLEA_OPEN_TIMEOUT, poll=FLEA_OPEN_POLL):
+    """Poll until the flea entry reads open. True if it did, False once timeout runs out.
+
+    wait_for's job done on a brightness read instead of a template, because the flea has no
+    window title to match: which page is up is only readable off the taskbar entry inverting.
+
+    How long this takes depends on where the click came from, which is why it cannot be one
+    number. From the stash the flea is up inside a second; from a hideout station it is nearer
+    four, because the game leaves the room first. See FLEA_OPEN_TIMEOUT.
+    """
+    started = time.monotonic()
+    while True:
+        if is_flea_open(region):
+            log(f'the flea came up {time.monotonic() - started:.1f}s after the click', 1)
+            return True
+        if time.monotonic() - started >= timeout:
+            log(f'the flea never came up, gave up after {timeout:.0f}s', 1)
+            return False
+        time.sleep(poll)
 
 
 def add_offer_brightness(region=None):
