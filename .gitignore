@@ -110,3 +110,6 @@ _filer_by_item_conf_testing/
 # Snipe captcha debugging: a user's crash dump (logs + full-screen frames with their character
 # name and rouble balance) and the parsed purchase timeline. Same rule as the benches above.
 _snipebot_captcha_debugging/
+
+# Local cleanup/audit planning scratch, machine-local, never shipped
+cleanup_*.md
