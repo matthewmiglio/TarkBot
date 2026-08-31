@@ -340,13 +340,13 @@ def find(name, region=None, confidence=None, haystack=None):
             if VERBOSE:
                 log(f'find {name}: {path.name} ({index}/{len(paths)}) matched at '
                     f'({int(box.left)}, {int(box.top)}) {int(box.width)}x{int(box.height)} '
-                    f'in {time.monotonic() - started:.2f}s', 2)
+                    f'in {time.monotonic() - started:.2f}s', 2, quiet=True)
             return box
     if VERBOSE:
         peak, crop = best_score(name, haystack=image)  # the same grab find() just judged
         log(f'find {name}: none of {len(paths)} reference images matched at confidence '
             f'{confidence} (best {peak:.3f} from {crop}) in {time.monotonic() - started:.2f}s '
-            f'({", ".join(p.name for p in paths)})', 2)
+            f'({", ".join(p.name for p in paths)})', 2, quiet=True)
     return None
 
 
@@ -388,12 +388,12 @@ def find_all(name, region=None, confidence=None, tolerance=IOU_TOLERANCE, haysta
         except cv2.error as e:  # raised on iterating locateAll, so it lands on the list above
             raise _out_of_memory(name, e) from e
         if VERBOSE and hits:
-            log(f'find_all {name}: {path.name} matched {len(hits)}x', 2)
+            log(f'find_all {name}: {path.name} matched {len(hits)}x', 2, quiet=True)
         boxes.extend(hits)
     kept = dedupe(boxes, tolerance)
     if VERBOSE:
         log(f'find_all {name}: {len(boxes)} raw matches, {len(kept)} after dedupe, '
-            f'{time.monotonic() - started:.2f}s', 2)
+            f'{time.monotonic() - started:.2f}s', 2, quiet=True)
     return kept
 
 

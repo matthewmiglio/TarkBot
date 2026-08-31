@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 from gui.settings import APP_DIR
+import narrate
 from narrate import log
 
 LOG_DIR = APP_DIR / 'logs'
@@ -82,6 +83,7 @@ def start(directory=LOG_DIR, keep=KEEP):
     stream = open(path, 'a', encoding='utf-8', buffering=1)  # line buffered, readable mid-run
     sys.stdout = stream if sys.stdout is None else _Tee(sys.stdout, stream)
     sys.stderr = stream if sys.stderr is None else _Tee(sys.stderr, stream)
+    narrate.QUIET_SINK = stream  # so log(quiet=True) reaches the file but skips the terminal
     dropped = prune(directory, keep, active=path)
     log(f'session log {path}' + (f', dropped {len(dropped)} older' if dropped else ''))
     return path

@@ -21,12 +21,20 @@ import time
 # history, and the footer has room for exactly one line.
 LAST = ''
 
+# The log file on its own, for quiet=True lines that belong in the session log but would drown
+# the terminal. session_log.start() sets it to the file stream; None means no file sink is up
+# (tests, a bare shell), and a quiet line then falls back to the normal print so it is not lost.
+QUIET_SINK = None
 
-def log(message, indent=0):
+
+def log(message, indent=0, quiet=False):
     """Print `message` behind an HH:MM:SS.mmm stamp, and keep it as LAST.
 
     indent nests a detail under the step above it: 0 for a step in the pass, 1 for what a
     screen read or a click did, 2 for one attempt inside a retry loop.
+
+    quiet=True writes to the session log only, never the terminal: the verbose detection
+    narration is too noisy to watch live but is exactly what the log exists to keep.
     """
     global LAST
     now = time.time()
@@ -34,7 +42,7 @@ def log(message, indent=0):
     LAST = f'[{stamp}] {"  " * indent}{message}'
     # flush: the frozen build writes to a line-buffered file, but a redirected stdout in a
     # test harness is block buffered, and a log that arrives after the crash is no log.
-    print(LAST, flush=True)
+    print(LAST, file=QUIET_SINK if quiet and QUIET_SINK is not None else None, flush=True)
 
 
 if __name__ == '__main__':
@@ -43,3 +51,8 @@ if __name__ == '__main__':
     log('attempt under that', 2)
     assert LAST.endswith('    attempt under that'), LAST  # indent 2, and the stamp in front
     assert LAST.startswith('['), LAST
+
+    import io
+    QUIET_SINK = sink = io.StringIO()
+    log('to the file only', quiet=True)
+    assert 'to the file only' in sink.getvalue(), 'quiet lines reach the sink'
