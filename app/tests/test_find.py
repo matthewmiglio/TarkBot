@@ -9,6 +9,7 @@ else drawn over it. Which targets were found, and how many of each, goes to the 
 import colorsys
 import hashlib
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -77,7 +78,12 @@ if __name__ == '__main__':
     shot = pyautogui.screenshot(region=region)  # one capture, every target matched against it
     print(f'searching window {region}')
 
-    results = {name: check(name, shot) for name in (sys.argv[1:] or targets())}
+    names = sys.argv[1:] or targets()
+    # Threaded because cv2.matchTemplate (all the work here) releases the GIL, so N targets
+    # match in parallel. Each check() is independent and only reads `shot`. ponytail: default
+    # worker count is fine; this is a test script, not a hot path to tune.
+    with ThreadPoolExecutor() as pool:
+        results = dict(zip(names, pool.map(lambda name: check(name, shot), names)))
     annotate(shot, results)
     OUT.mkdir(exist_ok=True)
     shot.save(OUT / 'find.png')

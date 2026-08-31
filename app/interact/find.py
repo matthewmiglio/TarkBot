@@ -5,6 +5,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
+import cv2
 import pyautogui
 import pyscreeze
 from PIL import Image, ImageFilter
@@ -265,6 +266,56 @@ def _capture_detection(name):
     frames.capture(f'find-{name.replace("/", "_")}')  # no image -> full screen; '/' is a dir sep
 
 
+def _commit_charge():
+    """Windows' commit charge as a sentence, or None off Windows / if it cannot be read.
+
+    Commit and not free RAM, because that is the number that actually refuses the allocation:
+    Windows caps the total memory every process has asked for at RAM plus pagefile, and once the
+    charge reaches that cap a new allocation fails however much physical memory is sitting free.
+    """
+    try:
+        import ctypes
+
+        class Status(ctypes.Structure):
+            _fields_ = [('dwLength', ctypes.c_ulong), ('dwMemoryLoad', ctypes.c_ulong),
+                        ('ullTotalPhys', ctypes.c_ulonglong), ('ullAvailPhys', ctypes.c_ulonglong),
+                        ('ullTotalPageFile', ctypes.c_ulonglong),
+                        ('ullAvailPageFile', ctypes.c_ulonglong),
+                        ('ullTotalVirtual', ctypes.c_ulonglong),
+                        ('ullAvailVirtual', ctypes.c_ulonglong),
+                        ('ullAvailExtendedVirtual', ctypes.c_ulonglong)]
+
+        status = Status()
+        status.dwLength = ctypes.sizeof(status)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        gb = float(1 << 30)
+        return (f'commit {(status.ullTotalPageFile - status.ullAvailPageFile) / gb:.1f} of '
+                f'{status.ullTotalPageFile / gb:.1f} GB used, '
+                f'{status.ullAvailPhys / gb:.1f} GB of RAM free')
+    except Exception:  # a diagnostic must never be the thing that raises
+        return None
+
+
+def _out_of_memory(name, error):
+    """OpenCV's allocation failure, re-raised as what it actually is, or the original if it is not.
+
+    The raw error names a cv2 alloc.cpp line inside a list comprehension in this file, which reads
+    like a bug in the matcher. It is not: on 2026-08-30 a craft run died three minutes in because
+    the machine's commit charge was 117.2 of 117.8 GB, with 9.5 GB of RAM free and Tarkov holding
+    61 GB of commit on its own, so a 29MB template match had nowhere to go. Saying so here is the
+    difference between reading the log and going looking through find.py.
+    """
+    if 'emory' not in str(error):  # some other cv2 complaint; not ours to reinterpret
+        return error
+    charge = _commit_charge()
+    return MemoryError(
+        f'the matcher ran out of memory looking for {name}'
+        + (f' ({charge})' if charge else '')
+        + '. Windows refuses new allocations once the commit charge reaches its limit, however '
+          'much RAM is free: close what is holding it, or let the pagefile grow.')
+
+
 def find(name, region=None, confidence=None, haystack=None):
     """First match for `name` as Box(left, top, width, height), or None.
 
@@ -283,6 +334,8 @@ def find(name, region=None, confidence=None, haystack=None):
             box = _shift(pyautogui.locate(needle(path), image, confidence=confidence), offset)
         except NOT_FOUND:
             box = None
+        except cv2.error as e:
+            raise _out_of_memory(name, e) from e
         if box:  # pyautogui.locate returns None instead of raising when given a haystack
             if VERBOSE:
                 log(f'find {name}: {path.name} ({index}/{len(paths)}) matched at '
@@ -332,6 +385,8 @@ def find_all(name, region=None, confidence=None, tolerance=IOU_TOLERANCE, haysta
                     for box in pyautogui.locateAll(needle(path), image, confidence=confidence)]
         except NOT_FOUND:
             hits = []
+        except cv2.error as e:  # raised on iterating locateAll, so it lands on the list above
+            raise _out_of_memory(name, e) from e
         if VERBOSE and hits:
             log(f'find_all {name}: {path.name} matched {len(hits)}x', 2)
         boxes.extend(hits)
