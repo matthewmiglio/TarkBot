@@ -25,6 +25,52 @@ from interact import find, sell  # noqa: E402
 OUT = Path(__file__).parent / 'output'
 DELAY = 3  # ponytail: seconds to alt-tab into Tarkov; the clicks land nowhere useful otherwise
 
+# Every find call and every sleep, tallied while the pass runs, so a phase's wall time can be
+# split into "matching the screen" and "waiting for the game". The phase functions live on the
+# sell module and apply_flea_filters calls them by bare name, so wrapping them there is enough.
+COST = {'find': 0.0, 'find_n': 0, 'sleep': 0.0}
+
+
+def _tally(kind, fn):
+    def wrapped(*a, **k):
+        t = time.monotonic()
+        try:
+            return fn(*a, **k)
+        finally:
+            COST[kind] += time.monotonic() - t
+            if kind == 'find':
+                COST['find_n'] += 1
+    return wrapped
+
+
+def _timed_phase(name, fn):
+    """Wrap a sell phase so it prints its own wall time and the find/sleep split inside it."""
+    def wrapped(*a, **k):
+        before = (COST['find'], COST['find_n'], COST['sleep'])
+        t = time.monotonic()
+        try:
+            return fn(*a, **k)
+        finally:
+            wall = time.monotonic() - t
+            find_s = COST['find'] - before[0]
+            finds = COST['find_n'] - before[1]
+            sleep_s = COST['sleep'] - before[2]
+            other = wall - find_s - sleep_s
+            print(f'  [{name:<22}] {wall:6.2f}s  '
+                  f'find {find_s:5.2f}s ({finds:2d})  sleep {sleep_s:5.2f}s  other {other:5.2f}s')
+    return wrapped
+
+
+def instrument():
+    """Patch find + sleep to tally, and each filter phase to report. Undoes nothing; test-only."""
+    # Only the leaf finds: find_center delegates to find, so wrapping it too double-counts.
+    find.find = _tally('find', find.find)
+    find.find_all = _tally('find', find.find_all)
+    time.sleep = _tally('sleep', time.sleep)
+    for name in ('open_filters', 'orientate_filters_window', 'filter_plan',
+                 'run_filter_plan', 'confirm_filters'):
+        setattr(sell, name, _timed_phase(name, getattr(sell, name)))
+
 
 def report(region):
     """What each element the routine needs looks like right now."""
@@ -55,9 +101,15 @@ if __name__ == '__main__':
     OUT.mkdir(exist_ok=True)
     pyautogui.screenshot(region=region).save(OUT / 'flea_filters_before.png')
 
+    instrument()  # after the countdown, so its own sleeps are not counted
+    print('per-phase timings (find = template matching, sleep = pacing waits):')
     started = time.monotonic()
     ok = sell.apply_flea_filters(region)
-    print(f'apply_flea_filters -> {ok}, took {time.monotonic() - started:.1f}s')
+    total = time.monotonic() - started
+    print(f'apply_flea_filters -> {ok}, took {total:.1f}s')
+    print(f'  totals: find {COST["find"]:.2f}s over {COST["find_n"]} calls '
+          f'({COST["find"] / max(COST["find_n"], 1) * 1000:.0f}ms each), '
+          f'sleep {COST["sleep"]:.2f}s, rest {total - COST["find"] - COST["sleep"]:.2f}s')
 
     if find.find(sell.FILTERS_WINDOW_TARGET, region):
         sys.exit('FAILED: the filter window is still open, OK did not take')

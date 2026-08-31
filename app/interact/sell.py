@@ -5,6 +5,8 @@ Geometry self-check:  python -m interact.sell
 """
 import random
 import time
+from collections import namedtuple
+from collections import namedtuple
 
 import numpy as np
 import pyautogui
@@ -162,9 +164,38 @@ CONDITION_LABEL_TARGET = 'flea_filters/condition_from_label'  # gives the row: i
 EXPIRING_TEXT_TARGET = 'flea_filters/items_expiring_text'  # gives the column: its middle X
 DROPDOWN_DELAY = 0.3  # seconds for the currency dropdown to unroll
 OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
-# Goes at one dropdown before giving up on it. More than one because the usual failure is a
-# click landing while the list is still unrolling, which the next attempt just repeats past.
-DROPDOWN_ATTEMPTS = 3
+# The filter pass's own waits, a tenth of the three general ones above (0.3, 0.3, 0.33) that it
+# used to borrow. Consolidating the pass is what pays for the cut. It used to read a dropdown,
+# click it, wait, read it back and go round, so every wait had a screen read immediately behind
+# it and a wait that came up short read as a control that would not take. Now the whole window
+# is read once into a plan, every click goes out in a row, and every confirmation happens at the
+# end, so a wait only has to cover one list unrolling and the confirmation pass catches whatever
+# did not land in time and does it again.
+#
+# Measured with tests/speed_test_apply_filters.py, which runs the real pass at multiples of
+# these: 1x and 2x passed all three call shapes. 5x is past what that run proved, so if the
+# filters start missing on a slower machine this is the first place to look, and FILTER_ATTEMPTS
+# below is what stands between a short wait and a wrongly filtered board.
+# ponytail: halved from a fifth (0.2) to a tenth (0.1) on 2026-08-31, faster than the 1x the
+# speed test proved. It held over a live full pass, and FILTER_ATTEMPTS is the net if a slower
+# machine misses; put FILTER_PACE back to 0.2 if the retries start earning their keep here.
+FILTER_PACE = 0.1  # what the three waits below are, as a fraction of the general ones
+FILTER_MENU_DELAY = 0.03          # MENU_DELAY * FILTER_PACE
+FILTER_DROPDOWN_DELAY = 0.03      # DROPDOWN_DELAY * FILTER_PACE
+FILTER_OFFERS_FROM_DELAY = 0.033  # OFFERS_FROM_DELAY * FILTER_PACE
+# Rounds of read-all / act-all / check-all before the pass gives up. More than one because the
+# usual failure is a click landing while a list is still unrolling, which the next round just
+# repeats past. Was DROPDOWN_ATTEMPTS, when the retry lived inside one dropdown.
+FILTER_ATTEMPTS = 3
+# The filter modal is pinned to the top-left corner by orientate_filters_window, so every control
+# and every dropdown list that drops under one sits in this box anchored on the title bar. Scoping
+# the plan/act/check finds to it is where most of a pass's time was: a match over the full 2560x1440
+# window is ~0.55s, the same match inside this ~1/6-screen box ~0.1s. 1080p pixels, grown by
+# find.scale() at match time like every other measurement here. Deliberately generous: the exact
+# modal extent does not matter as long as the box holds it, so a slightly-off corner drag still reads.
+FILTER_REGION_PAD = 30      # slack around the title's top-left, for a drag that lands a little off
+FILTER_REGION_WIDTH = 560   # past the offers-from list, the widest thing that opens under a row
+FILTER_REGION_HEIGHT = 760  # past a dropdown list opened at the bottom row
 CHECKMARK_TARGET = 'checkmark'  # the tick beside the autoselect similar button
 # The right half of that button's box grows this much per side before we look inside it. Half,
 # because the checkbox is at the right hand end of every reference crop of the button, and a
@@ -1211,72 +1242,153 @@ def orientate_offer_creation(region=None, corner=OFFER_CORNER, duration=DRAG_SEC
     return point
 
 
-def _set_dropdown(any_target, option_target, settled_target, region=None, delay=DROPDOWN_DELAY):
-    """Get a dropdown off 'any' and onto its setting, and only return once that is seen.
+# One dropdown in the filter window: the crop that says it still reads 'any', the option to
+# click in the opened list, the crop that says it has settled on that option, and how long that
+# list takes to unroll. Currency and offers-from are the same three-step dance, so they are one
+# shape here rather than two code paths.
+FilterDropdown = namedtuple('FilterDropdown', 'name any_target option_target settled_target delay')
+# What one look at the window says is left to do. dropdowns is a list of (FilterDropdown, the
+# point to click to open it), read before anything is clicked; condition is whether the
+# condition-from box wants typing into, which is always when asked for, see _set_condition_from.
+FilterPlan = namedtuple('FilterPlan', 'dropdowns condition')
 
-    Nothing here trusts a click. The old version returned True the moment it had clicked the
-    option, and treated a missing any_target as 'already set to something', so a dropdown
-    still reading Any because its reference image simply did not match came back as
-    configured. That is silent: the run browses the wrong offers for the rest of the session
-    and the log says the filter was applied.
 
-    Every attempt now ends by re-reading the closed dropdown. Only settled_target present with
-    any_target gone counts as done.
+def filter_dropdowns(source):
+    """The dropdowns a filter pass sets, in the order it sets them."""
+    option_target, settled_target = OFFERS_FROM[source]
+    return (FilterDropdown('currency', CURRENCY_ANY_TARGET, CURRENCY_RUBLES_OPTION,
+                           CURRENCY_RUB_TARGET, FILTER_DROPDOWN_DELAY),
+            FilterDropdown(f'offers from {source}', OFFERS_FROM_ANY_TARGET, option_target,
+                           settled_target, FILTER_OFFERS_FROM_DELAY))
 
-    The retries exist for one failure and one only: a click that landed while the list was
-    still unrolling, so the option was picked but the field did not take it. That is worth
-    another go. An option that is not in the open list is not, and returns False on the spot.
 
-    Returns True once the dropdown is read as settled, False if it never is.
+def _read_dropdown(dropdown, region=None):
+    """(state, the 'any' box) for one closed dropdown. state is 'set', 'unset' or None.
+
+    None means the window did not answer, and it is never treated as set. A dropdown still
+    reading Any because its reference crop simply did not match used to come back configured,
+    which is silent in the worst way: the run browses the wrong offers for the rest of the
+    session and the log says the filter went on.
+
+    Both crops matching at once is also None rather than a guess. It means one of the two
+    reference sets is loose enough to match the other state, and nothing here can say which.
     """
-    for attempt in range(1, DROPDOWN_ATTEMPTS + 1):
-        settled = find.find(settled_target, region)
-        any_box = find.find(any_target, region)
-        if settled and not any_box:
-            log(f'{settled_target} confirmed on screen, the dropdown is set', 1)
-            return True
-        if settled and any_box:  # both at once means one of the two reference sets is too loose
-            log(f'ambiguous read: {any_target} and {settled_target} both matched', 1)
+    settled = find.find(dropdown.settled_target, region)
+    any_box = find.find(dropdown.any_target, region)
+    if settled and any_box:
+        log(f'ambiguous read on {dropdown.name}: {dropdown.any_target} and '
+            f'{dropdown.settled_target} both matched', 1)
+        return (None, None)
+    if settled:
+        return ('set', None)
+    if any_box:
+        return ('unset', any_box)
+    log(f'{dropdown.name} matched neither {dropdown.any_target} nor {dropdown.settled_target}, '
+        f'so its state is unknown; not assuming it is set. Add reference crops for whichever '
+        f'it reads', 1)
+    return (None, None)
+
+
+def filter_plan(region=None, source='players', set_condition=True):
+    """Read the whole filter window once and say what is left to do, or None if it will not read.
+
+    The reading half of a pass, all of it, before a single click goes out. Each dropdown is
+    looked at once and the plan carries the point to click with it, so the acting half never has
+    to find a field again on a window it is in the middle of changing.
+
+    None rather than an empty plan when a dropdown is unreadable: an empty plan means everything
+    is already set and the pass is done, which is the opposite of what an unreadable window
+    means.
+    """
+    todo = []
+    for dropdown in filter_dropdowns(source):
+        state, any_box = _read_dropdown(dropdown, region)
+        if state is None:
+            return None
+        if state == 'unset':
+            # Centre of the crop, not its right edge. Aiming at where the arrow sits inside the
+            # box quietly made every crop's right border a click target: widen a crop by 20px to
+            # help it match and the click moves 20px with it, onto whatever is there. Centre
+            # still asks the crop to be centred on the control, but a crop that is wrong is then
+            # wrong somewhere obvious rather than off its edge.
+            todo.append((dropdown, pyautogui.center(any_box)))
+        else:
+            log(f'{dropdown.name} already reads {dropdown.settled_target}', 1)
+    return FilterPlan(todo, set_condition)
+
+
+def _pick_from_dropdown(dropdown, field, region=None):
+    """Open one dropdown at `field` and click its option. True if both clicks went out.
+
+    The one screen read that cannot be hoisted into filter_plan is in here: the option does not
+    exist until the field is clicked, so finding it has to sit between this function's own two
+    clicks. Everything else this needs came from the plan.
+
+    A missing option returns straight out, no retry and no escape. The click above was already
+    followed by the list's own delay and the list is open: if the option is not there now it
+    will not be there next round either, and the crops for it simply do not match what the game
+    is drawing.
+
+    The escape that used to be here was worse than useless. It shuts the whole FILTERS window
+    rather than the open list, so everything after it clicked at coordinates on a window that
+    was no longer there, into the live flea board behind it. That is a blind click on a real
+    market with real money.
+
+    The list is deliberately left open. It is the only evidence of what the game actually says,
+    and this is the one failure that needs a human to look.
+    """
+    log(f'opening {dropdown.name} at {field}', 2)
+    pyautogui.click(*field)
+    time.sleep(dropdown.delay)
+    point = find.find_center(dropdown.option_target, region)
+    if not point:
+        log(f'{dropdown.option_target} not in the opened {dropdown.any_target} dropdown. '
+            f'Leaving it open so you can see what it reads: the crops for '
+            f'{dropdown.option_target} do not match it', 1)
+        return False
+    log(f'picking {dropdown.option_target} at {point}', 2)
+    pyautogui.click(*point)
+    time.sleep(FILTER_MENU_DELAY)
+    return True
+
+
+def run_filter_plan(plan, region=None):
+    """Do everything the plan asked for. True if every click went out.
+
+    The acting half, and it confirms nothing: every state read happened in filter_plan and every
+    confirmation happens in confirm_filters. That is the whole point of the split. The old pass
+    interleaved the three, so each wait had a read immediately behind it and a wait that came up
+    short read as a control that would not take.
+
+    False here is fatal to the pass rather than something to go round again on, since the only
+    way a step fails is the option not being in the list at all.
+    """
+    for dropdown, field in plan.dropdowns:
+        if not _pick_from_dropdown(dropdown, field, region):
             return False
-        if not any_box:
-            # Neither state matched, so there is no arrow to click and nothing to confirm.
-            # Calling this success is the exact bug this rewrite exists for.
-            log(f'dropdown matched neither {any_target} nor {settled_target}, so its state is '
-                f'unknown; not assuming it is set. Add reference crops for whichever it reads', 1)
-            return False
-        # Centre of the crop, not its right edge. The old version aimed at where the arrow sits
-        # inside the box, which quietly made every crop's right border a click target: widen a
-        # crop by 20px to help it match and the click moves 20px with it, onto whatever is
-        # there. Centre still asks the crop to be centred on the control, but a crop that is
-        # wrong is then wrong somewhere obvious rather than off its edge.
-        field = pyautogui.center(any_box)
-        log(f'attempt {attempt}/{DROPDOWN_ATTEMPTS}: {any_target} still reads any, opening it '
-            f'at {field}', 2)
-        pyautogui.click(*field)
-        time.sleep(delay)
-        point = find.find_center(option_target, region)
-        if not point:
-            # Straight out, no retry and no escape. Retrying assumed the list was still
-            # unrolling, but the click above was already followed by `delay` and the list is
-            # open: if the option is not there now, it is not going to be there on attempt 3
-            # either. The option's crops do not match what the game is drawing, and no amount
-            # of reopening fixes that.
-            #
-            # The escape was worse than useless. It shuts the whole FILTERS window, not just
-            # the open list, so attempts 2 and 3 clicked at coordinates on a window that was
-            # no longer there, into the live flea board behind it. That is a blind click on a
-            # real market with real money.
-            #
-            # The list is deliberately left open. It is the only evidence of what the game
-            # actually says, and this is the one failure that needs a human to look.
-            log(f'{option_target} not in the opened {any_target} dropdown. Leaving it open so '
-                f'you can see what it reads: the crops for {option_target} do not match it', 1)
-            return False
-        log(f'picking {option_target} at {point}', 2)
-        pyautogui.click(*point)
-        time.sleep(MENU_DELAY)  # let it close before the top of the loop reads it back
-    log(f'{any_target} never settled on {settled_target} in {DROPDOWN_ATTEMPTS} attempts', 1)
-    return False
+    if plan.condition and not _set_condition_from(region):
+        return False
+    return True
+
+
+def confirm_filters(dropdowns, region=None):
+    """Re-read the dropdowns this round set. (True, []) if they all took, else the ones that did not.
+
+    The checking half, all of it at the end. The same read filter_plan does, which is the point:
+    a pass is done when a fresh look says every dropdown it changed has settled and none still
+    says any.
+
+    Only the ones actually clicked, not every filter: a dropdown filter_plan found already settled
+    was not touched this round, so re-reading it spends a full match to confirm a click that never
+    went out. Those are trusted from the plan's own read. On a first-run board that is one dropdown
+    already on roubles, so this halves the confirm.
+
+    The condition box is not in here and cannot be. No crop of it can tell 100 from 0, see
+    _set_condition_from.
+    """
+    unset = [d.name for d in dropdowns if _read_dropdown(d, region)[0] != 'set']
+    log('confirm: ' + ('every set dropdown held' if not unset else f'{unset} did not take'), 1)
+    return (not unset, unset)
 
 
 def _set_condition_from(region=None):
@@ -1286,7 +1398,7 @@ def _set_condition_from(region=None):
     promise and deliberately so: True means the box was found and typed into, not that it now
     reads 100. Nothing on this screen can confirm the value. See below.
 
-    Not a dropdown, so it does not go through _set_dropdown: this is a number field, clicked
+    Not a dropdown, so it is not one of filter_dropdowns: this is a number field, clicked
     and typed into the way enter_price does the roubles one.
 
     The box is aimed at by crossing two labels rather than by matching the box itself, and no
@@ -1326,11 +1438,11 @@ def _set_condition_from(region=None):
     log(f'typing {CONDITION_VALUE} into condition from at {point} '
         f'(x off {EXPIRING_TEXT_TARGET}, y off {CONDITION_LABEL_TARGET}); not read back', 1)
     pyautogui.click(*point)
-    time.sleep(MENU_DELAY)
+    time.sleep(FILTER_MENU_DELAY)
     pyautogui.hotkey('ctrl', 'a')
     pyautogui.typewrite(CONDITION_VALUE)
     pyautogui.press('enter')
-    time.sleep(MENU_DELAY)
+    time.sleep(FILTER_MENU_DELAY)
     return True
 
 
@@ -1389,20 +1501,58 @@ def open_filters(region=None):
     return True
 
 
+def filter_window_region(region=None):
+    """A tight box around the filter modal, so its controls are matched over ~1/6 the pixels.
+
+    Anchored on the filter window's title bar, which open_filters just matched, dragged into the
+    top-left corner and left there. From that corner a generous box (FILTER_REGION_*) covers every
+    control and every dropdown list that drops under one. See those constants for the timing this
+    buys.
+
+    None-safe by falling back to the full region: if the title bar cannot be found the pass just
+    pays the old full-screen search rather than breaking, and open_filters already guaranteed the
+    window is up, so this is belt-and-braces.
+    """
+    title = find.find(FILTERS_WINDOW_TARGET, region)
+    if not title:
+        return region
+    s = find.scale()
+    left = max(int(title.left - FILTER_REGION_PAD * s), 0)
+    top = max(int(title.top - FILTER_REGION_PAD * s), 0)
+    return (left, top, int(FILTER_REGION_WIDTH * s), int(FILTER_REGION_HEIGHT * s))
+
+
 def apply_flea_filters(region=None, reset=False, source='players', set_condition=True):
     """Open the flea's filter window, set roubles, an offer source and 100% condition, then OK out.
 
+    One round is three phases, in that order and never interleaved:
+
+      1. read   - filter_plan looks at every dropdown once and returns what still needs setting,
+                  carrying the point to click with each one.
+      2. act    - run_filter_plan does all the clicking and typing in a row, confirming nothing.
+      3. check  - confirm_filters re-reads the dropdowns it set and says which, if any, did not take.
+
+    Only a check that comes back short goes round again, up to FILTER_ATTEMPTS. That is what
+    pays for the filter waits being a fifth of what the rest of this file uses: nothing here
+    depends on a single wait being long enough, because the check at the end of the round is
+    what decides, and a click that landed while a list was still unrolling is simply done again.
+    Reading and acting used to alternate one dropdown at a time, which meant every wait had a
+    read immediately behind it and a wait that came up short read as a control that would not
+    take.
+
     source picks the offers-from dropdown: 'players' (the default, what both flea modes want) or
-    'traders' (crafts mode buys inputs from either). Same three-crop dance either way, only the
+    'traders' (crafts mode buys inputs from either). Same three phases either way, only the
     option and settled crops differ, see sell.OFFERS_FROM.
 
     set_condition types 100 into the condition-from box, which both flea modes want (an item at
-    less than full durability is worth less). Crafts mode passes False: a craft input is consumed,
-    not resold, so its condition does not matter and filtering on it only hides cheaper offers.
+    less than full durability is worth less). Crafts mode passes False: a craft input is
+    consumed, not resold, so its condition does not matter and filtering on it only hides
+    cheaper offers. It is the one step with no check phase of its own, because no crop of that
+    box can tell 100 from 0; typing it is idempotent, so a round that repeats does no harm.
 
-    Returns True once everything reads the right thing and the window is closed. The dropdowns
-    are only touched while they still say 'any', so running this against an already filtered
-    board opens the window and OKs straight back out rather than undoing the settings.
+    Returns True once every dropdown reads the right thing and the window is closed. A dropdown
+    already set is left alone rather than reopened, so running this against an already filtered
+    board reads the window, finds nothing to do and OKs straight back out.
 
     reset clears the window first and is the one thing the two modes do differently, which is
     why this is one function with a flag rather than the two near-copies it used to be. Only
@@ -1428,37 +1578,42 @@ def apply_flea_filters(region=None, reset=False, source='players', set_condition
             return False
         log(f'resetting the filters at {point}', 1)
         pyautogui.click(*point)
-        time.sleep(MENU_DELAY)
+        time.sleep(FILTER_MENU_DELAY)
         if not open_filters(region):  # the reset closes the window along with clearing it
             return False
 
-    # The confirm-it-took read used to live here, for the currency dropdown only. It is inside
-    # _set_dropdown now, so offers-from gets the same treatment instead of being taken on trust.
-    if not _set_dropdown(CURRENCY_ANY_TARGET, CURRENCY_RUBLES_OPTION, CURRENCY_RUB_TARGET,
-                         region, DROPDOWN_DELAY):
+    # Every read from here on is a filter control, and they all live in the modal that is now
+    # cornered, so scope the finds to it rather than the whole 2560x1440 window.
+    window_region = filter_window_region(region)
+
+    for attempt in range(1, FILTER_ATTEMPTS + 1):
+        plan = filter_plan(window_region, source, set_condition)
+        if plan is None:
+            # A window that will not read is not a window to click at, and another look reads
+            # the same thing, so this is out rather than round again.
+            return False
+        if not plan.dropdowns and not plan.condition:
+            log('every filter already reads what it should, nothing to set', 1)
+            break
+        wanted = [d.name for d, _ in plan.dropdowns] + (['condition'] if plan.condition else [])
+        log(f'attempt {attempt}/{FILTER_ATTEMPTS}: setting {wanted}', 1)
+        if not run_filter_plan(plan, window_region):
+            return False
+        settled, unset = confirm_filters([d for d, _ in plan.dropdowns], window_region)
+        if settled:
+            break
+        log(f'{unset} did not take on attempt {attempt}', 1)
+    else:
+        log(f'the filters never settled in {FILTER_ATTEMPTS} attempts', 1)
         return False
 
-    # Three folders, the same shape as currency above. These used to be two: the option and the
-    # settled state both read out of flea_filters/offers_from_select_players, on the idea that
-    # find() tries every png in a folder so both kinds of crop could share one. They cannot. A
-    # list row and a closed field are different things (the field carries the dropdown chevron,
-    # the row does not), and sharing a folder hid that every crop in it was of the field, so
-    # clicking the option looked for a chevron the open list has never had.
-    option_target, settled_target = OFFERS_FROM[source]
-    if not _set_dropdown(OFFERS_FROM_ANY_TARGET, option_target, settled_target,
-                         region, OFFERS_FROM_DELAY):
-        return False
-
-    if set_condition and not _set_condition_from(region):
-        return False
-
-    point = jitter(find.find_center(FILTERS_OK_TARGET, region))  # applies them and shuts the window
+    point = jitter(find.find_center(FILTERS_OK_TARGET, window_region))  # applies them and shuts the window
     if not point:
         log('no OK button on the flea filter window', 1)
         return False
     log(f'OK out of the filter window at {point}', 1)
     pyautogui.click(*point)
-    time.sleep(MENU_DELAY)
+    time.sleep(FILTER_MENU_DELAY)
     return True
 
 
