@@ -148,6 +148,29 @@ WATER_COLLECTOR_ACTIVE_TARGET = 'hideout/hideout_station_titles/water_filter'
 WATER_FILTER_NAME = 'water filter'  # what to type into the flea search to find one
 WATER_DROPDOWN_DELAY = 1.0  # after opening the filter dropdown, for its list to draw
 WATER_FIT_SETTLE = 1.0  # after clicking a filter, before reading the slot back
+# A purchase that never took the money is an offer somebody else got to first, which on a busy
+# board is the common case rather than a fault: on 2026-08-31 a 59,000 filter was clicked, the
+# confirmation came up, and the dialog closed by itself with the balance untouched.
+#
+# No refresh between tries, unlike buy_craft_input_item's dear-board loop. That one is waiting
+# for the market to change, so it has to reload the board to see it; this one is racing other
+# buyers for offers that are already on screen, and reloading only throws away the rows we have.
+WATER_BUY_ATTEMPTS = 5  # tries before leaving the collector empty for this pass
+WATER_BUY_RETRY_DELAY = 2.0  # seconds between them
+# Where the cursor goes between purchase attempts, as (across, down) fractions of the window.
+#
+# A PURCHASE button with the pointer resting on it is drawn in its hover state, which is a pale
+# plate rather than the dark one every flea_purchase_button crop was taken from. find_all does
+# not match it, so purchase_buttons misses that row entirely and the "top offer" becomes the row
+# underneath. The board is sorted cheapest first, so the row that goes missing is always the one
+# we wanted, and the price read afterwards is honest about the wrong row: nothing downstream can
+# tell. On 2026-08-31 that bought sugar at 33,333 with a 28,999 offer sitting directly above it,
+# unmatched because the cursor was still parked on its button from the attempt that just failed.
+#
+# The left quarter of the flea is the category tree, which holds nothing this module ever looks
+# for. Mid screen, where sell._park_cursor goes, is over the offer rows themselves, and every
+# corner is one of pyautogui's panic points.
+PARK_FRACTIONS = (0.25, 0.5)
 
 # A craft is everything that differs between the slickers and fleece runs, so one set of reading
 # and navigation functions serves both. ingredients are (name, icon target); the name doubles as
@@ -832,16 +855,17 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     by refreshing with REFRESH_KEY and reading the new top offer:
 
       - a purchase that lost a race to another buyer, up to BUY_ATTEMPTS times in all
-      - a top offer over the ceiling, DEAR_REFRESHES more looks at DEAR_DELAY apart
+      - a top offer over the ceiling, or too clipped to read, DEAR_REFRESHES more looks
+        at DEAR_DELAY apart
 
     The second one is the newer of the two and is worth the wait for the same reason as the
     first: the board is already filtered to this one item, and getting back to this point from
     the station is a right click, a menu, a filter window and about twenty seconds. A single
     reading of a market that turns over constantly is a thin reason to spend that.
 
-    Returns True if it bought, False if the price could not be read (which no refresh fixes:
-    the digits are clipped or will not read, and the same board comes back). Raises Unbuyable
-    when every look was over the ceiling, when no row has a PURCHASE button to click (a spent
+    Returns True if it bought. Raises Unbuyable when every look was over the ceiling or too
+    clipped to read (both are a live board that a refresh may improve, so both are waited out
+    DEAR_REFRESHES times before giving up), when no row has a PURCHASE button to click (a spent
     trader limit shows the offer as LOCKED, and an empty board looks the same), or when
     BUY_ATTEMPTS ran out.
     All of those mean the same thing: leave this ingredient and go tend another craft. Raises LookupError if the 'filter by item'
@@ -859,6 +883,27 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     pyautogui.click(*point)
 
     time.sleep(FLEA_LOAD_DELAY)  # the flea board opens from scratch here, give its UI time to draw
+
+    # A look before the filters go on. The right click already narrowed the board to this one
+    # item, and its cheapest offer is often a rouble one already under the ceiling, so buying it
+    # here saves opening the filter window and setting it. Only a clean read is trusted:
+    # snipe.read_price refuses a dollar row and a clipped price, so a mixed-currency board comes
+    # back None and falls through to the filtered flow rather than buying a number off the wrong
+    # market. What it does skip is the offers-from filter, so a cheap enough offer from the other
+    # source (a trader when 'players' was asked, or the reverse) can be taken here: the deliberate
+    # cost of the shortcut, and it only ever fires on an offer already at or under the ceiling.
+    top = _top_offer(region)
+    if top is not None:
+        price = snipe.read_price(top)
+        if price is not None and price <= max_price:
+            log(f'{price} is at or under {max_price} before filtering, buying', 1)
+            if snipe.buy(top, region):
+                time.sleep(BOUGHT_SETTLE)
+                return_to_station(craft, region)  # the buy leaves the flea up over the panel
+                return True
+            log('lost that offer before filtering; setting the filters and reading the board '
+                'properly', 1)
+
     # No condition filter: a craft input is consumed, not resold, so a scuffed one is fine and
     # filtering on 100% only hides the cheaper offers we are here for.
     #
@@ -906,28 +951,29 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
             raise Unbuyable('has no PURCHASE button, most likely a spent trader limit')
 
         price = snipe.read_price(top)
-        if price is None:
-            # Not a market condition, so there is nothing to wait for: the crop was clipped or
-            # the digits would not read, and a refresh brings back the same board.
-            log('not buying (price unreadable), backing out', 1)
-            return_to_station(craft, region)  # esc off the flea, back to the hideout station
-            return False
-
-        if price > max_price:
+        # Two ways the top offer is no good this look, both waited out the same way. A clipped
+        # price used to bail here at once, on the theory that a refresh brings the same board
+        # back; the run of 2026-08-31 disproved it, the top offer changed every refresh
+        # (135555 -> 137000 -> clipped -> 133333, then bought), and because buy_craft_input_item
+        # returned False rather than raising, step() ignored it and re-bought the same still
+        # missing input pass after pass. So an unreadable price now shares the dear budget and
+        # ends in Unbuyable, which is what makes the runner swap craft instead of looping.
+        if price is None or price > max_price:
+            why = ('unreadable (clipped at the edge of its box)' if price is None
+                   else f'over the {max_price} ceiling')
             if dear >= DEAR_REFRESHES:
-                log(f'{price} still over the {max_price} ceiling after {dear} refresh(es), '
-                    f'backing out', 1)
+                log(f'top offer {why} on all {dear + 1} looks, backing out', 1)
                 return_to_station(craft, region)
-                raise Unbuyable(f'over the {max_price} ceiling on all {dear + 1} looks, '
-                                f'cheapest {price}')
+                raise Unbuyable(f'{why} on all {dear + 1} looks'
+                                + (f', cheapest {price}' if price is not None else ''))
             dear += 1
             # ponytail: a plain sleep, so a Stop pressed here lands up to DEAR_DELAY late. The
             # same is already true of FLEA_LOAD_DELAY and OFFER_WAIT on this path. Thread the
             # runner's stop Event down the way sell.wait_for_offer_slot takes one if it grates.
-            log(f'{price} is over the {max_price} ceiling; waiting {DEAR_DELAY:.0f}s on the '
-                f'board for a cheaper offer (look {dear} of {DEAR_REFRESHES})', 1)
+            log(f'top offer {why}; waiting {DEAR_DELAY:.0f}s on the board for a better offer '
+                f'(look {dear} of {DEAR_REFRESHES})', 1)
             time.sleep(DEAR_DELAY)
-            _refresh_board()
+            _refresh_board(region)
             continue
 
         log(f'{price} is at or under {max_price}, buying', 1)
@@ -947,11 +993,30 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
             raise Unbuyable(f'could not be bought in {BUY_ATTEMPTS} attempts')
         log(f'refreshing the board with {REFRESH_KEY.upper()} and buying again '
             f'(attempt {races + 1} of {BUY_ATTEMPTS})', 1)
-        _refresh_board()
+        _refresh_board(region)
 
 
-def _refresh_board():
-    """Reload the flea board without losing the filters already on it, and let it redraw."""
+def park_off_the_board(region=None):
+    """Move the pointer to the left middle, clear of any PURCHASE button. Returns where it went.
+
+    Called between purchase attempts, never before the first: the cursor only ends up on a
+    button by having just clicked one. See PARK_FRACTIONS for what a hovered button costs.
+    """
+    left, top, width, height = region if region else screen.rect()
+    across, down = PARK_FRACTIONS
+    point = (left + round(width * across), top + round(height * down))
+    log(f'parking the cursor at {point}, off any PURCHASE button the next look has to match', 2)
+    pyautogui.moveTo(*point)
+    return point
+
+
+def _refresh_board(region=None):
+    """Reload the flea board without losing the filters already on it, and let it redraw.
+
+    The cursor comes off the board first. A refresh redraws every row, but it does not move the
+    pointer, so a button under it comes back hovered and unmatchable exactly as before.
+    """
+    park_off_the_board(region)
     pyautogui.press(REFRESH_KEY)
     time.sleep(REFRESH_DELAY)
 
@@ -1018,6 +1083,22 @@ def open_filter_dropdown(region=None):
     time.sleep(WATER_DROPDOWN_DELAY)
     listed = find.find_all(WATER_FILTER_TARGET, region)
     log(f'the dropdown lists {len(listed)} water filter(s)', 1)
+    if not listed:
+        # Nothing to fit, so shut the list again before handing back. An empty answer sends the
+        # caller to the flea, and an open dropdown is an overlay that eats every click aimed
+        # past it: the flea taskbar entry gets clicked, absolutely nothing happens, and
+        # buy_water_filter raises Blind about a flea that was never actually asked to open.
+        #
+        # Seen twice on 2026-08-31. The tell in the log is a run of identical brightness reads,
+        # 64 every time across the whole wait, where a flea that is merely slow climbs (63.7
+        # shut, 73.1 mid-transition, 118.6 open). A flat line is a click that never landed.
+        #
+        # A second click on the same control, not escape: escape closes the biggest thing on
+        # screen, which here is the station panel itself, and that is the one thing every step
+        # after this needs.
+        log('nothing listed, closing the dropdown again so the rest of the screen takes clicks', 1)
+        pyautogui.click(*point)
+        time.sleep(WATER_DROPDOWN_DELAY)
     return listed
 
 
@@ -1069,6 +1150,22 @@ def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLE
         raise Blind('the flea filters could not be confirmed, so no price on this board can be '
                     'trusted')
 
+    # And a second look for a filter-by-item chip, after the filter window rather than only
+    # before it, the same pair of clears snipe_bot.sweep_once does. Two things put one back:
+    # the filter window's reset can restore a saved filter set with a chip in it, and this mode
+    # in particular arrives here with one far more often than the sniper does, because
+    # buy_craft_input_item narrows the board by setting exactly this chip for every other
+    # ingredient it buys.
+    #
+    # A board still filtered to one item answers every search with that item, and this is the
+    # one buying path that finds its item by typing a name. So the failure is not an empty board
+    # that gives up: it is the previous ingredient's offers sat under a 'water filter' search,
+    # read as if they were filters, and bought if they happen to be under the ceiling.
+    if snipe.remove_filter_by_item_filter(region):
+        log(f'the board came out of the filter window still filtered by item; cleared it and '
+            f'giving it {snipe.BOARD_DELAY}s to reload', 1)
+        time.sleep(snipe.BOARD_DELAY)
+
     box = snipe.find_search_box(region)
     if snipe.search_for(WATER_FILTER_NAME, box, region) is None:
         log('water filter came back locked, not buying', 1)
@@ -1091,10 +1188,32 @@ def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLE
         return False
 
     log(f'{price} is at or under {max_price}, buying a water filter', 1)
-    bought = snipe.buy(top, region)
-    time.sleep(BOUGHT_SETTLE)
+    # snipe.buy answers off the rouble balance either side of the click, so a False here is the
+    # money genuinely not having left rather than a click we failed to see land. That means an
+    # offer taken by another buyer between reading its price and pressing yes, and the answer is
+    # simply to go again: the board is still on screen, still filtered, and still full of filters
+    # at this price. Five tries, WATER_BUY_RETRY_DELAY apart.
+    for attempt in range(1, WATER_BUY_ATTEMPTS + 1):
+        if snipe.buy(top, region):
+            time.sleep(BOUGHT_SETTLE)
+            return_to_station(craft, region)
+            return True
+        if attempt < WATER_BUY_ATTEMPTS:
+            log(f'the money never moved, so somebody else took that offer; going again in '
+                f'{WATER_BUY_RETRY_DELAY:.0f}s (attempt {attempt + 1} of {WATER_BUY_ATTEMPTS})', 1)
+            # Off the button before the wait, not after: this loop does not refresh, so the
+            # cursor would otherwise sit on the row it just clicked for the whole delay and the
+            # next look would skip it. Same park, different reason from the refreshing loop.
+            park_off_the_board(region)
+            time.sleep(WATER_BUY_RETRY_DELAY)
+
+    # Out of tries. False rather than a raise, because losing five races says nothing is wrong
+    # with the bot or the board: tend_water_collector leaves the collector empty, swaps to the
+    # next craft, and comes back to this station next lap.
+    log(f'lost the offer {WATER_BUY_ATTEMPTS} times running, leaving the collector empty and '
+        f'coming back to it next lap', 1)
     return_to_station(craft, region)
-    return bought
+    return False
 
 
 def return_to_station(craft, region=None):

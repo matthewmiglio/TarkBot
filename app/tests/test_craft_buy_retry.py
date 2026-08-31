@@ -50,7 +50,7 @@ def buy_with(buys, price=50000, offers=True):
         center=lambda b: (b.left + b.width / 2, b.top + b.height / 2))
     craft.find = types.SimpleNamespace(find=lambda *a, **k: MENU, scale=lambda: 1.0)
     craft.sell = types.SimpleNamespace(jitter=lambda point, **k: point,
-                                       apply_flea_filters=lambda *a, **k: None)
+                                       apply_flea_filters=lambda *a, **k: True)
     craft.snipe = types.SimpleNamespace(
         purchase_buttons=lambda *a, **k: [BUTTON] if offers else [],
         read_price=lambda b: price, buy=buy)
@@ -81,34 +81,39 @@ if __name__ == '__main__':
     assert len(tries) == 1, f'bought {len(tries)} times when once was enough'
     assert presses == [], f'refreshed a board it had no reason to refresh: {presses}'
 
-    # The point of the change: a lost race is retried on the same board, one refresh per retry,
-    # and the buy that finally lands still returns True.
+    # A lost race is retried, and the buy that finally lands still returns True. The first attempt
+    # is the pre-filter look, which does not refresh (it goes on to set the filters); the lost
+    # race on the filtered board refreshes before its retry. Three attempts, one refresh.
     result, tries, presses = buy_with([False, False, True])
     assert result is True, f'the third attempt bought it, got {result}'
     assert len(tries) == 3, f'expected three attempts, got {len(tries)}'
-    assert presses == [craft.REFRESH_KEY] * 2, f'wrong refreshes between attempts: {presses}'
+    assert presses == [craft.REFRESH_KEY], f'wrong refreshes between attempts: {presses}'
 
-    # The cap. A board that never sells is not retried forever: six attempts, then out. A loop
-    # with no cap here does not fail, it simply never returns.
+    # The cap. A board that never sells is not retried forever: BUY_ATTEMPTS on the filtered
+    # board, then out. The pre-filter look is a lost race of its own, so BUY_ATTEMPTS + 1 buys go
+    # out in all, and the filtered board refreshes between its retries. A loop with no cap here
+    # does not fail, it simply never returns.
     result, tries, presses = buy_with([False] * 20)
     assert 'attempts' in result, f'being outbid should say so, said {result!r}'
-    assert len(tries) == craft.BUY_ATTEMPTS, \
-        f'{len(tries)} attempts is not the {craft.BUY_ATTEMPTS} cap'
+    assert len(tries) == craft.BUY_ATTEMPTS + 1, \
+        f'{len(tries)} attempts is not the {craft.BUY_ATTEMPTS} cap plus the pre-filter look'
     assert len(presses) == craft.BUY_ATTEMPTS - 1, f'wrong refresh count: {presses}'
     outbid = result
 
-    # An offer over the ceiling still stops on the first read, without buying and without
-    # spending the retries on it: the price is not going to fall because we pressed refresh.
+    # An offer over the ceiling buys nothing: it spends the dear budget (a refresh may bring a
+    # cheaper offer) and never the race budget, so no purchase click goes out, and then raises.
     result, tries, presses = buy_with([True], price=CEILING + 1)
     assert 'ceiling' in result, f'an over-ceiling offer should say so, said {result!r}'
     assert tries == [], f'bought at a price over the ceiling: {len(tries)} times'
     dear = result
 
-    # An unreadable price is not a purchase to retry either. False, not an exception, because
-    # nothing was learned about what the item costs.
+    # An unreadable price is no longer bailed on at once: the board is a live market, so it is
+    # waited out on the dear budget and then raises Unbuyable, the same as a permanently dear
+    # board. Before 2026-08-31 it returned a quiet False the runner ignored and re-bought on.
     result, tries, _ = buy_with([True], price=None)
-    assert result is False, f'an unreadable price should return False, got {result}'
+    assert 'unreadable' in result, f'an unreadable board should say so, said {result!r}'
     assert tries == [], 'bought at a price it could not read'
+    unreadable = result
 
     # No PURCHASE button on any row: a trader whose per-hour limit is spent shows its offer as
     # LOCKED, at a price that still reads as a bargain, so a bot that waits on it waits until the
@@ -123,10 +128,10 @@ if __name__ == '__main__':
     # reason they must not share a message. A trader whose hourly limit is spent is sat there at
     # a price that is perfectly good, and reading a run back afterwards, this string is the only
     # thing that says so rather than "the power cord was too expensive again".
-    assert len({dear, locked, outbid}) == 3, \
-        f'two of these read the same in a log: {dear!r}, {locked!r}, {outbid!r}'
+    assert len({dear, locked, outbid, unreadable}) == 4, \
+        f'two of these read the same in a log: {dear!r}, {locked!r}, {outbid!r}, {unreadable!r}'
     assert 'ceiling' not in locked and 'ceiling' not in outbid, \
         'a locked or an outbid ingredient must never be reported as too expensive'
 
-    print(f'ok: retries a lost race in place, capped at {craft.BUY_ATTEMPTS}, and the three ways '
+    print(f'ok: retries a lost race in place, capped at {craft.BUY_ATTEMPTS}, and the four ways '
           f'of giving up read differently')
