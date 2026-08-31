@@ -9,7 +9,7 @@ import pyautogui
 
 import screen
 import window
-from interact import sell, snipe
+from interact import find, sell, snipe
 from narrate import log
 
 JITTER_MAX = 1.0  # seconds; a random 0-JITTER_MAX pad on every flea-sell wait and before its clicks
@@ -178,7 +178,7 @@ class FleaSeller:
             log(f'stop seen at the {seconds:.1f}s checkpoint, unwinding this pass', 1)
             raise Stopped()
 
-    def _past_error_dialog(self, step, failed):
+    def _past_error_dialog(self, step, failed, needs_offer_window=False):
         """Run `step`; if it fails, clear a Tarkov Error dialog and run it once more.
 
         Returns whatever the step returned, so a step that answers with something useful can be
@@ -209,6 +209,17 @@ class FleaSeller:
         dialog for something that was never about the dialog. Every step passed in here has to
         be safe to run twice, which they are: each one gives up on a target it could not find,
         so a failed attempt has typed and clicked nothing.
+
+        needs_offer_window says the step reads something that only exists inside the offer
+        creation window, which is every step from the autoselect tick onwards. Those get one
+        extra question before the retry: is that window still there? Clearing the dialog is not
+        the same as putting the screen back, and Tarkov closes the offer window when it raises
+        one. Retrying against a screen the window has left costs a second failure and then ends
+        the run over something a fresh pass would walk straight past, so the answer there is
+        Retry and not RuntimeError. The run of 2026-08-31 ended
+        here: a Morphine injector the flea had no offers for, the game's dialog over a board
+        reading 'No offers have been found in the Morphine injector category', and the offer
+        window gone with it. 18 items had already sold that run.
         """
         try:
             result = step()
@@ -219,6 +230,9 @@ class FleaSeller:
             why = f'{failed}: {e}'
         if not sell.dismiss_error_popup(self.region):
             raise RuntimeError(why)
+        if needs_offer_window and not find.find(sell.OFFER_TARGET, self.region):
+            raise Retry(f'{why}, and clearing the error dialog left no offer creation window '
+                        f'on screen, so there is nothing here to retry against')
         log(f'{why}: trying once more now the error dialog is gone', 1)
         try:
             result = step()
@@ -306,10 +320,11 @@ class FleaSeller:
         self._past_error_dialog(add_offer_window, 'offer creation window never opened')
         want = 'on' if self.autoselect else 'off'
         self._past_error_dialog(lambda: sell.set_autoselect_similar(self.autoselect, self.region),
-                                f'could not switch autoselect similar {want}')
+                                f'could not switch autoselect similar {want}',
+                                needs_offer_window=True)
         self._pause()
         self._past_error_dialog(lambda: sell.orientate_offer_creation(self.region),
-                                'offer creation window never appeared')
+                                'offer creation window never appeared', needs_offer_window=True)
         log('offer creation ready')
 
     def select_item(self):
@@ -413,7 +428,8 @@ class FleaSeller:
         # window, select_item caught that one and fell back to the stash, and the stash's own
         # infer then raised into a screen nobody had looked at. One dismiss covers both, because
         # the retry starts the pick over from the top.
-        picked = self._past_error_dialog(self.select_item, 'could not pick an item to sell')
+        picked = self._past_error_dialog(self.select_item, 'could not pick an item to sell',
+                                         needs_offer_window=True)
         # Before the no-item accounting below, because the select loop also returns None when
         # it was stopped part way. Without this a Stop read as 'nothing selectable', which
         # counted a find failure that never happened and pressed escape on the way out.
@@ -442,7 +458,7 @@ class FleaSeller:
         # twice: it only touches a dropdown while that dropdown still says 'any', so a board
         # already filtered gets the window opened and OK'd straight back out.
         self._past_error_dialog(lambda: sell.apply_flea_filters(self.region),
-                                'could not apply the flea filters')
+                                'could not apply the flea filters', needs_offer_window=True)
         self._pause()
         log('putting the open windows back')
         self._park_windows(picked, sell.OFFER_CORNER, sell.SCAV_CORNER,
@@ -476,9 +492,9 @@ class FleaSeller:
         # enter_price selects all before it types, so even a retry that somehow ran on top of a
         # field it had already filled replaces the number rather than appending to it.
         self._past_error_dialog(lambda: sell.enter_price(listing, self.region),
-                                'no roubles price field on screen')
+                                'no roubles price field on screen', needs_offer_window=True)
         self._past_error_dialog(lambda: sell.click_place_offer(self.region),
-                                'no place offer button on screen')
+                                'no place offer button on screen', needs_offer_window=True)
 
         # Some items get a "below market value, are you sure" confirmation instead of being
         # listed. Everything below this point assumes the offer went up, so it is checked before

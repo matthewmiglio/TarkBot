@@ -27,7 +27,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sell_bot  # noqa: E402
-from interact import sell, snipe  # noqa: E402
+from interact import find, sell, snipe  # noqa: E402
+
+BOX = (10, 152, 116, 20)  # the offer creation window title, where it really lands
 
 
 def open_flea_with(boards, dialog):
@@ -90,14 +92,17 @@ assert calls == {'open': 2, 'dismiss': 1}, calls
 print(f'  ok  {calls}')
 
 
-def wrapper_with(steps, dialog):
+def wrapper_with(steps, dialog, needs_offer_window=False, offer_window=True):
     """_past_error_dialog over a step answering `steps` in turn. Returns (outcome, calls).
 
     A bare lambda rather than a sell.* call, because the point of the wrapper is that it does
     not care which step it was handed: the same two calls guard the flea, the filters, the
     price field and the place offer button.
+
+    needs_offer_window is passed straight through, and offer_window is what the screen answers
+    when the wrapper goes looking for that window after clearing the dialog.
     """
-    answers, calls = list(steps), {'step': 0, 'dismiss': 0}
+    answers, calls = list(steps), {'step': 0, 'dismiss': 0, 'looked': 0}
     bot = object.__new__(sell_bot.FleaSeller)
     bot.region = None
     original = sell.dismiss_error_popup
@@ -113,18 +118,29 @@ def wrapper_with(steps, dialog):
         calls['dismiss'] += 1
         return dialog
 
+    def fake_find(target, region=None, **kw):
+        calls['looked'] += 1
+        assert target == sell.OFFER_TARGET, target
+        return BOX if offer_window else None
+
     sell.dismiss_error_popup = fake_dismiss
+    was_find = find.find
+    find.find = fake_find
     try:
-        return bot._past_error_dialog(step, 'could not do the thing'), calls
+        return bot._past_error_dialog(step, 'could not do the thing',
+                                      needs_offer_window=needs_offer_window), calls
+    except sell_bot.Retry as e:
+        return f'Retry: {e}', calls
     except RuntimeError as e:
         return str(e), calls
     finally:
         sell.dismiss_error_popup = original
+        find.find = was_find
 
 
 print('the wrapper on its own: any step, any message')
 outcome, calls = wrapper_with([True], dialog=False)
-assert (outcome, calls) == (True, {'step': 1, 'dismiss': 0}), (outcome, calls)
+assert (outcome, calls) == (True, {'step': 1, 'dismiss': 0, 'looked': 0}), (outcome, calls)
 print(f'  ok  a step that works is never charged a match for the dialog  {calls}')
 
 outcome, calls = wrapper_with(['a Selection'], dialog=False)
@@ -132,17 +148,17 @@ assert outcome == 'a Selection', outcome  # handed back, not flattened to True
 print('  ok  what the step returned comes back out')
 
 outcome, calls = wrapper_with([False, True], dialog=True)
-assert (outcome, calls) == (True, {'step': 2, 'dismiss': 1}), (outcome, calls)
+assert (outcome, calls) == (True, {'step': 2, 'dismiss': 1, 'looked': 0}), (outcome, calls)
 print(f'  ok  cleared the dialog and the second go worked  {calls}')
 
 outcome, calls = wrapper_with([False], dialog=False)
 assert outcome == 'could not do the thing', outcome
-assert calls == {'step': 1, 'dismiss': 1}, calls
+assert calls == {'step': 1, 'dismiss': 1, 'looked': 0}, calls
 print('  ok  failed on a clean screen, so it raises the step\'s own message')
 
 outcome, calls = wrapper_with([False, False], dialog=True)
 assert outcome == 'could not do the thing after clearing the error dialog', outcome
-assert calls == {'step': 2, 'dismiss': 1}, calls
+assert calls == {'step': 2, 'dismiss': 1, 'looked': 0}, calls
 print('  ok  failed twice, and the message says the dialog was not the reason')
 
 
@@ -150,19 +166,45 @@ print('a step that raises LookupError, which is how the region inferences fail')
 anchors = LookupError('cannot infer inventory region, not on screen: a, b, c')
 
 outcome, calls = wrapper_with([anchors, 'picked'], dialog=True)
-assert (outcome, calls) == ('picked', {'step': 2, 'dismiss': 1}), (outcome, calls)
+assert (outcome, calls) == ('picked', {'step': 2, 'dismiss': 1, 'looked': 0}), (outcome, calls)
 print(f'  ok  a raise gets the same second look as a false  {calls}')
 
 outcome, calls = wrapper_with([anchors], dialog=False)
 assert outcome == ('could not do the thing: cannot infer inventory region, '
                    'not on screen: a, b, c'), outcome
-assert calls == {'step': 1, 'dismiss': 1}, calls
+assert calls == {'step': 1, 'dismiss': 1, 'looked': 0}, calls
 print('  ok  no dialog, so it raises and keeps the anchors the LookupError named')
 
 outcome, calls = wrapper_with([anchors, anchors], dialog=True)
 assert outcome == ('could not do the thing: cannot infer inventory region, '
                    'not on screen: a, b, c after clearing the error dialog'), outcome
-assert calls == {'step': 2, 'dismiss': 1}, calls
+assert calls == {'step': 2, 'dismiss': 1, 'looked': 0}, calls
 print('  ok  raised twice, and the message says the dialog was not the reason')
 
-print('ok, every step gets a second look once the Error dialog is gone, and one only')
+print('a dialog that took the offer creation window with it')
+# The run of 2026-08-31, 18 items in. The bot picked a Morphine injector, the flea had no
+# offers for it at all, and Tarkov raised its dialog over a board reading "No offers have been
+# found in the Morphine injector category". The dialog also closed the offer creation window,
+# so infer_inventory_region came back with all three of its anchors missing. Clearing the
+# dialog worked; retrying against a screen the window had left could not, and the run ended on
+# a RuntimeError over a market condition a fresh pass walks straight past.
+outcome, calls = wrapper_with([anchors], dialog=True, needs_offer_window=True,
+                              offer_window=False)
+assert outcome.startswith('Retry: '), f'ended the run instead of starting a fresh pass: {outcome}'
+assert 'no offer creation window' in outcome, outcome
+assert calls == {'step': 1, 'dismiss': 1, 'looked': 1},     f'retried the step against a screen with no window on it: {calls}'
+print(f'  ok  window gone       Retry, and the step is not run a second time  {calls}')
+
+# The window still up is the ordinary case, and it must behave exactly as it always did.
+outcome, calls = wrapper_with([anchors, 'picked'], dialog=True, needs_offer_window=True)
+assert (outcome, calls) == ('picked', {'step': 2, 'dismiss': 1, 'looked': 1}), (outcome, calls)
+print(f'  ok  window still up   the retry runs as before  {calls}')
+
+# And a step that does not live in that window never pays for the look. open_clean_board runs
+# before the window exists, so asking would fail every time and end runs that are fine.
+outcome, calls = wrapper_with([False, True], dialog=True)
+assert (outcome, calls) == (True, {'step': 2, 'dismiss': 1, 'looked': 0}), (outcome, calls)
+print(f'  ok  window not wanted no look, no Retry, opening the flea still retries  {calls}')
+
+print('ok, every step gets a second look once the Error dialog is gone, and one only, and a '
+      'step that needs the offer creation window gives up the pass when it has gone')
