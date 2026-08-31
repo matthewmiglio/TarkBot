@@ -76,7 +76,26 @@ PRICE_HEIGHT = 29
 # The empty strip at the left of that box, which has to stay empty. A price wider than the box
 # is a price whose leading digits have been cut off, and a cut price reads low, which is exactly
 # the direction that makes the sniper buy. Refusing to read is the only safe answer.
-PRICE_GUTTER = 8     # 1080p px of the box's left edge that must have nothing lit in it
+#
+# 4 and not 8, which is what it was until 2026-08-31, when the moonshine craft would not read a
+# purified water offer at 138 888 roubles. The number was whole and in the box; the gutter was
+# simply sat on top of it.
+#
+# Tarkov right-aligns the price against the currency glyph, so where its leading digit lands is
+# not a matter of luck: it is fixed by how many digits there are. Measured off a live 1440p
+# board, in the 1080p pixels this constant is written in, as the distance from the box's left
+# edge to the first lit column:
+#
+#   six digits    6.8   138 888, whole and readable, and what the old 8 was refusing
+#   seven digits  0.75  the leading digit is outside the box entirely and the crop opens part
+#                       way into the second one, which is the misread this check exists to stop
+#
+# So 4 sits in the middle of a real gap rather than on either case, with about 5 screen pixels
+# of clearance each way at 1440p. Do not raise it back towards 8 without new measurements: that
+# end of the range is six figure prices, and every craft ingredient ceiling is five or six.
+# tests/test_price_gutter.py holds both numbers, and tests/test_top_offer_price.py prints the
+# measurement for a board that is on screen now.
+PRICE_GUTTER = 4     # 1080p px of the box's left edge that must have nothing lit in it
 PRICE_LIT = 140      # brightest channel that counts as text rather than background
 
 # The rouble balance in the flea's header, as fractions of the window: (left, top, right,
@@ -457,9 +476,11 @@ def read_price(button):
         return None
     rect = price_region(button)
     crop = screen.grab(rect)
-    if _clipped(crop):
-        log(f'price at {rect} runs into the left edge of its box, so it is cut off and will '
-            f'not be trusted', 1)
+    edge = first_lit_column(crop)
+    if edge is not None and edge < PRICE_GUTTER:
+        log(f'price at {rect} starts {edge:.1f}px into its box, inside the {PRICE_GUTTER}px that '
+            f'have to stay clear, so its leading digits are outside the crop and it will not be '
+            f'trusted', 1)
         return None
     factor = find.scale()
     if factor != 1.0:  # the same shrink ocr.read_region does, see the note there
@@ -471,10 +492,29 @@ def read_price(button):
     return price
 
 
+def first_lit_column(crop):
+    """How far into `crop` the price's leftmost lit column sits, in 1080p px, or None if the
+    whole crop is background.
+
+    Its own function so the number can be printed rather than only acted on. PRICE_GUTTER was
+    wrong for two years and the only symptom was read_price saying the price was cut off, which
+    is a verdict and not a measurement, so there was nothing in a log to check it against.
+    tests/test_top_offer_price.py prints this for whatever board is on screen.
+    """
+    lit = np.array(crop.convert('RGB')).max(axis=2).max(axis=0) > PRICE_LIT
+    found = np.flatnonzero(lit)
+    return None if not len(found) else int(found[0]) / find.scale()
+
+
 def _clipped(crop):
-    """True if anything is lit in the crop's left gutter, which means the price overflows it."""
-    gutter = np.array(crop.convert('RGB'))[:, :max(1, round(PRICE_GUTTER * find.scale()))]
-    return bool((gutter.max(axis=2) > PRICE_LIT).any())
+    """True if the price runs into the left edge of its box, so its leading digits are outside.
+
+    Distance to the first lit column rather than "is anything lit in the first PRICE_GUTTER
+    px", which is the same test written so the number it turns on can be seen. See the note at
+    PRICE_GUTTER for the two measurements that put the threshold where it is.
+    """
+    edge = first_lit_column(crop)
+    return edge is not None and edge < PRICE_GUTTER
 
 
 def purchase_landed(before, after):
