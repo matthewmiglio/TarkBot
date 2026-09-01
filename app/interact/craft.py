@@ -97,6 +97,17 @@ TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
 NAV_SETTLE = 3.0  # seconds to let a navigation land before reading or clicking again
 PANEL_TIMEOUT = 15.0  # seconds to wait for a station panel after clicking its tab, see _open_station
 PANEL_POLL = 0.5  # seconds between looks while that panel is awaited
+PANEL_CLOSE_SETTLE = 1.0  # seconds after pressing esc for an open station panel to clear
+
+# An open station panel carries a close (X) button in its top-right corner. Seeing that button in
+# this region says a station panel is open whichever station it is, so it reads 'a panel is open'
+# without a per-station title crop (which is what station_active needs and the tab-only stations
+# lack). Stored as window fractions, not pixels, so it lands in the same place at any resolution.
+# The x band was measured on a 2560x1440 screen at columns 2421-2549; the band spans the full screen
+# height so the X is caught wherever a panel's top edge sits (different stations draw it at slightly
+# different heights). 2026-09-01.
+CLOSE_BUTTON_TARGET = 'close_window_button'
+CLOSE_BUTTON_REGION_FRACTIONS = (2421 / 2560, 0.0, (2549 - 2421) / 2560, 1.0)
 
 # Fleece craft, the second one this module runs. Its two inputs and its output each have their own
 # reference folder under crafting/, same as the slickers craft's above.
@@ -117,6 +128,15 @@ PILE_OF_MEDS_TARGET = 'crafting/pile_of_meds'
 AI2_TARGET = 'crafting/ai2'
 MEDSTATION_TARGET = 'hideout/hideout_tabs/medstation'
 MEDSTATION_ACTIVE_TARGET = 'hideout/hideout_station_titles/medstation'
+
+# The module carousel's two ends and how far apart they are, for get_to_station's anchored nav.
+# Medstation is the leftmost tab and workbench the rightmost, so scrolling to the medstation anchors
+# navigation at a known end and a bounded scroll right from there reaches any station. The span is a
+# swipe count, not pixels, so it holds at every resolution: the drag distance and the carousel both
+# scale together. Measured 2026-09-01 at 1440p with tests/measure_medstation_scrolls.py.
+LEFTMOST_TARGET = MEDSTATION_TARGET
+RIGHTMOST_TARGET = WORKBENCH_TARGET
+CAROUSEL_SPAN_SWIPES = 6
 
 # Booze generator: purified water + sugar -> moonshine.
 MOONSHINE_TARGET = 'crafting/moonshine'
@@ -287,6 +307,46 @@ def check_if_nutrition_unit_active(region=None):
     return station_active(SLICKERS, region)
 
 
+def _region_from_fractions(fractions, region=None):
+    """Turn (left, top, width, height) window fractions into an absolute (l, t, w, h) screen region."""
+    left, top, width, height = region if region is not None else screen.rect()
+    lf, tf, wf, hf = fractions
+    return (left + round(lf * width), top + round(tf * height),
+            round(wf * width), round(hf * height))
+
+
+def check_if_station_active(region=None):
+    """True when a station panel is open, read off its close (X) button in the panel's top-right.
+
+    Station-independent, unlike station_active(craft, ...): it looks for the close_window_button in
+    CLOSE_BUTTON_REGION_FRACTIONS of the window rather than a per-station title crop, so it works for
+    every station including the tab-only ones that have no title reference. The region scopes the
+    match so a close button anywhere else in the UI cannot read as an open station panel.
+    """
+    box = find.find(CLOSE_BUTTON_TARGET, _region_from_fractions(CLOSE_BUTTON_REGION_FRACTIONS, region))
+    log(f'station panel {"open" if box else "not open"} (close button)', 1)
+    return box is not None
+
+
+def close_open_station_panel(region=None):
+    """Click an open station panel's close (X) button so it stops covering the module row. True if one was.
+
+    A station panel left open from the last craft sits over part of the carousel. Closed by clicking
+    the X we already locate rather than pressing esc: a click lands in the game and self-focuses the
+    window, where a bare esc keypress only reaches the game when it is already the foreground window,
+    which is not guaranteed before navigation's first click (seen 2026-09-01: the panel stayed open
+    and the run stalled). No-op when nothing is open.
+    """
+    box = find.find(CLOSE_BUTTON_TARGET, _region_from_fractions(CLOSE_BUTTON_REGION_FRACTIONS, region))
+    if not box:
+        log('no station panel open', 1)
+        return False
+    log('a station panel is open; clicking its close button before navigating', 1)
+    pyautogui.click(*sell.jitter(pyautogui.center(box)))
+    time.sleep(PANEL_CLOSE_SETTLE)
+    return True
+
+
 def hideout_module_targets():
     """Every 'hideout/hideout_tabs/<module>' folder that holds reference crops, nutrition unit included."""
     d = find.REFS / HIDEOUT_DIR
@@ -352,6 +412,21 @@ def _swipe(x, y, dx):
     pyautogui.dragTo(x + dx, y, duration=SWIPE_DURATION, button='left')
 
 
+def _scroll_until(target, x, y, dx, limit, region=None):
+    """Swipe the module row by dx until `target` is on screen, up to `limit` swipes. True if it showed.
+
+    Checks before each swipe, so a target already up costs no drags. Unlike the old _row_moved
+    end-detection this never turns around, so a dropped drag just wastes one iteration of the limit's
+    slack rather than ending the search short of the wall (the medstation crash of 2026-08-31).
+    """
+    for _ in range(limit + 1):
+        if find.find(target, region):
+            return True
+        _swipe(x, y, dx)
+        time.sleep(SWIPE_SETTLE)
+    return bool(find.find(target, region))
+
+
 def _row_strip(y, region=None):
     """A thin strip across the module row, read only to tell whether a swipe moved anything."""
     left, top, width, height = region if region is not None else screen.rect()
@@ -375,15 +450,15 @@ def _row_moved(before, after):
 def get_to_station(craft, region=None):
     """Navigate the hideout to this craft's station and open it. True on success, else raises.
 
-    Ensures the hideout tab is the active one (clicking it if not), then treats the module row as
-    a horizontal carousel. The station icons appear in a fixed order (STATION_ORDER), so a known
-    icon on screen usually says which way the target lies and that direction is swept first
-    (_preferred_first_dx); with nothing placeable on screen it falls back to a blind sweep right up
-    to MAX_SEARCH_SWIPES, then back left up to twice that. Either way both directions are swept and
-    each stops early once the row stops moving, so a station that is not there can never swipe
-    forever and a wrong direction guess only costs a reversal.
-    Every dead end (no tab, tab will not activate, no module row to grab, station never found or
-    lost while the screen settles) raises LookupError rather than clicking blind.
+    Ensures the hideout tab is active (clicking it if not), closes any open station panel (it covers
+    the module row and eats the drag), then anchors on the leftmost tab of the module carousel (the
+    medstation) and scrolls right up to CAROUSEL_SPAN_SWIPES + 2 until the
+    target station shows. Anchoring at a known end and counting swipes replaces the old
+    move-detection sweep, which turned around on a single dropped drag and quit short of the far
+    wall (the medstation crash of 2026-08-31). Reaching the rightmost tab (workbench) without
+    finding the target means the station is not in the carousel, which raises a definite answer.
+    Every dead end (no tab, tab will not activate, no module row to grab, the anchor or the station
+    never reached) raises LookupError rather than clicking blind.
     """
     if is_hideout_tab_active(region):
         log('already on the hideout tab, skipping to the module search', 1)
@@ -399,6 +474,10 @@ def get_to_station(craft, region=None):
         if not is_hideout_tab_active(region):
             raise LookupError('hideout tab did not become active after clicking it')
 
+    # A station panel left open from the last craft covers part of the module row and eats the drag,
+    # so close it before reading or scrolling the carousel.
+    close_open_station_panel(region)
+
     # Already looking at it? Click it and skip the scrolling entirely.
     if find.find(craft.module_target, region):
         log(f'{craft.station} already on screen, no scrolling needed', 1)
@@ -412,41 +491,29 @@ def get_to_station(craft, region=None):
     log(f'module row grab point ({x}, {y}) off {len(icons)} icons', 1)
 
     dist = round(SWIPE_DISTANCE * find.scale())
-    # The carousel lists stations in a fixed order (STATION_ORDER), so a known icon on screen
-    # usually says which way the target lies: sweep that way first. Falls back to the old blind
-    # order (right, then twice as far back left) when nothing placeable is on screen. Either way
-    # both directions are swept and each stops early against the end of the row, so a bad guess only
-    # costs a reversal. The old reset-to-one-end sweep spent five swipes and eleven seconds every
-    # navigation, and the bot re-navigates for every craft on every pass: 366 swipes in one 71
-    # minute run on 2026-08-30.
-    first = _preferred_first_dx(craft, dist, region)
-    if first is None:
-        # The return sweep gets twice the budget because it has to undo the outbound one to reach a
-        # station that was behind the starting point.
-        sweeps = [(dist, 'right', MAX_SEARCH_SWIPES), (-dist, 'left', MAX_SEARCH_SWIPES * 2)]
-    else:
-        # Head the predicted way first; give both directions the full return budget, since after a
-        # wrong guess the second sweep may have to cross the whole carousel.
-        sweeps = [(first, 'right' if first > 0 else 'left', MAX_SEARCH_SWIPES * 2),
-                  (-first, 'left' if first > 0 else 'right', MAX_SEARCH_SWIPES * 2)]
-        log(f'{craft.station} icon sits {"ahead of" if first < 0 else "behind"} what is on screen, '
-            f'sweeping {"left" if first < 0 else "right"} for it first', 1)
-    for dx, label, limit in sweeps:
-        log(f'searching {label} for the {craft.station}, up to {limit} swipes', 1)
-        before = _row_strip(y, region)
-        for _ in range(limit):
-            _swipe(x, y, dx)
-            time.sleep(SWIPE_SETTLE)
-            if find.find(craft.module_target, region):
-                log(f'{craft.station} appeared while swiping {label}', 1)
-                return _open_station(craft, region)
-            after = _row_strip(y, region)
-            if not _row_moved(before, after):  # against the end of the carousel, stop shoving
-                log(f'the module row stopped moving {label}, turning around', 1)
-                break
-            before = after
-    raise LookupError(f'{craft.station} never appeared after searching both ways, '
-                      f'up to {MAX_SEARCH_SWIPES} swipes right and {MAX_SEARCH_SWIPES * 2} left')
+    limit = CAROUSEL_SPAN_SWIPES + 2  # the whole span plus slack for a dropped or partial drag
+
+    # Anchor at the left wall first: +dist drags the row toward the leftmost tab (the medstation).
+    # Wherever we started, this lands on a known end, and a bounded scroll right from there reaches
+    # any station without ever having to guess which way the target lies.
+    log(f'anchoring on the leftmost tab (medstation), up to {limit} swipes left', 1)
+    if not _scroll_until(LEFTMOST_TARGET, x, y, dist, limit, region):
+        raise LookupError('could not reach the leftmost hideout tab (medstation) to anchor from')
+
+    # From the left wall, -dist drags toward the right wall. Scroll right until the target shows;
+    # reaching the rightmost tab (workbench) first means the station is not in the carousel at all.
+    log(f'scrolling right from the medstation for the {craft.station}, up to {limit} swipes', 1)
+    for _ in range(limit + 1):
+        if find.find(craft.module_target, region):
+            log(f'{craft.station} found', 1)
+            return _open_station(craft, region)
+        if craft.module_target != RIGHTMOST_TARGET and find.find(RIGHTMOST_TARGET, region):
+            raise LookupError(f'{craft.station} is not in the hideout carousel: reached the '
+                              f'rightmost tab (workbench) without finding it')
+        _swipe(x, y, -dist)
+        time.sleep(SWIPE_SETTLE)
+    raise LookupError(f'{craft.station} never appeared scrolling right from the medstation '
+                      f'in {limit} swipes')
 
 
 def _open_station(craft, region=None):
