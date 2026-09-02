@@ -615,14 +615,48 @@ def _output_matches(craft, region=None):
 def output_box(craft, region=None):
     """This craft's output bar, in whatever state the craft is in, or None.
 
-    Prefers the timer-anchored output (right in the ready state), and falls back to the rightmost
-    item match when there is no timer, which is every other state: the output sits at the far
-    right of its row, right of the ingredients, so it is the rightmost match of the item on screen.
+    When several output matches come back they are look-alikes on different rows (the cordura and
+    fleece fabric outputs read as the same crop), so the real row is picked by which one carries
+    this craft's own ingredients, see _output_by_ingredients. With a single match, or when nothing
+    distinguishes them, it prefers the timer-anchored output (right in the ready state) and falls
+    back to the rightmost item match, which is where the output sits, right of the ingredients.
     """
     timed, items = _output_matches(craft, region)
+    if not items:
+        return None
+    if len(items) > 1:
+        anchored = _output_by_ingredients(craft, items, region)
+        if anchored is not None:
+            return anchored
     if timed:
         return max(timed, key=lambda b: b.left)
-    return max(items, key=lambda b: b.left) if items else None
+    return max(items, key=lambda b: b.left)
+
+
+def _output_by_ingredients(craft, outputs, region=None):
+    """Among several look-alike output matches, the row carrying this craft's ingredients, or None.
+
+    find_all(output) matches every fabric row when two crafts share an output look (cordura and
+    fleece), and output_box's plain rightmost pick then landed on whichever fabric row sat furthest
+    right: on 2026-09-02 that was a pliers craft's row, which has no sewing kit, so the cordura
+    ingredient read found nothing there and the run went Blind while the real cordura row (sewing
+    kit + sling bag) sat unread one row up. The real row is the one with this craft's ingredient
+    icons on it. Search each ingredient once over the region and score each output by how many sit
+    on its row (same centre y within ROW_TOL, to its left); the most wins, topmost breaks a tie.
+    None when no ingredient matched anywhere, so output_box keeps its old rightmost/timer pick.
+    """
+    tol = ROW_TOL * find.scale()
+    # ponytail: these ingredient find_alls repeat read_craft's later per-band searches, but only
+    # fire when >1 output matched (the cordura/fleece collision), not for a single-output craft.
+    centres = [_center(b) for ing in craft.ingredients for b in find.find_all(ing.target, region)]
+    def on_row(out):
+        ox, oy = _center(out)
+        return sum(1 for cx, cy in centres if cx < ox and abs(cy - oy) <= tol)
+    scored = [(on_row(o), o) for o in outputs]
+    best = max(n for n, _ in scored)
+    if best == 0:
+        return None
+    return min((o for n, o in scored if n == best), key=lambda b: b.top)
 
 
 def output_slickers(region=None):
