@@ -47,7 +47,7 @@ DEFAULT_SOURCE = 'Players'
 
 # Per-ingredient defaults, used when the GUI has no saved value (or a junk one). The max is the most
 # roubles to pay on the flea; the source is who to buy from. These match settings.DEFAULTS.
-DEFAULT_MAX = {'crackers': 22000, 'alyonka': 22500, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
+DEFAULT_MAX = {'crackers': 22000, 'alyonka': 24000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
                'power_cord': 62000, 'pile_of_meds': 16600, 'purified_water': 140000,
                'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 50000, 'matches': 20000,
                'water_filter': 70000}
@@ -241,9 +241,11 @@ class HideoutCraft:
         _book_profit(self.stats, job.craft.name)
         return point
 
-    def buy_input(self, job, item, location):
-        """Buy one missing ingredient off the flea at its ceiling, at a location already found on
-        the craft row. True if it bought. No band read here: the caller read the whole row once."""
+    def buy_input(self, job, item, location, band):
+        """Buy a missing ingredient off the flea at its ceiling, at a location already found on the
+        craft row. Buys as many as the row's have/need fraction says are still short (see
+        craft.quantity_to_buy), all in one flea trip. True if it bought them all. The only read
+        here beyond the caller's is that fraction, off the still-open panel before the flea opens."""
         # build() refuses to construct a job with a ceiling missing, so this cannot be absent
         # once a run is going: a KeyError here would mean the job was built by hand.
         ceiling = job.max_prices[item]
@@ -253,9 +255,13 @@ class HideoutCraft:
             # None.
             raise craft.Blind(f'no place to click for {item} on the {job.craft.name} row')
         source = job.sources.get(item, 'players')
-        log(f'buying {item} at up to {ceiling} from {source}', 1)
+        quantity = craft.quantity_to_buy(location, band, self.region)
+        log(f'buying {quantity} {item} at up to {ceiling} from {source}', 1)
+        # _pause is the checkpoint: it waits interruptibly and raises Stopped the instant Stop was
+        # pressed, so a Stop lands mid-buy (before/after the filters, between purchase attempts)
+        # rather than waiting out the whole ~20s flea trip.
         return craft.buy_craft_input_item(location, ceiling, self.region, source=source,
-                                          craft=job.craft)
+                                          craft=job.craft, checkpoint=self._pause, quantity=quantity)
 
     def tend_water_collector(self, job):
         """The water collector's pass, which is not the state machine the other crafts use.
@@ -299,7 +305,8 @@ class HideoutCraft:
             ceiling = job.max_prices['water_filter']  # build() guarantees it
             source = job.sources.get('water_filter', 'players')
             log(f'no water filter in the stash, buying one at up to {ceiling} from {source}')
-            if not craft.buy_water_filter(ceiling, self.region, source=source, craft=job.craft):
+            if not craft.buy_water_filter(ceiling, self.region, source=source, craft=job.craft,
+                                          checkpoint=self._pause):
                 log('no water filter bought this pass, leaving the collector empty', 1)
                 self._swap()
                 return
@@ -361,7 +368,7 @@ class HideoutCraft:
         for name, location in queue:
             self._pause()  # a Stop between buys lands here
             try:
-                self.buy_input(job, name, location)
+                self.buy_input(job, name, location, read.band)
             except craft.Unbuyable as e:
                 # Not worth staying on the flea for: too dear, locked behind a spent trader
                 # limit, or outbid every try. buy_input already backed out to the station; leave

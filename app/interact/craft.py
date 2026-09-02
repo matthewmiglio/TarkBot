@@ -38,6 +38,29 @@ X_TARGET = 'crafting/X'
 MARK_ALIGN_X = 30  # a mark counts as under an icon within this many px of its centre x
 MARK_DROP_MIN = 40  # ...and at least this far below the icon centre
 MARK_DROP_MAX = 130  # ...and no further than this (the next row's marks are ~170 down)
+# The 'have / need' fraction Tarkov draws between an ingredient icon and its tick/cross, e.g.
+# '0/1'. quantity_to_buy reads it to buy the right count in one flea trip rather than one unit a
+# lap. The map is the six crops that exist under crafting/, keyed to the number still to buy,
+# which is need - have (Y - X for an X_of_Y crop): '0/1' -> 1, '1/3' -> 2, and so on. Add a crop
+# folder and an entry here if a craft ever needs four or more of one input.
+QUANTITY_TARGETS = {
+    'crafting/0_of_1': 1, 'crafting/0_of_2': 2, 'crafting/1_of_2': 1,
+    'crafting/0_of_3': 3, 'crafting/1_of_3': 2, 'crafting/2_of_3': 1,
+}
+# Where that fraction sits relative to the icon centre, measured on the 1080p slickers fixture:
+# icon centre ~790, fraction ~840, cross ~863. So it is nearer the icon than the mark is, and a
+# box 25..75 below the centre frames it while the next row's fraction (~180 down) stays out. The
+# box is 64px wide (the fraction is centred under the icon, and 64 clears the neighbour icon's
+# ~74px away while still holding every crop but the three widest 0/3 ones, which their narrower
+# siblings cover). All 1080p, scaled at read time.
+QTY_BOX_WIDTH = 64
+QTY_DROP_MIN = 25
+QTY_DROP_MAX = 75
+# ponytail: the fraction crops are small low-structure text, so this floor (like filter_by_item's
+# 0.7) only says 'a fraction is there at all'; the count comes from which crop scored highest, not
+# from clearing a per-crop threshold. Below it, quantity_to_buy falls back to 1. Retune on a live
+# read if a real fraction ever scores under it.
+QTY_FLOOR = 0.6
 MENU_DELAY = 0.33  # after the right click, for the inventory context menu to draw
 MENU_REHOVER_OFFSET = 120  # 1080p px to pull the cursor off a slot before hovering it again
 FLEA_LOAD_DELAY = 3.0  # after 'filter by item', for the flea board and its filter UI to load
@@ -93,8 +116,22 @@ SWIPE_SETTLE = 0.5  # seconds after a swipe for the view to stop moving before i
 MAX_SEARCH_SWIPES = 10  # swipes one way looking for a station before turning around
 SWIPE_STRIP_HEIGHT = 80  # px tall strip of the module row read to tell whether a swipe moved it
 SWIPE_STUCK_DIFF = 3.0  # mean grey change below this means the row did not move at all
+# The module carousel's horizontal band at the bottom of the hideout, the region
+# did_scroll_mode_hideout_tab diffs to tell a swipe that moved the row from one that hit the end of
+# the list. Window fractions like CLOSE_BUTTON_REGION_FRACTIONS so it lands right at any
+# resolution; measured on the 1080p hideout fixture, where the row of module icons/labels sits at
+# y ~956..1046, clear of the main-menu bar below it. Full width, since the whole row slides.
+HIDEOUT_TABS_STRIP_FRACTIONS = (0.0, 0.885, 1.0, 0.085)
+# Mean absolute grey change (0..255) across that strip that counts as the carousel having actually
+# scrolled. A swipe that moved the row changes most of the strip; one at the end of the list
+# changes almost nothing, so the two sit far apart and one threshold in the gap separates them.
+# Measured with tests/hideout_nav/test_hideout_tab_scroll_diff.py on a live 1440p hideout: swipes
+# that moved the row read 29.2, 29.6, 30.0, 30.8, and swipes into the end of the list read 0.08,
+# 0.10, 0.15, 0.25, 1.21. 8.0 sits in that wide gap, ~6x over the worst idle shimmer and ~3.6x
+# under the smallest real scroll, so it neither false-triggers on the still hideout nor misses a
+# swipe that moved.
+HIDEOUT_TAB_SCROLL_DIFF = 8.0
 TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
-NAV_SETTLE = 3.0  # seconds to let a navigation land before reading or clicking again
 PANEL_TIMEOUT = 15.0  # seconds to wait for a station panel after clicking its tab, see _open_station
 PANEL_POLL = 0.5  # seconds between looks while that panel is awaited
 PANEL_CLOSE_SETTLE = 1.0  # seconds after pressing esc for an open station panel to clear
@@ -431,26 +468,23 @@ def _scroll_to_module(target, x, y, dist, region=None):
 
     Sweeps one way to its end, then the other way to its end, checking before every swipe, so the tab
     is found whichever side of the row it lies on without trusting a measured swipe-count span (that
-    span left the far stations unreachable). 'End' is the row no longer moving (_row_moved off a strip
-    diff) for two swipes running, since the hideout is never perfectly still; SWEEP_LIMIT is only a
-    backstop if end-detection never trips. Proven by tests/hideout_nav/test_nav_all_stations.py.
+    span left the far stations unreachable). 'End' is one swipe that moved nothing
+    (did_scroll_mode_hideout_tab off a full tab-strip diff): the strip signal is decisive enough to
+    reverse on the first dead swipe rather than spending several proving the row will not move that
+    way. SWEEP_LIMIT is only a backstop if end-detection never trips. Proven by
+    tests/hideout_nav/test_nav_all_stations.py.
     """
     if find.find(target, region):
         return True
     for step in (dist, -dist):  # one way to the wall, then back the other way to the wall
-        stuck = 0
         for _ in range(SWEEP_LIMIT):
-            before = _row_strip(y, region)
+            before = hideout_tabs_strip(region)
             _swipe(x, y, step)
             time.sleep(SWIPE_SETTLE)
             if find.find(target, region):
                 return True
-            if _row_moved(before, _row_strip(y, region)):
-                stuck = 0
-            else:
-                stuck += 1
-                if stuck >= 2:
-                    break  # this end reached; try the other direction
+            if not did_scroll_mode_hideout_tab(before, hideout_tabs_strip(region)):
+                break  # the row did not move: this end is reached, turn around
     return False
 
 
@@ -472,6 +506,41 @@ def _row_moved(before, after):
     moved = float(np.abs(after - before).mean())
     log(f'module row changed by {moved:.1f} vs {SWIPE_STUCK_DIFF}', 2)
     return moved >= SWIPE_STUCK_DIFF
+
+
+def hideout_tabs_strip(region=None):
+    """A grey grab of the module carousel's horizontal band, the input did_scroll compares.
+
+    The band, not a thin line: this reads the whole scrolling row so a swipe that moved it lights
+    up far more of the strip than the hideout's idle shimmer ever does, which is what makes the two
+    scenarios separate cleanly. Returned as a PIL 'L' image so a caller can save it to look at.
+    """
+    return screen.grab(_region_from_fractions(HIDEOUT_TABS_STRIP_FRACTIONS, region)).convert('L')
+
+
+def _hideout_tab_scroll_diff(before, after):
+    """Mean absolute grey difference (0..255) between two hideout_tabs_strip grabs."""
+    a = np.asarray(before.convert('L'), dtype=float)
+    b = np.asarray(after.convert('L'), dtype=float)
+    if a.shape != b.shape:  # only if the two grabs disagree in size; treat as wholly changed
+        return 255.0
+    return float(np.abs(a - b).mean())
+
+
+def did_scroll_mode_hideout_tab(before, after):
+    """True when the module carousel actually scrolled between these two tab-strip grabs.
+
+    A swipe that moved the row changes most of the strip; one that hit the end of the list changes
+    almost nothing, and the two are far apart (see test_hideout_tab_scroll_diff.py), so one
+    grey-difference threshold tells them apart. This is what lets the sweep turn around the instant
+    it bumps the end of the list, rather than spending several dead swipes finding out the row will
+    not move that way.
+    """
+    diff = _hideout_tab_scroll_diff(before, after)
+    scrolled = diff >= HIDEOUT_TAB_SCROLL_DIFF
+    log(f'hideout tab strip changed by {diff:.1f} vs {HIDEOUT_TAB_SCROLL_DIFF}: '
+        f'{"scrolled" if scrolled else "hit the end of the list"}', 2)
+    return scrolled
 
 
 def get_to_station(craft, region=None):
@@ -531,9 +600,14 @@ def _open_station(craft, region=None):
     a fixed 3s sleep plus a single look lands inside that animation: the frame that ended the run
     was a half-painted room on a mostly black screen. Polling costs nothing when the panel is
     already up, since the first look returns.
+
+    No settle before the click: _scroll_to_module only returns once it has matched the tab on a
+    view already settled by SWIPE_SETTLE, so a second wait here was dead time. The re-find below is
+    kept, both to hand the click a fresh coordinate and because _scroll_to_module returns only
+    True/False, not the box. If a live run ever starts missing this click, the row was still gliding
+    when the sweep matched it: raise SWIPE_SETTLE so the sweep's own settle absorbs the glide, do
+    not reinstate a settle here.
     """
-    log(f'{craft.station} found, settling {NAV_SETTLE}s before clicking', 1)
-    time.sleep(NAV_SETTLE)
     box = find.find(craft.module_target, region)
     if not box:
         raise LookupError(f'lost the {craft.station} while the screen settled')
@@ -856,6 +930,38 @@ def _mark_beneath(icon, marks):
     return best
 
 
+def quantity_to_buy(center, band=None, region=None):
+    """How many of an ingredient to buy, read off the 'have / need' fraction under its icon.
+
+    center is the ingredient icon's centre (read_craft's location). The fraction (e.g. '0/2')
+    sits between the icon and its cross, and each of the six QUANTITY_TARGETS crops is one
+    have/need pair differing from the next by a single digit, so this scores every crop in a small
+    box under the icon and takes the highest, the way two look-alike templates are told apart,
+    rather than the first over a threshold. Returns need - have (1 for '0/1', 2 for '1/3', ...).
+
+    Falls back to 1 when nothing clears QTY_FLOOR: the cross already proved at least one is
+    missing, and step re-reads the row next lap, so an unread fraction under-buys by a unit that
+    self-corrects rather than over-buying roubles on a guess. band is unused here (the box is cut
+    from the icon centre) and kept only so callers can pass the row band they already have.
+    """
+    scale = find.scale()
+    cx, cy = center
+    half_w = QTY_BOX_WIDTH * scale / 2
+    box = (int(cx - half_w), int(cy + QTY_DROP_MIN * scale),
+           int(QTY_BOX_WIDTH * scale), int((QTY_DROP_MAX - QTY_DROP_MIN) * scale))
+    crop = screen.grab(box)  # one grab, scored against all six crops rather than six screen reads
+    best_count, best = 1, 0.0
+    for target, count in QUANTITY_TARGETS.items():
+        score, _ = find.best_score(target, haystack=crop)
+        if score > best:
+            best, best_count = score, count
+    if best < QTY_FLOOR:
+        log(f'no have/need fraction under the icon (best {best:.3f} < {QTY_FLOOR}); buying 1', 1)
+        return 1
+    log(f'have/need fraction reads {best_count} still to buy (score {best:.3f})', 1)
+    return best_count
+
+
 def craft_plan(craft, region=None):
     """Read the craft's whole row in one pass and report what each ingredient needs.
 
@@ -942,8 +1048,24 @@ def _open_item_menu(location, region=None, attempts=2):
     return None
 
 
-def buy_craft_input_item(location, max_price, region=None, source='players', craft=SLICKERS):
-    """Buy one craft ingredient off the flea, if the cheapest offer is at or under max_price.
+def _no_stop(seconds=0):
+    """Default checkpoint for the buy flows: just wait, never stop. The craft runner passes its
+    own _pause in instead, which waits on the stop Event and raises Stopped the instant Stop is
+    pressed, so the long buy loop drops out mid-flea rather than after the item is bought."""
+    if seconds:
+        time.sleep(seconds)
+
+
+def buy_craft_input_item(location, max_price, region=None, source='players', craft=SLICKERS,
+                         checkpoint=_no_stop, quantity=1):
+    """Buy up to `quantity` of a craft ingredient off the flea, each at or under max_price.
+
+    quantity is how many to buy in this one flea trip, off the row's have/need fraction (see
+    quantity_to_buy): a craft wanting two of something is bought two in a visit rather than one a
+    lap. The two round-again budgets below are shared across all of them, not reset per unit, so
+    buying three does not earn three separate five-look dear-waits; it returns True only once every
+    unit is in the stash, and raises the same Unbuyable it would for one if a budget runs out with
+    the ingredient still short (step swaps craft, and the units already bought stay bought).
 
     location is where the ingredient sits in the craft row (a point to right click). source is who
     to buy from, 'players' or 'traders', and only changes the offers-from filter. craft is which
@@ -975,7 +1097,8 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     craft rather than ending the run: one slot the game will not open a menu on, or one offer
     that keeps getting sniped, says nothing about the other crafts.
     """
-    log(f'buying craft input at {location}, ceiling {max_price}')
+    log(f'buying {quantity} craft input(s) at {location}, ceiling {max_price}')
+    checkpoint()  # Stop pressed before we even touch the flea: drop out here
     box = _open_item_menu(location, region)
     if not box:
         raise LookupError('no filter by item in the menu, cannot narrow the board to this item')
@@ -993,17 +1116,24 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     # market. What it does skip is the offers-from filter, so a cheap enough offer from the other
     # source (a trader when 'players' was asked, or the reverse) can be taken here: the deliberate
     # cost of the shortcut, and it only ever fires on an offer already at or under the ceiling.
+    bought = 0  # units in the stash so far; the call is done once this reaches quantity
     top = _top_offer(region)
     if top is not None:
         price = snipe.read_price(top)
         if price is not None and price <= max_price:
             log(f'{price} is at or under {max_price} before filtering, buying', 1)
             if snipe.buy(top, region):
+                bought += 1
                 time.sleep(BOUGHT_SETTLE)
-                return_to_station(craft, region)  # the buy leaves the flea up over the panel
-                return True
-            log('lost that offer before filtering; setting the filters and reading the board '
-                'properly', 1)
+                if bought >= quantity:
+                    return_to_station(craft, region)  # the buy leaves the flea up over the panel
+                    return True
+                # More still wanted: refresh for a fresh cheapest offer and go on through the
+                # filters, so the rest are bought on a board filtered by source and currency.
+                _refresh_board(region)
+            else:
+                log('lost that offer before filtering; setting the filters and reading the board '
+                    'properly', 1)
 
     # No condition filter: a craft input is consumed, not resold, so a scuffed one is fine and
     # filtering on 100% only hides the cheaper offers we are here for.
@@ -1014,9 +1144,11 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     # about a different market. apply_flea_filters only comes back False when it could not
     # read its own controls, which is a window it cannot see rather than a filter the game
     # refused, so it is Blind rather than something to shrug at.
+    checkpoint()  # before the filter window, which is ~15s of clicks with no Stop check in it
     if not sell.apply_flea_filters(region, source=source, set_condition=False):
         raise Blind('the flea filters could not be confirmed, so no price on this board can be '
                     'trusted')
+    checkpoint()  # and again after it, before the first read/buy of the filtered board
 
     # Read the top offer and buy it, and go round again on either of the two things that leave
     # us still wanting the item, refreshing the board with REFRESH_KEY each time rather than
@@ -1034,6 +1166,7 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     dear = 0  # looks that came back over the ceiling
     races = 0  # purchase clicks whose money never left
     while True:
+        checkpoint()  # between purchase attempts, so Stop lands here rather than after a buy
         top = _top_offer(region)
         if top is None:
             # No PURCHASE button on any row. Two things look like this and neither is worth
@@ -1068,20 +1201,24 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
                 raise Unbuyable(f'{why} on all {dear + 1} looks'
                                 + (f', cheapest {price}' if price is not None else ''))
             dear += 1
-            # ponytail: a plain sleep, so a Stop pressed here lands up to DEAR_DELAY late. The
-            # same is already true of FLEA_LOAD_DELAY and OFFER_WAIT on this path. Thread the
-            # runner's stop Event down the way sell.wait_for_offer_slot takes one if it grates.
             log(f'top offer {why}; waiting {DEAR_DELAY:.0f}s on the board for a better offer '
                 f'(look {dear} of {DEAR_REFRESHES})', 1)
-            time.sleep(DEAR_DELAY)
+            checkpoint(DEAR_DELAY)  # interruptible wait: Stop drops out instead of sleeping it off
             _refresh_board(region)
             continue
 
         log(f'{price} is at or under {max_price}, buying', 1)
         if snipe.buy(top, region):
+            bought += 1
             time.sleep(BOUGHT_SETTLE)
-            return_to_station(craft, region)  # the buy leaves the flea up over the panel
-            return True
+            if bought >= quantity:
+                return_to_station(craft, region)  # the buy leaves the flea up over the panel
+                return True
+            # More still wanted, and this offer is spent: refresh for the next cheapest and go
+            # round again on the same shared dear/race budget, not a fresh one per unit.
+            log(f'bought {bought} of {quantity}; refreshing for the next one', 1)
+            _refresh_board(region)
+            continue
 
         races += 1
         log('the purchase did not go through, most likely someone else took the offer', 1)
@@ -1225,7 +1362,8 @@ def fit_water_filter(listed, region=None):
     return fitted
 
 
-def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLECTOR):
+def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLECTOR,
+                     checkpoint=_no_stop):
     """Buy one water filter off the flea, if the cheapest offer is at or under max_price.
 
     Not buy_craft_input_item, and the difference is where the board's item filter comes from.
@@ -1245,11 +1383,14 @@ def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLE
     # screen we are not really looking at rather than the game declining to open. And an
     # unfiltered board answers a price read with a number that looks exactly as valid and is
     # about a different market.
+    checkpoint()  # Stop pressed before we touch the flea
     if not snipe.open_clean_board(region):
         raise Blind('the flea would not open, so there is no board to buy a water filter from')
+    checkpoint()  # before the filter window, ~15s of clicks with no Stop check in it
     if not sell.apply_flea_filters(region, reset=True, source=source, set_condition=True):
         raise Blind('the flea filters could not be confirmed, so no price on this board can be '
                     'trusted')
+    checkpoint()  # and again after it, before searching and reading the board
 
     # And a second look for a filter-by-item chip, after the filter window rather than only
     # before it, the same pair of clears snipe_bot.sweep_once does. Two things put one back:
@@ -1295,6 +1436,7 @@ def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLE
     # simply to go again: the board is still on screen, still filtered, and still full of filters
     # at this price. Five tries, WATER_BUY_RETRY_DELAY apart.
     for attempt in range(1, WATER_BUY_ATTEMPTS + 1):
+        checkpoint()  # between purchase attempts, so Stop lands here rather than after a buy
         if snipe.buy(top, region):
             time.sleep(BOUGHT_SETTLE)
             return_to_station(craft, region)
@@ -1306,7 +1448,7 @@ def buy_water_filter(max_price, region=None, source='players', craft=WATER_COLLE
             # cursor would otherwise sit on the row it just clicked for the whole delay and the
             # next look would skip it. Same park, different reason from the refreshing loop.
             park_off_the_board(region)
-            time.sleep(WATER_BUY_RETRY_DELAY)
+            checkpoint(WATER_BUY_RETRY_DELAY)  # interruptible wait: Stop drops out of it
 
     # Out of tries. False rather than a raise, because losing five races says nothing is wrong
     # with the bot or the board: tend_water_collector leaves the collector empty, swaps to the
