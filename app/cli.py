@@ -1,6 +1,7 @@
 """Headless entry point: run any mode from the command line instead of the GUI.
 
     python -m cli --mode craft
+    python -m cli --mode craft --one-pass   (visit each station once, then stop)
     python -m cli --mode craft --no-wires-enabled --crackers-max 20000
     python -m cli --game open --character seasonal   (also status / close / restart)
 
@@ -75,6 +76,8 @@ def _parser():
     # Not required, because --update runs without a mode; main() enforces it for a bot run.
     p.add_argument('--mode', dest='run_mode', choices=sorted(MODES),
                    help='which bot to run')
+    p.add_argument('--one-pass', dest='one_pass', action='store_true',
+                   help='craft mode only: visit each station once and stop, instead of looping')
     p.add_argument('--update', action='store_true',
                    help='download and install the newest release from the console, then exit (no GUI)')
     p.add_argument('--dry-run', action='store_true',
@@ -162,9 +165,12 @@ def main(argv=None):
         parser.error('--mode is required (or use --update or --game)')
     tab, module = MODES[args.run_mode]
     prefs = resolve_prefs(args)
+    prefs['one_pass'] = args.one_pass  # craft_bot.build reads it; other modes ignore it
 
     if args.dry_run:
         print(f'mode {args.run_mode} -> tab {tab}, module {module.__name__}')
+        if args.one_pass:
+            print('  one_pass = True')
         for key in settings.DEFAULTS:
             print(f'  {key} = {prefs[key]!r}')
         return 0

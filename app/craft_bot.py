@@ -93,7 +93,7 @@ CraftJob = namedtuple('CraftJob', 'craft max_prices sources')
 
 
 class HideoutCraft:
-    def __init__(self, jobs, stats=None):
+    def __init__(self, jobs, stats=None, one_pass=False):
         log('Initalizing Hideout Craft')
         self.hwnd = window.handle()  # raises WindowError if missing or duplicated
         self.position = window.position(self.hwnd)
@@ -107,6 +107,7 @@ class HideoutCraft:
                 f'the game onto this one.')
         self.jobs = list(jobs)  # the crafts to cycle between, in order
         self.index = 0  # which job we are working right now
+        self.one_pass = one_pass  # stop after every station has been visited once, see _swap
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
         self._stop = threading.Event()
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}', 1)
@@ -145,8 +146,15 @@ class HideoutCraft:
         tended without a trip through the carousel between them.
         """
         if len(self.jobs) < 2:
+            if self.one_pass:  # the sole craft is done; one pass is over
+                log('one-pass: the only craft has been tended, stopping')
+                raise Stopped()
             return  # only one craft; nothing to swap to
-        self.index = (self.index + 1) % len(self.jobs)
+        next_index = (self.index + 1) % len(self.jobs)
+        if self.one_pass and next_index == 0:  # about to wrap to the first station: pass complete
+            log('one-pass: every station has been visited once, stopping')
+            raise Stopped()
+        self.index = next_index
         job = self.jobs[self.index]
         log(f'swapping to the {job.craft.name} craft')
         self._ensure_on(job)  # raises if it cannot get there
@@ -424,6 +432,10 @@ def build(prefs, stats):
     One CraftJob per craft in craft.CRAFTS. Each ingredient stores <name>_max (a typed rouble
     string) and <name>_source (a SOURCES label) in prefs; parse them into the {name: value} dicts
     the runner buys against, keyed by the ingredient names read_craft returns.
+
+    prefs['one_pass'] (set by the CLI's --one-pass, absent for a GUI run) makes the runner visit
+    every station once and stop, rather than cycling forever. It rides in prefs so the GUI's and
+    CLI's shared build(prefs, stats) call needs no craft-specific argument.
     """
     screen.use(prefs.get('monitor', screen.AUTO))  # before the runner, which clips to it
     jobs = []
@@ -456,4 +468,4 @@ def build(prefs, stats):
     jobs.sort(key=lambda job: order[job.craft.station])
     if not jobs:
         raise ValueError('No crafts are enabled. Tick at least one craft to run.')
-    return HideoutCraft(jobs, stats=stats)
+    return HideoutCraft(jobs, stats=stats, one_pass=bool(prefs.get('one_pass', False)))
