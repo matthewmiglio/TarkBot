@@ -21,6 +21,12 @@ jobs:
     defaults:
       run:
         working-directory: app
+    env:
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      # Two repo secrets turn signing on. Absent (manual runs, forks) => the two sign steps skip
+      # and the build ships unsigned, exactly as before. SIGN_CERT_BASE64 is a base64 of the .pfx.
+      SIGN_CERT_BASE64: ${{ secrets.SIGN_CERT_BASE64 }}
+      SIGN_CERT_PASSWORD: ${{ secrets.SIGN_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,8 +39,36 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt cx_Freeze
 
-      - name: Build the MSI
-        run: python scripts/setup_msi.py bdist_msi --target-version ${{ github.event.inputs.version || github.ref_name }}
+      # Split from the MSI so the two exes can be signed before they are packed into it: Defender
+      # scans the installed tarkbot.exe, so that file, not just the MSI, is what has to carry a
+      # signature. --skip-build below then packs these signed exes rather than re-freezing them.
+      - name: Freeze the executables
+        run: python scripts/setup_msi.py build_exe --target-version $env:VERSION
+
+      - name: Sign the executables
+        if: env.SIGN_CERT_BASE64 != ''
+        run: |
+          $pfx = "$env:RUNNER_TEMP\sign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_CERT_BASE64))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $exes = Get-ChildItem build\exe.*\tarkbot.exe, build\exe.*\tarkbot-cli.exe
+          & $signtool sign /f $pfx /p $env:SIGN_CERT_PASSWORD /fd sha256 `
+            /tr http://timestamp.digicert.com /td sha256 $exes.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool failed on the executables" }
+
+      - name: Package the MSI
+        run: python scripts/setup_msi.py bdist_msi --skip-build --target-version $env:VERSION
+
+      - name: Sign the MSI
+        if: env.SIGN_CERT_BASE64 != ''
+        run: |
+          $pfx = "$env:RUNNER_TEMP\sign.pfx"
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          & $signtool sign /f $pfx /p $env:SIGN_CERT_PASSWORD /fd sha256 `
+            /tr http://timestamp.digicert.com /td sha256 (Get-ChildItem dist\*.msi).FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool failed on the MSI" }
 
       - uses: actions/upload-artifact@v4
         with:
