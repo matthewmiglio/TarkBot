@@ -129,14 +129,13 @@ AI2_TARGET = 'crafting/ai2'
 MEDSTATION_TARGET = 'hideout/hideout_tabs/medstation'
 MEDSTATION_ACTIVE_TARGET = 'hideout/hideout_station_titles/medstation'
 
-# The module carousel's two ends and how far apart they are, for get_to_station's anchored nav.
-# Medstation is the leftmost tab and workbench the rightmost, so scrolling to the medstation anchors
-# navigation at a known end and a bounded scroll right from there reaches any station. The span is a
-# swipe count, not pixels, so it holds at every resolution: the drag distance and the carousel both
-# scale together. Measured 2026-09-01 at 1440p with tests/measure_medstation_scrolls.py.
-LEFTMOST_TARGET = MEDSTATION_TARGET
-RIGHTMOST_TARGET = WORKBENCH_TARGET
-CAROUSEL_SPAN_SWIPES = 6
+# get_to_station sweeps the module carousel until the target tab shows (see _scroll_to_module): one
+# way to its end, then back the other way to its end, so it needs no measured span (a span was tried
+# and left the far stations, nutrition unit / workbench / water collector, unreachable). SWEEP_LIMIT
+# is only a backstop cap on the swipes in one direction, larger than the whole carousel is wide; the
+# sweep normally stops earlier when the row hits its end and stops moving. Proven end to end by
+# tests/hideout_nav/test_nav_all_stations.py, which reaches every station this way.
+SWEEP_LIMIT = 30
 
 # Booze generator: purified water + sugar -> moonshine.
 MOONSHINE_TARGET = 'crafting/moonshine'
@@ -295,6 +294,21 @@ def is_hideout_tab_active(region=None, threshold=HIDEOUT_TAB_ACTIVE_BRIGHTNESS):
     return active
 
 
+def wait_hideout_tab_active(region=None, timeout=TAB_TIMEOUT, poll=0.3):
+    """Poll until the hideout tab reads active (lit), or time out. The brightness read, not the crop.
+
+    The HIDEOUT_TAB_TARGET crop is the dim/inactive tab, so template-matching it against the lit
+    active tab after clicking in is flaky and gave the false 'tab never came back' failures. The
+    brightness read tells lit from dim cleanly, and lit is the actual thing we are waiting for.
+    """
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        if is_hideout_tab_active(region):
+            return True
+        time.sleep(poll)
+    return is_hideout_tab_active(region)
+
+
 def station_active(craft, region=None):
     """True when this craft's station panel is open, read off its header title."""
     active = find.find(craft.station_title, region) is not None
@@ -412,19 +426,32 @@ def _swipe(x, y, dx):
     pyautogui.dragTo(x + dx, y, duration=SWIPE_DURATION, button='left')
 
 
-def _scroll_until(target, x, y, dx, limit, region=None):
-    """Swipe the module row by dx until `target` is on screen, up to `limit` swipes. True if it showed.
+def _scroll_to_module(target, x, y, dist, region=None):
+    """Sweep the module carousel until `target`'s tab is on screen. True if it showed.
 
-    Checks before each swipe, so a target already up costs no drags. Unlike the old _row_moved
-    end-detection this never turns around, so a dropped drag just wastes one iteration of the limit's
-    slack rather than ending the search short of the wall (the medstation crash of 2026-08-31).
+    Sweeps one way to its end, then the other way to its end, checking before every swipe, so the tab
+    is found whichever side of the row it lies on without trusting a measured swipe-count span (that
+    span left the far stations unreachable). 'End' is the row no longer moving (_row_moved off a strip
+    diff) for two swipes running, since the hideout is never perfectly still; SWEEP_LIMIT is only a
+    backstop if end-detection never trips. Proven by tests/hideout_nav/test_nav_all_stations.py.
     """
-    for _ in range(limit + 1):
-        if find.find(target, region):
-            return True
-        _swipe(x, y, dx)
-        time.sleep(SWIPE_SETTLE)
-    return bool(find.find(target, region))
+    if find.find(target, region):
+        return True
+    for step in (dist, -dist):  # one way to the wall, then back the other way to the wall
+        stuck = 0
+        for _ in range(SWEEP_LIMIT):
+            before = _row_strip(y, region)
+            _swipe(x, y, step)
+            time.sleep(SWIPE_SETTLE)
+            if find.find(target, region):
+                return True
+            if _row_moved(before, _row_strip(y, region)):
+                stuck = 0
+            else:
+                stuck += 1
+                if stuck >= 2:
+                    break  # this end reached; try the other direction
+    return False
 
 
 def _row_strip(y, region=None):
@@ -451,14 +478,13 @@ def get_to_station(craft, region=None):
     """Navigate the hideout to this craft's station and open it. True on success, else raises.
 
     Ensures the hideout tab is active (clicking it if not), closes any open station panel (it covers
-    the module row and eats the drag), then anchors on the leftmost tab of the module carousel (the
-    medstation) and scrolls right up to CAROUSEL_SPAN_SWIPES + 2 until the
-    target station shows. Anchoring at a known end and counting swipes replaces the old
-    move-detection sweep, which turned around on a single dropped drag and quit short of the far
-    wall (the medstation crash of 2026-08-31). Reaching the rightmost tab (workbench) without
-    finding the target means the station is not in the carousel, which raises a definite answer.
-    Every dead end (no tab, tab will not activate, no module row to grab, the anchor or the station
-    never reached) raises LookupError rather than clicking blind.
+    the module row and eats the drag), then sweeps the module carousel until the station's tab shows
+    (see _scroll_to_module): one way to its end, then the other way to its end. This replaces an
+    anchor-on-the-medstation-and-count-swipes walk whose measured span left the far stations
+    (nutrition unit, workbench, water collector) permanently one swipe out of reach. Every dead end
+    (no tab, tab will not activate, no module row to grab, the station never reached anywhere on the
+    row) raises LookupError rather than clicking blind. tests/hideout_nav/test_nav_all_stations.py
+    drives this against the live hideout and reaches every station.
     """
     if is_hideout_tab_active(region):
         log('already on the hideout tab, skipping to the module search', 1)
@@ -468,20 +494,13 @@ def get_to_station(craft, region=None):
             raise LookupError('hideout tab button not on screen')
         log('not on the hideout tab, clicking it', 1)
         pyautogui.click(*sell.jitter(pyautogui.center(tab)))
-        time.sleep(SWIPE_SETTLE)  # let it start transitioning before we wait for it back
-        if sell.wait_for(HIDEOUT_TAB_TARGET, region, timeout=TAB_TIMEOUT) is None:
-            raise LookupError('hideout tab never came back after clicking it')
-        if not is_hideout_tab_active(region):
+        time.sleep(SWIPE_SETTLE)  # let it start transitioning before we poll for the lit state
+        if not wait_hideout_tab_active(region, TAB_TIMEOUT):
             raise LookupError('hideout tab did not become active after clicking it')
 
     # A station panel left open from the last craft covers part of the module row and eats the drag,
     # so close it before reading or scrolling the carousel.
     close_open_station_panel(region)
-
-    # Already looking at it? Click it and skip the scrolling entirely.
-    if find.find(craft.module_target, region):
-        log(f'{craft.station} already on screen, no scrolling needed', 1)
-        return _open_station(craft, region)
 
     icons = hideout_icons(region)
     if not icons:
@@ -491,36 +510,17 @@ def get_to_station(craft, region=None):
     log(f'module row grab point ({x}, {y}) off {len(icons)} icons', 1)
 
     dist = round(SWIPE_DISTANCE * find.scale())
-    limit = CAROUSEL_SPAN_SWIPES + 2  # the whole span plus slack for a dropped or partial drag
-
-    # Anchor at the left wall first: +dist drags the row toward the leftmost tab (the medstation).
-    # Wherever we started, this lands on a known end, and a bounded scroll right from there reaches
-    # any station without ever having to guess which way the target lies.
-    log(f'anchoring on the leftmost tab (medstation), up to {limit} swipes left', 1)
-    if not _scroll_until(LEFTMOST_TARGET, x, y, dist, limit, region):
-        raise LookupError('could not reach the leftmost hideout tab (medstation) to anchor from')
-
-    # From the left wall, -dist drags toward the right wall. Scroll right until the target shows;
-    # reaching the rightmost tab (workbench) first means the station is not in the carousel at all.
-    log(f'scrolling right from the medstation for the {craft.station}, up to {limit} swipes', 1)
-    for _ in range(limit + 1):
-        if find.find(craft.module_target, region):
-            log(f'{craft.station} found', 1)
-            return _open_station(craft, region)
-        if craft.module_target != RIGHTMOST_TARGET and find.find(RIGHTMOST_TARGET, region):
-            raise LookupError(f'{craft.station} is not in the hideout carousel: reached the '
-                              f'rightmost tab (workbench) without finding it')
-        _swipe(x, y, -dist)
-        time.sleep(SWIPE_SETTLE)
-    raise LookupError(f'{craft.station} never appeared scrolling right from the medstation '
-                      f'in {limit} swipes')
+    log(f'sweeping the carousel for the {craft.station}', 1)
+    if not _scroll_to_module(craft.module_target, x, y, dist, region):
+        raise LookupError(f'{craft.station} never appeared sweeping the whole carousel both ways')
+    log(f'{craft.station} found', 1)
+    return _open_station(craft, region)
 
 
 def _open_station(craft, region=None):
     """Settle, re-find the station's module label, click it, confirm its panel opened. True/raises.
 
-    Shared by all three ways get_to_station spots the module: already on screen, seen while
-    resetting left, or found swiping right.
+    Called once get_to_station's sweep has the module's tab on screen.
 
     Exactly one click, then wait up to PANEL_TIMEOUT for the panel. Clicking a second time is
     worse than useless: the tab is already the selected one by then, so the second click navigates

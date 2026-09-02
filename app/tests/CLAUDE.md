@@ -125,10 +125,9 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 ### `hideout_nav/` — hideout carousel navigation (`interact/craft.py`)
 - `test_get_to_nutrition_unit.py` — craft.get_to_nutrition_unit (get_to_station wrapper) — drive nutrition-unit navigation and report the outcome — game
 - `test_hideout_tab_active.py` — craft.is_hideout_tab_active — which hideout_tab crops read active vs inactive, by brightness — no-game
-- `measure_medstation_scrolls.py` — craft carousel span (CAROUSEL_SPAN_SWIPES) — count the swipes to reach the medstation (the left wall) — game
 - `test_scroll_progress.py` — craft._row_strip diff — measure whether each swipe actually moves the module row — game
 - `test_check_station_active.py` — craft.check_if_station_active — is a station panel open, read off its close (X) button — game
-- `test_nav_all_stations.py` — craft.get_to_station + the full nav stack — enter the hideout and reach every station end to end, with per-step timeouts — game
+- `test_nav_all_stations.py` — craft nav (the sweep-until-found scroll + check_if_station_active) — enter the hideout (leaving first if already on it), then for every station scroll to its tab, open it, confirm the close X, close it, confirm it is gone; a results table and a per-substep screenshot at tests/output/nav_all_stations — game
 
 ### `hideout_gym/` (folder `gym/`) — the hideout gym skill check (`interact/gym.py`, `gym_bot.py`)
 - `gym/test_generate_roi.py` — gym.rep_region — cut the rep strip out of a saved frame and draw the box — no-game
