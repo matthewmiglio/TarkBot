@@ -1,12 +1,21 @@
+import Image from "next/image";
 import { DownloadButton, DISCORD_URL, RELEASES_URL } from "./download-button";
 import { ContactForm } from "./contact-form";
+import appGui from "./app_gui.png";
+
+const MODES = [
+  ["Flea selling", "Picks an item out of your stash or a scav case, reads Tarkov's own suggested price, undercuts it and lists it on the flea. Cancels stale offers when the board stays full."],
+  ["Flea sniping", "Walks a watchlist of items and buys any offer listed far enough under what a trader pays to flip for a profit. Skips locked offers and anything priced in dollars."],
+  ["Hideout gym", "Runs the gym workout skill-check, timing each press to the instant the two rings meet, so a whole set lands without you at the keyboard."],
+  ["Hideout crafting", "Keeps several hideout crafts running at once: buys each missing ingredient off the flea, starts the craft, collects finished output, and keeps the water collector filtered."],
+];
 
 const DOES = [
-  "Sells from your stash or straight out of scav cases, whichever you pick.",
+  "Four modes in one panel: flea selling, flea sniping, the hideout gym, and hideout crafting.",
   "Reads Tarkov's own suggested price and undercuts it. No external price API.",
   "Waits for a free offer slot instead of failing when your offers are full.",
   "Stops mid-pass, not at the end of one, so Stop means stop.",
-  "Live stats: passes, items listed, prices read, failures.",
+  "Live stats per mode: passes, items listed, prices read, roubles, crafts, failures.",
   "Turns the state lamp red on a wrong screen instead of silently dying.",
   "Themeable control panel. Drop a PNG in the backgrounds folder and it shows up in the picker.",
 ];
@@ -43,6 +52,7 @@ export default function Page() {
             375px anyway, and on a one pager every link is just a scroll. */}
         <nav className="hidden sm:flex items-center gap-6 text-sm text-ink-dim whitespace-nowrap">
           <a href="#demo" className="hover:text-ink transition-colors">Demo</a>
+          <a href="#modes" className="hover:text-ink transition-colors">Modes</a>
           <a href="#how" className="hover:text-ink transition-colors">How it works</a>
           <a href="#features" className="hover:text-ink transition-colors">Features</a>
           <a href="#contact" className="hover:text-ink transition-colors">Contact</a>
@@ -60,40 +70,54 @@ export default function Page() {
       </header>
       <Rule />
 
-      <section className="py-20 sm:py-28">
-        <p className="text-xs uppercase tracking-[0.2em] text-ink-faint">
-          Free · Escape From Tarkov · Windows
-        </p>
-        <h1 className="mt-6 text-5xl sm:text-7xl font-light leading-[0.95] tracking-tight">
-          It sells your loot
-          <br />
-          <span className="text-ink-dim">while you do something else.</span>
-        </h1>
-        <p className="mt-8 max-w-2xl text-lg text-ink-dim leading-relaxed">
-          Tarkbot watches the Tarkov window, picks an item out of your stash,
-          reads the suggested price off the screen, undercuts it and puts it on
-          the flea market. Then it does it again. It reads pixels and moves your
-          mouse, nothing else.
-        </p>
-        <div className="mt-10 flex flex-wrap items-center gap-4">
-          <DownloadButton className="glass px-7 py-3 text-sm uppercase tracking-[0.15em] hover:bg-plate-hot transition-colors">
-            Download
-          </DownloadButton>
-          <a
-            href={DISCORD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-7 py-3 text-sm uppercase tracking-[0.15em] text-ink-dim border border-line hover:text-ink hover:border-edge transition-colors"
-          >
-            Join the Discord
-          </a>
-          <span className="text-sm text-ink-faint">
-            Builds on{" "}
-            <a href={RELEASES_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-ink-dim">
-              GitHub Releases
+      <section className="py-20 sm:py-28 grid items-center gap-12 lg:grid-cols-[1fr_auto]">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-ink-faint">
+            Free · Escape From Tarkov · Windows
+          </p>
+          <h1 className="mt-6 text-5xl sm:text-7xl font-light leading-[0.95] tracking-tight">
+            It grinds the busywork
+            <br />
+            <span className="text-ink-dim">while you do something else.</span>
+          </h1>
+          <p className="mt-8 max-w-2xl text-lg text-ink-dim leading-relaxed">
+            Tarkbot watches the Tarkov window and does the repetitive parts for
+            you: selling loot on the flea, sniping underpriced offers to flip to
+            traders, running the hideout gym skill-check, and keeping your hideout
+            crafts stocked and going. It reads pixels and moves your mouse, nothing
+            else.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <DownloadButton className="glass px-7 py-3 text-sm uppercase tracking-[0.15em] hover:bg-plate-hot transition-colors">
+              Download
+            </DownloadButton>
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-7 py-3 text-sm uppercase tracking-[0.15em] text-ink-dim border border-line hover:text-ink hover:border-edge transition-colors"
+            >
+              Join the Discord
             </a>
-          </span>
+            <span className="text-sm text-ink-faint">
+              Builds on{" "}
+              <a href={RELEASES_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-ink-dim">
+                GitHub Releases
+              </a>
+            </span>
+          </div>
         </div>
+        {/* The actual control panel. Static import gives Next the intrinsic
+            dimensions and a blur placeholder for free; priority since it is
+            above the fold. Caps at its native 940px so it never upscales. */}
+        <Image
+          src={appGui}
+          alt="The Tarkbot control panel"
+          placeholder="blur"
+          priority
+          sizes="(min-width: 1024px) 520px, 100vw"
+          className="glass w-full max-w-lg lg:max-w-[520px] h-auto"
+        />
       </section>
 
       <Rule />
@@ -125,6 +149,25 @@ export default function Page() {
         >
           Watch on YouTube
         </a>
+      </section>
+
+      <Rule />
+
+      <section id="modes" className="py-20">
+        <h2 className="text-xs uppercase tracking-[0.25em] text-ink-faint">Four modes</h2>
+        <p className="mt-4 max-w-2xl text-ink-dim">
+          One control panel, four jobs. Pick a tab, set its options, and press
+          Start. Each mode reads the screen and drives the mouse the same way; the
+          demo above is the flea seller.
+        </p>
+        <div className="mt-10 grid gap-10 sm:grid-cols-2">
+          {MODES.map(([title, body]) => (
+            <div key={title}>
+              <h3 className="text-lg">{title}</h3>
+              <p className="mt-2 text-sm text-ink-dim leading-relaxed">{body}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <Rule />

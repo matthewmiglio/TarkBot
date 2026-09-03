@@ -36,6 +36,10 @@ export const metadata: Metadata = {
     "flea market bot",
     "Tarkov flea market",
     "Tarkov selling bot",
+    "Tarkov flea sniper",
+    "Tarkov hideout bot",
+    "Tarkov crafting bot",
+    "Tarkov gym bot",
   ],
   alternates: { canonical: "/" },
   openGraph: {

@@ -6,9 +6,9 @@ export const SITE_NAME = "Tarkbot";
 
 // Lower-case "free" on purpose: `${SITE_NAME} — ${TAGLINE}` has to reproduce the
 // existing <title> character for character. Retitling the page is a copy change.
-export const TAGLINE = "free flea market seller for Escape From Tarkov";
+export const TAGLINE = "free flea market and hideout bot for Escape From Tarkov";
 export const DESCRIPTION =
-  "Tarkbot reads your screen, prices your loot off Tarkov's own suggested price, undercuts it and lists it on the flea market. Free, open, no account.";
+  "Tarkbot reads your screen and does Tarkov's busywork: selling and sniping on the flea market, the hideout gym skill-check, and hideout crafting. Free, open, no account.";
 
 // The generated card from app/opengraph-image.tsx. Next serves it with a
 // cache-busting query on the meta tag, but the bare route is a stable 200, so

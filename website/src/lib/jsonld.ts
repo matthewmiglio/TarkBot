@@ -106,12 +106,15 @@ export function homeGraph() {
         // Mirrors the "What it does" list on the page. No claim here that is not
         // already visible in the DOM.
         featureList: [
-          "Sells from your stash or straight out of scav cases",
+          "Flea selling: undercuts Tarkov's own suggested price and lists your loot",
+          "Flea sniping: buys offers under trader buy-back to flip for a profit",
+          "Hideout gym: times the workout skill-check press",
+          "Hideout crafting: keeps crafts running and buys their ingredients",
           "Reads Tarkov's own suggested price and undercuts it",
           "Waits for a free offer slot instead of failing",
           "Cancels stale offers when the board stays full",
           "Stops mid-pass, so Stop means stop",
-          "Live stats for passes, items listed, prices read and failures",
+          "Live stats for passes, items listed, prices read, roubles and crafts",
           "Themeable control panel",
         ],
         // No aggregateRating: there are no reviews on the page to back one up.

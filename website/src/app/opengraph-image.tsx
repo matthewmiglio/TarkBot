@@ -36,7 +36,7 @@ export default function Image() {
           Free · Escape From Tarkov · Windows
         </div>
         <div style={{ fontSize: 104, marginTop: 34, lineHeight: 1.05 }}>
-          It sells your loot
+          It grinds the busywork
         </div>
         <div style={{ fontSize: 104, lineHeight: 1.05, color: "#8f928f" }}>
           while you do something else.
