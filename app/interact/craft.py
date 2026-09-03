@@ -84,6 +84,11 @@ NUTRITION_RETURN_POLL = 0.2  # how often to re-check for it while waiting
 # four greyed ones. 150 sits in the middle of that gap with wide headroom on both sides.
 START_READY_BRIGHTNESS = 150
 GET_ITEMS_TARGET = 'crafting/get_items'  # the GET ITEMS button on a finished craft's row
+STASH_FULL_TARGET = 'errors/stash_full'  # the game's "Not enough space in the stash" dialog
+# OK is a fraction down that dialog's matched box, aimed the way sell.dismiss_error_popup aims at
+# the Error/0 dialog's: the button is plain glyphs with no false-positive headroom, the dialog
+# around them matches at the default. Measured in tests/test_click_ok_on_stash_full.py.
+STASH_FULL_OK_FRACTION = 0.68
 # Brightest channel in the GET ITEMS button that says it is lit (craft done, items collectable)
 # rather than greyed. Set by analogy to START, whose lit label reads ~231 and greyed ~75-86; 150
 # sits in that gap. ponytail: confirm against a real not-highlighted GET ITEMS frame and retune
@@ -268,6 +273,47 @@ class Unbuyable(Exception):
 
     The caller has already backed out to the station by the time this is raised.
     """
+
+
+class StashFull(Exception):
+    """The game's "Not enough space in the stash" dialog is on screen.
+
+    A run-ender, like Blind and unlike Unbuyable. Every craft either buys inputs off the flea or
+    collects finished output into the stash, and a full stash blocks both, so there is no other
+    craft to swap to that would fare any better: the only fix is the user emptying the stash.
+    step() therefore does not catch it (as it catches Unbuyable and LookupError to swap craft);
+    start() catches it, clears the dialog and stops the run cleanly rather than letting it crash.
+
+    It surfaced on 2026-09-02 as a Blind: a sling_bag purchase could not fit, Tarkov put this
+    dialog over the flea, and the filter window then would not open behind it, so the buy read as
+    "the flea filters could not be confirmed" and ended the run on a false diagnosis.
+    """
+
+
+def stash_full_showing(region=None):
+    """True if the "Not enough space in the stash" dialog is on screen."""
+    return find.find(STASH_FULL_TARGET, region) is not None
+
+
+def check_stash_full(region=None):
+    """Raise StashFull if that dialog is up. Called at the two points a full stash surfaces in
+    craft mode: a flea purchase that cannot fit, and a GET ITEMS that cannot be collected."""
+    if stash_full_showing(region):
+        raise StashFull('the stash is full, so nothing can be bought or collected')
+
+
+def dismiss_stash_full(region=None):
+    """Click OK on the stash-full dialog if it is up, so the run does not leave the game modal
+    blocked. True if one was cleared. Aimed off the matched box like sell.dismiss_error_popup."""
+    box = find.find(STASH_FULL_TARGET, region)
+    if box is None:
+        return False
+    point = (box.left + box.width // 2,
+             box.top + round(box.height * STASH_FULL_OK_FRACTION))
+    log(f'clearing the stash-full dialog, clicking its OK at {point}', 1)
+    pyautogui.click(*point)
+    time.sleep(1.0)  # let the dialog go before the run stops and the lamp clears
+    return True
 
 
 Ingredient = namedtuple('Ingredient', 'name target')
@@ -1146,6 +1192,11 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     # refused, so it is Blind rather than something to shrug at.
     checkpoint()  # before the filter window, which is ~15s of clicks with no Stop check in it
     if not sell.apply_flea_filters(region, source=source, set_condition=False):
+        # A full stash is the one thing that fails here for a nameable reason the runner should
+        # act on rather than crash on: a purchase that could not fit leaves the game's stash-full
+        # dialog over the flea, which blocks the filter window from opening. Check for it before
+        # blaming the filters (which is how this ended a run on 2026-09-02, see StashFull).
+        check_stash_full(region)
         raise Blind('the flea filters could not be confirmed, so no price on this board can be '
                     'trusted')
     checkpoint()  # and again after it, before the first read/buy of the filtered board
@@ -1220,6 +1271,10 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
             _refresh_board(region)
             continue
 
+        # A purchase does not go through for two reasons that look identical here: someone else
+        # took the offer (a race, retry), or it could not fit in the stash (a run-ender). Tell
+        # them apart by the dialog Tarkov puts up for the second one.
+        check_stash_full(region)
         races += 1
         log('the purchase did not go through, most likely someone else took the offer', 1)
         if races >= BUY_ATTEMPTS:

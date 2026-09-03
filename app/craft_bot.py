@@ -238,6 +238,10 @@ class HideoutCraft:
         pyautogui.click(*point)
         time.sleep(GET_ITEMS_SETTLE)  # collecting sometimes hangs; wait it out before moving on
         self._park(point)
+        # Collected output has to land in the stash; a full one makes Tarkov refuse it with the
+        # stash-full dialog. Nothing a craft run can do about that, so stop rather than book profit
+        # for items that never arrived.
+        craft.check_stash_full(self.region)
         _book_profit(self.stats, job.craft.name)
         return point
 
@@ -291,6 +295,7 @@ class HideoutCraft:
             pyautogui.click(*point)
             self._pause(GET_ITEMS_SETTLE)
             self._park(point)
+            craft.check_stash_full(self.region)  # collected water has to fit; stop if it cannot
             _book_profit(self.stats, job.craft.name)
 
         if craft.water_filter_state(self.region) == 'fitted':
@@ -406,7 +411,12 @@ class HideoutCraft:
                 self.step()
         except Stopped:
             log('stopped between steps')
-        finally:
+        except craft.StashFull as e:
+            # A run-ender the runner can name: no craft can buy inputs or collect output into a
+            # full stash, so there is nothing to swap to. Clear the dialog off the game and stop
+            # cleanly rather than crash. The user has to empty the stash before a run is any use.
+            craft.dismiss_stash_full(self.region)
+            log(f'{e}; stopping the run, empty the stash and start again')
             find.VERBOSE = was_verbose
             log(f'Hideout Craft finished after {time.perf_counter() - started:.0f}s. '
                 f"Crafts started {self.stats['total_started']}, "

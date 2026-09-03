@@ -31,6 +31,7 @@ INK_FAINT = '#5c5f5c'  # separators and disabled text
 LINE = '#3b3d3b'       # panel borders and rules
 PLATE = '#1d1f20'      # button faces
 PLATE_HOT = '#2b2e2f'  # button under the cursor
+GOLD = '#c9a227'       # the selected tab's glow: outline and label
 RUNNING = '#6f8e58'
 WARNING = '#b56d43'
 ERROR = '#944848'

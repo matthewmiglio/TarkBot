@@ -48,10 +48,10 @@ SELECT_ATTEMPTS = 10
 SELECT_POLL_DELAY = 0.5  # after a click, before reading what it did
 SELECT_WINDOW_DELAY = WINDOW_DELAY / 2  # after filter by item, for the flea panel to catch up
 ADD_OFFER_TARGET = 'add_offer'  # the button that opens the offer creation window
-OFFER_TARGET = 'offer_creation_window_title'  # that window's title bar, for dragging and for
+OFFER_TARGET = 'window_titles/offer_creation_window_title'  # that window's title bar, for dragging and for
 # spotting one left open. Named to match scav_case_window_title and flea_filters/window_title:
 # the three things recovery escapes are all matched on their title bars, for the same reason.
-SCAV_WINDOW_TARGET = 'scav_case_window_title'  # reference images for the opened scav case window
+SCAV_WINDOW_TARGET = 'window_titles/scav_case_window_title'  # reference images for the opened scav case window
 CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we want the leftmost
 NO_SELECTION_TARGET = 'no_items_selected'  # the placeholder shown while nothing is picked
 SELECTION_TARGET = 'item_is_selected'  # the panel shown once something is, the other half of the read
@@ -134,7 +134,7 @@ CHEAP_OFFER_POPUP_DELAY = 1.0  # seconds after place offer for the popup to draw
 # own schedule, and while it is up every read underneath it fails, which is what the mode's
 # usual failure paths report instead. Dismissing it is the one thing that unsticks a run that
 # would otherwise fail item after item until Stop.
-ERROR_POPUP_TARGET = 'error_0_popup'
+ERROR_POPUP_TARGET = 'errors/error_0_popup'
 # How far down the matched box OK sits, as a fraction of its height. The OK glyphs span rows
 # 77-96 across the five crops in that folder at their stored 1080p size, putting their centre at
 # 0.740 to 0.752, so the button itself covers a range wider than either number. 0.77 is the top
@@ -148,7 +148,7 @@ OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
 # reference_images listing groups them instead of scattering them through the alphabet.
 # filter_by_item is deliberately not one of these: that is the inventory right-click menu.
 FILTER_BUTTON_TARGET = 'flea_filters/button'  # opens the flea's filter window
-FILTERS_WINDOW_TARGET = 'flea_filters/window_title'  # that window's title bar, for dragging it
+FILTERS_WINDOW_TARGET = 'window_titles/window_title'  # that window's title bar, for dragging it
 # Clears every filter on that window, and closes it doing so. Only the buyer's pass uses it:
 # see apply_flea_filters for why a buyer resets and a seller does not.
 RESET_TARGET = 'flea_filters/reset_button'

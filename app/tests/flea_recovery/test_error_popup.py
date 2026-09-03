@@ -26,7 +26,7 @@ CROPS below is measured off the five pngs in error_0_popup/ rather than assumed,
 that frames the dialog differently belongs in that list. Rebuild it with:
 
     python -c "import numpy as np; from pathlib import Path; from PIL import Image
-    for p in sorted(Path('interact/reference_images/error_0_popup').glob('*.png')):
+    for p in sorted(Path('interact/reference_images/errors/error_0_popup').glob('*.png')):
         a = np.asarray(Image.open(p).convert('L')); h = a.shape[0]
         ys = np.flatnonzero(a[h//2:].max(axis=1) > 150) + h//2
         print(a.shape[1], h, ys.min(), ys.max())"

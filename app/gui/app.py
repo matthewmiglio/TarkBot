@@ -321,9 +321,12 @@ class Tab(Plate):
 
     def select(self, active):
         self.enabled = not active
+        # The active tab glows gold: a warm outline and label against the dim ones, so the mode
+        # you are on reads at a glance rather than only by its slightly lighter face.
         self.canvas.itemconfig(self.rect, fill=theme.PLATE_HOT if active else theme.PLATE,
-                               outline=theme.INK_FAINT if active else theme.LINE)
-        self.canvas.itemconfig(self.label, fill=theme.INK if active else theme.INK_DIM)
+                               outline=theme.GOLD if active else theme.LINE,
+                               width=2 if active else 1)
+        self.canvas.itemconfig(self.label, fill=theme.GOLD if active else theme.INK_DIM)
 
 
 class App:

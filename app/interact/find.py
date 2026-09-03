@@ -110,7 +110,7 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # others did not: it is a plain blue rectangle, so in grey it scores 0.65 or better on 235 of the
 # 241 frames while peaking only 0.7943 on the ones that have it. There is no gap to put a
 # threshold in. The badged crop cut from 1787874207380-pre.png closes it at the source.
-CONFIDENCES = {'offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
+CONFIDENCES = {'window_titles/offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
                'scav_case': 0.8, 'filter_by_item': 0.7,
                'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
                'hideout/hideout_station_titles/nutrition_unit': 0.8,
