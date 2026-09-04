@@ -27,6 +27,14 @@ from PIL import ImageGrab
 
 from narrate import log
 
+# pyautogui inserts a fixed pause after every click, press, hotkey and typewrite; its default is
+# 0.1s, and a pass fires dozens of those, so the tax adds up (a four-click step pays 0.4s in pause
+# alone). Halved here, once, process-wide: screen is the lowest-level module every mode and the
+# tests import, so setting it here reaches all of them without each entry point remembering to.
+# ponytail: 0.05 is a passive win with margin left; the game has taken clicks fine at it. Drop
+# further only against a live run that proves offers still land, not on principle.
+pyautogui.PAUSE = 0.05
+
 user32 = ctypes.windll.user32
 AUTO = 'auto'  # the saved preference before anyone has picked, and after a monitor is unplugged
 # GetSystemMetrics indices for the rectangle enclosing every monitor.
