@@ -1084,7 +1084,18 @@ def find_sell_pixels(region=None):
     see docs/pixel_clustering_ideas.md.
     """
     inventory = infer_inventory_region(region)
-    cases = scav_case_regions(inventory)
+    # Search for scav cases in the full region, not inside `inventory`. A case whose left edge
+    # sits a few px outside the inferred grid (the grid's left is inferred off buttons above it
+    # and lands ~14px right of the first column) cannot be template-matched when the search is
+    # clipped to the grid: the crop no longer fits, so the best in-grid placement is shifted and
+    # the score falls under the gate. On 2026-09-03 that dropped a real case from 0.891 (whole
+    # screen) to 0.765 (clipped to the grid), under scav_case's 0.8, so it went unexcluded; when
+    # it was the only thing in an otherwise-sold-out stash, its ~47 live edge pixels were the
+    # only "sellable" ones, and the stash path clicked the case ten times a pass, every pass,
+    # selecting nothing (a case cannot be listed) and looking to the user like it was trying to
+    # sell the scav case in a loop. Found in the full region it matches at 0.891; _pixels_in
+    # clamps the exclusion rect into the grid, so widening the search only ever adds overlap.
+    cases = scav_case_regions(region)
     points = _pixels_in(inventory, cases)
     log(f'{len(points)} live pixels in the inventory grid, {len(cases)} scav case(s) excluded'
         + (f' at {cases}' if cases else ''), 2)
