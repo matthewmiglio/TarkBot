@@ -254,7 +254,19 @@ class FleaSeller:
         timeout = self.stale_minutes * 60
         while True:
             log('waiting for a free offer slot')
-            waited = sell.wait_for_offer_slot(self.region, stop=self._stop, timeout=timeout)
+            try:
+                waited = sell.wait_for_offer_slot(self.region, stop=self._stop, timeout=timeout)
+            except LookupError as e:
+                # A greyed button is a full board to wait on; a button that will not match at all
+                # is the screen not being the flea. The one recoverable cause is Tarkov's Error
+                # dialog, which dims the button off the match the same way it drags its brightness
+                # under threshold, so clear one if it is there and look again. With no dialog to
+                # explain it there is nothing to wait for and nothing to fix here, so let it end
+                # the run loudly rather than spin: a missing button is a real problem, not a slot.
+                if sell.dismiss_error_popup(self.region):
+                    log(f'{e}; that was an error dialog dimming the button away, looking again', 1)
+                    continue
+                raise
             self._pause()  # a stop during the wait unwinds here, before any clicking
             log(f'waited {waited:.1f}s for an offer slot', 1)
             if sell.more_offers_available(self.region):  # returning is not proof one opened

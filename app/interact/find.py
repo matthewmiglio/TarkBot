@@ -23,16 +23,19 @@ NOT_FOUND = (pyautogui.ImageNotFoundException, pyscreeze.ImageNotFoundException)
 VERBOSE = False
 
 REFS = Path(__file__).parent / 'reference_images'
-CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
-# Targets that cannot meet 0.9 and why. A thin strip of small text loses too much contrast when
-# needle() grows it for a screen taller than 1080p, so the crop is fine and the threshold is not.
-# Measured on two 1440p crash frames: offer_creation_window_title scores 0.88 with the window
-# open and 0.58 with it shut, so 0.8 sits in a gap rather than close to a false positive.
-# autoselect_similar is the same story with more frames behind it: 0.889 to 0.944 across every
-# 1080p and 1440p frame it is in, and never once above 0.413 across 134 frames it is not in.
-# The 0.9 default ran straight through the middle of that first range, so a 1440p screen lost
-# the button by 0.011. Anywhere in the half point between 0.42 and 0.88 would do; 0.85 keeps
-# the most margin against a false positive while clearing every real one.
+CONFIDENCE = 0.83  # the default for everything not named in CONFIDENCES below. Was 0.9, which a
+# thin strip of small text grown by needle() for a taller-than-1080p screen kept landing just
+# under: the flea's '+ ADD OFFER' button matched 0.891 to 0.920 on a 1440p board, and the 0.9
+# default lost it on whichever poll dipped, which read as a full board and stalled the run for
+# minutes with slots open. autoselect_similar was the same near miss (0.889 to 0.944 present,
+# never above 0.413 across 134 frames absent). Every target's measured false-positive ceiling sits
+# at or below 0.75 (scav_case 0.752, the checkmark against an empty box 0.69), so 0.83 clears every
+# real match while staying above every known look-alike. The cost is that the un-instrumented
+# targets now match down to 0.83 too: a deliberate trade against the recurring 0.9 near misses,
+# which had cost more in stalled runs than a rare false positive would. A target that must go LOWER
+# than 0.83 still gets its own number below, each with both readings, present and absent, behind it.
+# offer_creation_window_title scores 0.88 with the window open and 0.58 with it shut, so 0.8 sits
+# in a gap rather than close to a false positive.
 # Put a number here only with both readings behind it, present and absent, off a real screen.
 # scav_case is the same story a third time, and the clearest reading of it: on a 1440p player's
 # frames the case sits dimmed and cross-hatched in the offer creation window and scores 0.852,
@@ -110,7 +113,7 @@ CONFIDENCE = 0.9  # the default for everything not named in CONFIDENCES below
 # others did not: it is a plain blue rectangle, so in grey it scores 0.65 or better on 235 of the
 # 241 frames while peaking only 0.7943 on the ones that have it. There is no gap to put a
 # threshold in. The badged crop cut from 1787874207380-pre.png closes it at the source.
-CONFIDENCES = {'window_titles/offer_creation_window_title': 0.8, 'autoselect_similar': 0.85,
+CONFIDENCES = {'window_titles/offer_creation_window_title': 0.8,
                'scav_case': 0.8, 'filter_by_item': 0.7,
                'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
                'hideout/hideout_station_titles/nutrition_unit': 0.8,
@@ -434,21 +437,30 @@ if __name__ == '__main__':
 
     scale = lambda: 1.0  # noqa: E731
 
-    # The per-target thresholds, on a copy faded toward the background until it scores between
-    # the two of them. The loose target has to find it and a target on the default has to miss
-    # it, which is what says the map is actually reaching the matcher and not just sitting there.
-    loose = next(iter(CONFIDENCES))
+    # The per-target thresholds, on a copy faded toward the background until it scores between the
+    # loosest map entry and the default. The loose target has to find it and a target on the
+    # default has to miss it, which is what says the map is actually reaching the matcher and not
+    # just sitting there. The blur radius is searched rather than fixed, so this keeps holding when
+    # CONFIDENCE moves: the old fixed-radius blur scored ~0.85, which stopped straddling the two
+    # once the default dropped from 0.9 to 0.83.
+    loose = min(CONFIDENCES, key=CONFIDENCES.get)  # the widest gap to the default to fade into
     assert confidence_for(loose) < CONFIDENCE, f'{loose} is in the map but not looser'
     assert confidence_for('no_such_target') == CONFIDENCE, 'everything else keeps the default'
 
     fake = Image.new('RGB', (1920, 1080), (30, 30, 30))
     fake.paste(Image.open(images(loose)[0]).convert('RGB'), spot)
-    softened = fake.filter(ImageFilter.GaussianBlur(0.9))  # scores ~0.85: softening, which is
+    softened = None
+    for radius in (r / 10 for r in range(3, 40)):  # blur harder until the score lands between them
+        candidate = fake.filter(ImageFilter.GaussianBlur(radius))
+        if confidence_for(loose) < best_score(loose, haystack=candidate)[0] < CONFIDENCE:
+            softened = candidate
+            break
+    assert softened is not None, f'no blur put {loose} between {confidence_for(loose)} and {CONFIDENCE}'
     assert find(loose, haystack=softened) is not None, \
         f'{loose} softened to between {confidence_for(loose)} and {CONFIDENCE} was not found ' \
         f'at its own threshold'  # what growing a reference for a taller screen does to it too
     assert find(loose, confidence=CONFIDENCE, haystack=softened) is None, \
-        'that same blur matched at 0.9, so the fixture no longer sits between the two thresholds'
+        'that same blur matched at the default, so the fixture no longer sits between the thresholds'
 
     assert needle(path) == str(path), '1080p hands the matcher the file itself, unresized'
 
@@ -476,7 +488,8 @@ if __name__ == '__main__':
         frames.flush()
         shots = sorted(Path(tmp).glob('*.png'))
         assert len(shots) == 1, f'a verbose live detection left {len(shots)} frames, not 1'
-        assert f'find-{loose}' in shots[0].name, f'frame named for the target, got {shots[0].name}'
+        assert f'find-{loose.replace("/", "_")}' in shots[0].name, \
+            f'frame named for the target, got {shots[0].name}'  # '/' is a dir sep, see capture()
 
         find(loose, haystack=fake)  # caller's own image: no grab, so no frame
         frames.flush()

@@ -1050,14 +1050,17 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. Eleven entries today. The four described below are each a 1440p
-  screen losing a target the 1080p crop convention cannot reach once `needle()` grows it back; the
-  captcha, nutrition and crafting entries have other causes (small, low-structure icons).
+  number can be seen to sit in the gap. The default is 0.83 (was 0.9), and the ten entries today all
+  go LOWER still. 0.9 kept losing thin grown text on a hair: the `+ ADD OFFER` button matched 0.891
+  to 0.920 on a 1440p board and the flat 0.9 lost it on whichever poll dipped, which read as a full
+  board and stalled the run, so the default dropped to 0.83. That clears every real match while
+  staying above every measured false-positive ceiling (all <= 0.75). `autoselect_similar` (0.889 to
+  0.944 present, <= 0.413 absent) and `add_offer` used to be entries for exactly this near miss and
+  are now covered by the default. The three described below are each a 1440p screen losing a target
+  the 1080p crop convention cannot reach once `needle()` grows it back; the captcha, nutrition and
+  crafting entries have other causes (small, low-structure icons).
   `offer_creation_window_title` at 0.8: its title is a thin strip of small text that scores 0.88
   on a 1440p screen once `needle()` has grown it, and 0.58 when the window is not there.
-  `autoselect_similar` at 0.85: 0.889 to 0.944 across every frame it is in at either resolution,
-  and never above 0.413 across 134 frames it is not in, so the old flat 0.9 ran through the
-  middle of the real matches and lost the button on a 1440p screen by 0.011.
   `scav_case` at 0.8, and the clearest reading of the three: dimmed and cross-hatched inside the
   offer creation window it peaks at 0.852, against 0.752 across 24 frames of the same session
   with no stash on screen and 0.641 on the flea-filters fixture. What settles it is that a crop
@@ -1079,11 +1082,14 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   like the other benches since the frames are full-screen shots of a real stash. What 0.9 cost: the menu went unseen, the pick loop pressed
   escape at a menu it thought had not opened, and that escape closed the offer creation window
   instead, taking every button `infer_inventory_region` measures from with it.
-- Do not "fix" one of these by lowering `CONFIDENCE` itself. How low a target can safely go is a
-  property of that target: a wide element full of structure has a low false-positive ceiling
-  (the button, 0.413), a small plain one does not (`checkmark`, which scores 0.69 against an
-  *empty* checkbox, because empty and ticked are the same square). A global 0.42 would fix the
-  button and make the tick read ticked on a box that is not.
+- The default was deliberately lowered to 0.83 (from 0.9) after thin grown text kept near-missing
+  0.9, a trade accepted against the stalled runs those misses caused. Do not lower it further
+  without the same care: how low is safe is a property of the target, not the codebase. A wide
+  element full of structure has a low false-positive ceiling (the button, 0.413), a small plain one
+  does not (`checkmark`, which scores 0.69 against an *empty* checkbox, because empty and ticked are
+  the same square). 0.83 still sits above that 0.69; a global 0.42 would fix the button and make the
+  tick read ticked on a box that is not. A target that needs to go below 0.83 gets its own entry
+  with both readings behind it, the same as before.
 - Every reference image was cropped at 1920x1080 fullscreen. That is the one resolution the
   files themselves are matched at; every other screen gets them resized at match time by
   `find.scale()`, and the price crop scaled the other way to meet them. Crop new references at

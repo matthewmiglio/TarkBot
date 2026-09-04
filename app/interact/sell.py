@@ -144,6 +144,14 @@ ERROR_POPUP_OK_FRACTION = 0.77
 ERROR_POPUP_DELAY = 2.0  # seconds after clicking OK for the dialog to go and the screen to settle
 MORE_OFFERS_BRIGHTNESS = 190  # max channel in the add offer button: measured 255 lit, 123 greyed
 OFFER_SLOT_POLL = 2.0  # seconds between rechecks while every offer slot is full
+MISSING_BUTTON_LIMIT = 5  # consecutive 'add offer button not on screen' reads before
+# wait_for_offer_slot calls it a detection failure and raises, rather than a full board to wait on.
+# A greyed-but-present button never counts here: a genuinely full board reads as 'full' and waits
+# as it always did. What counts is the button not matching at all, which means the screen is not
+# the flea browse page we think it is, not that every slot is taken. At OFFER_SLOT_POLL that is
+# ~10s, long enough to ride out the board redraw after a reopen and far short of the old silent
+# forever: a 1440p user sat in this wait for four minutes with four slots open (my offers 3/7)
+# because a marginal match kept reading 'not on screen' and the loop treated that as a full board.
 # Everything belonging to the flea's filter window shares a flea_filters_ prefix, so the
 # reference_images listing groups them instead of scattering them through the alphabet.
 # filter_by_item is deliberately not one of these: that is the inventory right-click menu.
@@ -525,21 +533,35 @@ def add_offer_brightness(region=None):
     return int(np.asarray(screen.grab(rect).convert('RGB')).max())
 
 
-def more_offers_available(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
-    """True while the add offer button is lit, ie there is still a free offer slot.
+def add_offer_state(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
+    """One of 'free', 'full' or 'missing': the add offer button lit, greyed out, or not on screen.
 
-    False when it is greyed out, and false when the button is missing entirely: no button on
-    screen is no slot to sell into either way.
+    The three are genuinely different and the loop above them treats them differently, so they are
+    told apart here rather than flattened to a bool. 'free' means a slot is open; 'full' means the
+    board is full and waiting is the thing to do; 'missing' means the button did not match at all,
+    which is not a full board but a screen that is not the flea browse page we expected. Conflating
+    'missing' with 'full' is what sat a user in wait_for_offer_slot for minutes on an open board.
     """
     brightness = add_offer_brightness(region)
     if brightness is None:
+        return 'missing'
+    return 'free' if brightness >= threshold else 'full'
+
+
+def more_offers_available(region=None, threshold=MORE_OFFERS_BRIGHTNESS):
+    """True while the add offer button is lit, ie there is still a free offer slot.
+
+    False when it is greyed out (a full board) and false when the button is missing entirely. The
+    two are distinct (see add_offer_state), but a plain 'is there a slot right now' recheck wants
+    the same answer for both: no. wait_for_offer_slot is where the distinction matters, and it
+    reads add_offer_state directly rather than going through this.
+    """
+    state = add_offer_state(region, threshold)
+    if state == 'missing':
         log('add offer button not on screen, treating that as no free slot', 1)
-        return False
-    free = brightness >= threshold
-    if free:  # only the lit reading is logged: this is polled every couple of seconds for as
-        log(f'add offer button brightest channel {brightness} vs threshold {threshold}, '
-            f'a slot is free', 1)  # long as the board stays full, and the caller announces that
-    return free
+    elif state == 'free':  # only the lit reading is logged: this is polled every couple of seconds
+        log('add offer button lit, a slot is free', 1)  # and the caller announces the wait itself
+    return state == 'free'
 
 
 def _sleep(seconds, stop=None):
@@ -579,18 +601,38 @@ def wait_for_offer_slot(region=None, poll=OFFER_SLOT_POLL, stop=None, timeout=No
     Returning is not proof a slot opened, so a caller that passes timeout has to re-check
     more_offers_available itself. Pass a threading.Event as stop to abandon the wait the
     moment that is set; without one only Ctrl+C gets you out.
+
+    Only a greyed-but-present button is waited on. A button that does not match at all is not a
+    full board, it is the screen not being the flea we think it is, so once it has read 'missing'
+    MISSING_BUTTON_LIMIT times running this raises LookupError rather than waiting on a slot that
+    was never the reason. The caller dismisses an error dialog (which dims the button off the
+    match) and retries, or lets the run end on it. A greyed reading resets the miss count, so an
+    honestly full board still waits forever.
     """
     started = time.monotonic()
     announced = False
-    while not more_offers_available(region):
+    misses = 0
+    while True:
+        state = add_offer_state(region)
+        if state == 'free':
+            log('add offer button lit, a slot is free', 1)
+            break
+        if state == 'missing':
+            misses += 1
+            if misses >= MISSING_BUTTON_LIMIT:
+                raise LookupError(
+                    f'add offer button not on screen for {misses} reads running; this is not a '
+                    f'full board but the flea browse page not being where it should be')
+        else:  # 'full': a real greyed button, the one thing worth waiting on
+            misses = 0
+            if not announced:  # once, not every poll, or the log is nothing but this
+                log(f'add offer button greyed out, every slot is full. Rechecking every '
+                    f'{poll:.0f}s for up to {timeout / 60:.0f}m'
+                    if timeout else f'add offer button greyed out, rechecking every {poll:.0f}s', 1)
+                announced = True
         if timeout is not None and time.monotonic() - started >= timeout:
             log(f'still no free slot after {timeout / 60:.0f}m of waiting', 1)
             break
-        if not announced:  # once, not every poll, or the log is nothing but this
-            log(f'add offer button greyed out, every slot is full. Rechecking every '
-                f'{poll:.0f}s for up to {timeout / 60:.0f}m'
-                if timeout else f'add offer button greyed out, rechecking every {poll:.0f}s', 1)
-            announced = True
         if _sleep(poll, stop):  # woken by stop rather than by the timeout
             break  # the caller checks the same flag and unwinds from there
     return time.monotonic() - started
@@ -1864,4 +1906,36 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     finally:
         globals().update(saved)
         pyautogui.click = real_click
+
+    # add_offer_state tells the three button states apart, and wait_for_offer_slot waits only on a
+    # greyed board while raising on a button that is simply gone. Faked down to the one brightness
+    # read the state turns on, since the real thing wants a flea on screen. poll=0 so the loop does
+    # not actually sleep between reads.
+    assert MISSING_BUTTON_LIMIT >= 2, 'a single transient miss must not be enough to raise'
+    saved_brightness = globals()['add_offer_brightness']
+    try:
+        globals()['add_offer_brightness'] = lambda region=None: None
+        assert add_offer_state() == 'missing'
+        globals()['add_offer_brightness'] = lambda region=None: 123
+        assert add_offer_state() == 'full' and not more_offers_available()
+        globals()['add_offer_brightness'] = lambda region=None: 255
+        assert add_offer_state() == 'free' and more_offers_available()
+        assert wait_for_offer_slot(poll=0) >= 0, 'a lit button returns at once, no raise'
+
+        reads = iter([None] * MISSING_BUTTON_LIMIT)  # gone and staying gone
+        globals()['add_offer_brightness'] = lambda region=None: next(reads)
+        try:
+            wait_for_offer_slot(poll=0)
+            raise AssertionError('a button missing for the whole limit must raise')
+        except LookupError:
+            pass
+
+        # A greyed reading resets the miss count, so misses have to be consecutive to raise: this
+        # sequence never has MISSING_BUTTON_LIMIT in a row, so it waits it out and returns on the
+        # lit read rather than raising. This is what keeps a board redraw from ending a run.
+        seq = iter([None] * (MISSING_BUTTON_LIMIT - 1) + [123] + [None] * (MISSING_BUTTON_LIMIT - 1) + [255])
+        globals()['add_offer_brightness'] = lambda region=None: next(seq)
+        assert wait_for_offer_slot(poll=0) >= 0, 'a greyed read between misses resets the count'
+    finally:
+        globals()['add_offer_brightness'] = saved_brightness
     print('ok')
