@@ -107,6 +107,34 @@ FILTERING_OFFER_CORNER = 'bottom right'
 FILTERING_SCAV_CORNER = 'top right'
 DRAG_SECONDS = 0.4  # fast, but not a teleport; an instant drag gets dropped by the UI
 DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of the corner
+# Early-quit for the drag loop. A window that is already jammed in its corner is dragged
+# DRAG_REPEATS times over for nothing, and the filter step re-parks the offer and scav windows
+# that were already parked. is_window_orientated lets a pass stop the moment the window is where
+# it belongs. The signal is ABSOLUTE POSITION, never "the window stopped moving": that shortcut
+# was tried and reverted on 2026-08-22 (see _drag_to_corner) because a pass that moves the window
+# nothing is not proof it arrived. So we compare the matched title's corner-nearest edge against
+# where that edge measurably sits when the window is jammed, held as an offset from the screen
+# corner (monitor-independent) in 1080p px, the repo's one measurement size.
+#
+# One entry per (drag target, corner). EMPTY until the numbers are measured live: with no entry
+# for a (target, corner), is_window_orientated returns False and the loop runs the full
+# DRAG_REPEATS exactly as it always has, so shipping this changes no behaviour on its own. Fill it
+# from tests/gather_orientation.py against a live flea, then early-quit turns on for that window.
+# ponytail: no fabricated table. Real measured offsets or nothing.
+# (target, corner) -> (dx, dy): title top-left minus the screen corner, in 1080p px. Keys are the
+# drag-target folder names (OFFER_TARGET, SCAV_WINDOW_TARGET, FILTERS_WINDOW_TARGET, which is
+# defined lower down). Measured live on 2026-09-04 by tests/gather_orientation.py; crop spread was
+# 6px or under at every corner, so ORIENTATED_TOL below has ample room. Note the offer window's
+# title cannot be dragged below y=152 (the game pins it there), so its 'bottom' offsets are ~-966,
+# not near 0: the offset records where the window actually lands, whatever the corner is named.
+ORIENTATED_OFFSETS = {
+    ('window_titles/window_title', 'top left'): (3, 3),
+    ('window_titles/offer_creation_window_title', 'bottom left'): (6, -966),
+    ('window_titles/offer_creation_window_title', 'bottom right'): (-1193, -966),
+    ('window_titles/scav_case_window_title', 'top left'): (7, 4),
+    ('window_titles/scav_case_window_title', 'top right'): (-884, 4),
+}
+ORIENTATED_TOL = 12  # px at 1080p, scaled by find.scale(); how close the top-left must sit to count as arrived
 # These two are slow on purpose and were tried faster on 2026-08-22: 0.2s drags, pyautogui's
 # between-call pause halved for the trip, and passes cut short once a window stopped moving or
 # came within 80px of the corner. It worked out at 54% off the drag time and was reverted whole,
@@ -1236,6 +1264,36 @@ def _corner_point(corner, bounds):
                          f'{", ".join(sorted(corners))}') from None
 
 
+def is_window_orientated(target, corner, box):
+    """Is target's matched box already jammed in corner? False when we have no measurement for it.
+
+    Absolute position, not "has it stopped moving": the second was tried and reverted on
+    2026-08-22 (see _drag_to_corner), because a drag can move a window nothing and still leave it
+    short of the corner. So this asks where the title actually is, against where it measurably
+    sits when jammed.
+
+    The box's top-left, not its centre or its corner-nearest edge. The reference crops of one
+    title bar are very different widths (the filter title runs 92 to 367px), so the centre and the
+    right/bottom edge land in a different place depending on which crop won the match. The crops
+    are all cut from the same top-left of the title, though, so box.left/box.top is the one anchor
+    they share: measured live on 2026-09-04 it clustered within 8px across every crop at every
+    corner, while the corner-nearest edge spread up to 42px.
+
+    ORIENTATED_OFFSETS holds that top-left as an offset from the screen corner in 1080p px, so it is
+    the same number at any resolution and on any monitor. No entry -> return False, which makes the
+    drag loop run its full repeats exactly as before. That is the default for every target until
+    the offsets are measured, so this is inert until tests/gather_orientation.py fills the table.
+    """
+    offset = ORIENTATED_OFFSETS.get((target, corner))
+    if offset is None:
+        return False
+    cx, cy = _corner_point(corner, screen.rect())
+    s = find.scale()
+    want_x, want_y = cx + offset[0] * s, cy + offset[1] * s
+    tol = ORIENTATED_TOL * s
+    return abs(box.left - want_x) <= tol and abs(box.top - want_y) <= tol
+
+
 def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECONDS,
                     repeats=DRAG_REPEATS):
     """Grab the centre of target's bbox and drag it into a corner. Last point grabbed, or None.
@@ -1274,6 +1332,15 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
         for attempt in range(1, repeats + 1):
             if not box:
                 log(f'pass {attempt}/{repeats}: {target} not on screen, stopping here', 2)
+                break
+            if is_window_orientated(target, corner, box):
+                # Already where it belongs: on entry (the filter step re-parks windows that never
+                # moved) or arrived on the previous pass (this is that pass's post-read). Stop
+                # before dragging it off a good spot. grabbed carries the earlier pass's point if
+                # there was one; if we never dragged, hand back this centre so the return stays
+                # truthy, since callers read None as the title having gone missing.
+                grabbed = grabbed or pyautogui.center(box)
+                log(f'pass {attempt}/{repeats}: {target} already at the {corner}, no drag needed', 2)
                 break
             point = pyautogui.center(box)
             log(f'pass {attempt}/{repeats}: {target} pre ({int(box.left)}, {int(box.top)}) '
