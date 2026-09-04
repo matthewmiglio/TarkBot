@@ -81,7 +81,14 @@ DEFAULT_UNDERCUT = '2k rubles | 90%'
 AUTOSELECT = {'OFF': False, 'ON': True}
 DEFAULT_AUTOSELECT = 'OFF'
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
-PRICE_DELAY = 2.0  # seconds to let the suggested price populate before reading it
+# The suggested price arrives from the server a moment after the item is filtered in, not
+# instantly. Poll for it rather than sleeping a flat wait and reading once: read as soon as it is
+# there (usually well under a second) and only spend the full timeout when it genuinely will not
+# come, which is the same unreadable-price failure the flat wait ended in anyway. get_price returns
+# None until a real number is in the box (an empty box reads as no glyph matched, a pack offer is
+# refused), so the first non-None read is the true price and never a half-populated one.
+PRICE_TIMEOUT = 10.0  # seconds to keep trying to read the suggested price before giving up on it
+PRICE_POLL = 0.25     # seconds between reads while waiting for it to populate
 # How many escapes it takes to get back to a clean screen from wherever a pass gave up. What is
 # open depends on where the item came from and not on what went wrong, so every path out of
 # sell_one counts off the Selection it was handed rather than off a constant of its own.
@@ -477,9 +484,14 @@ class FleaSeller:
                            scav_first=False)  # now it is on the right, over it again
         self._pause()
 
-        log(f'waiting {PRICE_DELAY:.0f}s for the suggested price to populate')
-        self._pause(PRICE_DELAY)  # the suggested price arrives from the server, not instantly
-        price = sell.get_price(self.region)
+        log(f'reading the suggested price, polling up to {PRICE_TIMEOUT:.0f}s for it to populate')
+        deadline = time.monotonic() + PRICE_TIMEOUT
+        price = None
+        while True:
+            price = sell.get_price(self.region)
+            if price is not None or time.monotonic() >= deadline:
+                break
+            self._pause(PRICE_POLL)  # stop-aware; a stop while waiting unwinds the pass like any wait
         if price is None:  # never guess at it, a half read price is worse than no sale
             self.stats['price_missing'] += 1
             # picked.escapes, not a flat 1. An unreadable price says nothing about how many
