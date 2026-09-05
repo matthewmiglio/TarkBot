@@ -20,15 +20,6 @@ ALL_BUTTON_TARGET = 'inventory_all_button'  # the ALL tab over the inventory gri
 AUTOSELECT_TARGET = 'autoselect_similar'  # the autoselect similar checkbox, on the offer window
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
 EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'auto_sort')
-# Where each EDGE lands once the offer creation window is orientated to OFFER_CORNER, as
-# (x0, y0, x1, y1) fractions of the window (grab_price_region's form, so it scales to any
-# resolution). infer_inventory_region scopes each find to its box, and falls back to the full
-# window if the scoped read misses. Measured with the region tool on a 2560x1440 flea.
-EDGE_FRACTIONS = {
-    ALL_BUTTON_TARGET: (0.0000, 0.1590, 0.0355, 0.2562),
-    AUTOSELECT_TARGET: (0.2141, 0.1250, 0.3699, 0.2243),
-    'auto_sort': (0.0000, 0.9278, 0.0363, 1.0000),
-}
 SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their pixels are dropped
 # Every color an empty slot is known to take, read off screenshots showing nothing but empty
 # slots. Drop another png in that folder to teach it more. ponytail: the images are the list.
@@ -282,6 +273,41 @@ STALE_CONFIRM_DELAY = 0.33  # seconds either side of the y that answers the are-
 STALE_SETTLE = 120  # seconds to let the flea catch up after cancelling, before selling again
 
 
+# Fixed-position elements: where each lands at its read-time, as (x0, y0, x1, y1) window fractions
+# (grab_price_region's form, so it scales to any resolution). _scoped looks inside the box first
+# and falls back to the full window on a miss, so a mis-measured box or an un-orientated window
+# costs only the fallback match, never a miss. Measured with the region tool on a 2560x1440 flea.
+# Only a target that sits at the same spot every pass belongs here; a target read on a window that
+# gets dragged around (the drag titles) is deliberately absent.
+SCOPED_FRACTIONS = {
+    # inventory-grid frame (EDGES), offer creation window at its bottom-left home corner:
+    ALL_BUTTON_TARGET: (0.0000, 0.1590, 0.0355, 0.2562),
+    AUTOSELECT_TARGET: (0.2141, 0.1250, 0.3699, 0.2243),
+    'auto_sort': (0.0000, 0.9278, 0.0363, 1.0000),
+    # flea board header (browse page):
+    ADD_OFFER_TARGET: (0.6020, 0.0208, 0.7160, 0.1201),
+    FLEA_ICON_TARGET: (0.5281, 0.9347, 0.6465, 1.0000),
+    FILTER_BUTTON_TARGET: (0.2188, 0.0222, 0.2824, 0.1326),
+    # offer creation window content, at its bottom-left home corner:
+    NO_SELECTION_TARGET: (0.4488, 0.3312, 0.6180, 0.8569),
+    SELECTION_TARGET: (0.4512, 0.3979, 0.6469, 0.6875),
+    PLACE_OFFER_TARGET: (0.4191, 0.8861, 0.5578, 0.9993),
+    PRICE_INPUT_TARGET: (0.3453, 0.4604, 0.6047, 0.5576),
+    # flea filter window, dragged to the top-left corner:
+    FILTERS_WINDOW_TARGET: (0.0000, 0.0000, 0.1453, 0.0604),
+}
+
+
+def _scoped(target, region=None, finder=find.find):
+    """finder(target) inside its fixed SCOPED_FRACTIONS box, full-window fallback on a miss.
+
+    finder is find.find (a box), find.find_center (a point) or find.find_all (a list); it is run
+    on the scoped box first and, if that comes back empty, once more on the full window.
+    """
+    look = grab_price_region(region, SCOPED_FRACTIONS[target])
+    return finder(target, look) or finder(target, region)
+
+
 def click_all_button(region=None):
     """Click the inventory's 'All' filter button. Returns the clicked (x, y), or None if not found."""
     point = find.find_center(ALL_BUTTON_TARGET, region)
@@ -309,10 +335,7 @@ def infer_inventory_region(region=None):
     autoselect similar button, down to the bottom of auto-sort. Raises LookupError if any
     of those is missing.
     """
-    found = {}
-    for name in EDGES:
-        look = grab_price_region(region, EDGE_FRACTIONS[name])  # scoped to the orientated window
-        found[name] = find.find(name, look) or find.find(name, region)  # full-window fallback
+    found = {name: _scoped(name, region) for name in EDGES}
     missing = [n for n, box in found.items() if box is None]
     if missing:
         raise LookupError(f'cannot infer inventory region, not on screen: {", ".join(missing)}')
@@ -323,7 +346,7 @@ def infer_inventory_region(region=None):
 
 def find_flea_icon(region=None):
     """The flea market taskbar entry's bbox in whichever state it is in, or None."""
-    return find.find(FLEA_ICON_TARGET, region)
+    return _scoped(FLEA_ICON_TARGET, region)
 
 
 def flea_icon_brightness(region=None):
@@ -530,7 +553,7 @@ def open_flea(region=None):
     if brightness >= FLEA_OPEN_BRIGHTNESS:
         log(f'flea icon brightness {brightness:.0f} >= {FLEA_OPEN_BRIGHTNESS}, already open', 1)
         return True
-    point = find.find_center(FLEA_ICON_TARGET, region)
+    point = _scoped(FLEA_ICON_TARGET, region, find.find_center)
     log(f'flea icon brightness {brightness:.0f} < {FLEA_OPEN_BRIGHTNESS}, clicking it at {point}', 1)
     pyautogui.click(*point)
     opened = wait_for_flea(region)
@@ -566,7 +589,7 @@ def add_offer_brightness(region=None):
     states and only the label and border light up, so an average is mostly background and
     barely moves. The single brightest pixel tracks the label directly.
     """
-    box = find.find(ADD_OFFER_TARGET, region)
+    box = _scoped(ADD_OFFER_TARGET, region)
     if not box:
         return None
     rect = (int(box.left), int(box.top), int(box.width), int(box.height))
@@ -821,7 +844,7 @@ def jitter(point, x=CLICK_JITTER, y=CLICK_JITTER):
 
 def click_add_offer(region=None):
     """Click the add offer button. Returns the clicked (x, y), or None if not found."""
-    point = jitter(find.find_center(ADD_OFFER_TARGET, region))
+    point = jitter(_scoped(ADD_OFFER_TARGET, region, find.find_center))
     log(f'clicking add offer at {point}' if point else 'no add offer button on screen', 1)
     if point:
         pyautogui.click(*point)
@@ -834,7 +857,7 @@ def enter_price(value, region=None):
     Select all first: the field arrives holding the suggested price, and typing into it
     without clearing appends, which turns 99000 into something like 10000099000.
     """
-    point = jitter(find.find_center(PRICE_INPUT_TARGET, region))
+    point = jitter(_scoped(PRICE_INPUT_TARGET, region, find.find_center))
     if not point:
         log('no roubles price field on screen', 1)
         return None
@@ -848,7 +871,7 @@ def enter_price(value, region=None):
 
 def click_place_offer(region=None):
     """Click the place offer button. Returns the clicked (x, y), or None if not found."""
-    point = jitter(find.find_center(PLACE_OFFER_TARGET, region))
+    point = jitter(_scoped(PLACE_OFFER_TARGET, region, find.find_center))
     log(f'clicking place offer at {point}' if point else 'no place offer button on screen', 1)
     if point:
         pyautogui.click(*point)
@@ -913,13 +936,13 @@ def is_item_selected(region=None):
     Ordered cheapest-to-be-wrong first, and short-circuiting, so a miss usually costs one
     template scan instead of three. Most attempts are misses; they land between items.
     """
-    if find.find(SELECTION_TARGET, region) is None:
+    if _scoped(SELECTION_TARGET, region) is None:
         log('not selected: the offer panel is not showing a picked item', 2)
         return False
-    if find.find(PLACE_OFFER_TARGET, region) is None:
+    if _scoped(PLACE_OFFER_TARGET, region) is None:
         log('not selected: no place offer button, so the panel is only half drawn', 2)
         return False
-    if find.find(NO_SELECTION_TARGET, region) is not None:
+    if _scoped(NO_SELECTION_TARGET, region) is not None:
         log('not selected: the nothing-picked placeholder is still on screen', 2)
         return False
     log('selected: picked item and place offer both there, placeholder gone', 2)
@@ -957,7 +980,7 @@ def autoselect_similar_region(region=None, margin=CHECKMARK_MARGIN):
     Raises LookupError if the button is not on screen, which means the screen is not the one
     we think it is, not that the box is empty.
     """
-    box = find.find(AUTOSELECT_TARGET, region)
+    box = _scoped(AUTOSELECT_TARGET, region)
     if not box:
         raise LookupError('autoselect similar button not on screen')
     return _checkmark_region_from(box, screen.rect(), margin)  # the grown box can run off an edge
@@ -987,7 +1010,7 @@ def set_autoselect_similar(on, region=None):
     if is_autoselect_similar_ticked(region) == bool(on):
         log(f'autoselect similar already {want}', 1)
         return True
-    point = find.find_center(AUTOSELECT_TARGET, region)
+    point = _scoped(AUTOSELECT_TARGET, region, find.find_center)
     if not point:
         log(f'autoselect similar needs switching {want} but its button vanished', 1)
         return False
@@ -1669,7 +1692,7 @@ def open_filters(region=None):
 
     GEAR_JITTER rather than the usual spread, since the gear is small.
     """
-    point = jitter(find.find_center(FILTER_BUTTON_TARGET, region), GEAR_JITTER, GEAR_JITTER)
+    point = jitter(_scoped(FILTER_BUTTON_TARGET, region, find.find_center), GEAR_JITTER, GEAR_JITTER)
     if not point:
         log('no filter button on screen', 1)
         return False
@@ -1708,7 +1731,7 @@ def filter_window_region(region=None):
     pays the old full-screen search rather than breaking, and open_filters already guaranteed the
     window is up, so this is belt-and-braces.
     """
-    title = find.find(FILTERS_WINDOW_TARGET, region)
+    title = _scoped(FILTERS_WINDOW_TARGET, region)
     if not title:
         return region
     s = find.scale()
@@ -1846,7 +1869,9 @@ def open_scav_case(region=None):
     log(f'right click a scav case at {case}', 1)
     pyautogui.rightClick(*case)
     time.sleep(MENU_DELAY)
-    box = find.find('open_scav_case', region)
+    # The menu drops at the cursor, so scope to the box around the click, full-window fallback on
+    # a miss, the same way select_item_from_inventory scopes its filter_by_item search.
+    box = find.find('open_scav_case', menu_region(case, region)) or find.find('open_scav_case', region)
     if not box:
         log('no open entry in the right click menu', 1)
         return None
