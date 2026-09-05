@@ -20,6 +20,15 @@ ALL_BUTTON_TARGET = 'inventory_all_button'  # the ALL tab over the inventory gri
 AUTOSELECT_TARGET = 'autoselect_similar'  # the autoselect similar checkbox, on the offer window
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
 EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'auto_sort')
+# Where each EDGE lands once the offer creation window is orientated to OFFER_CORNER, as
+# (x0, y0, x1, y1) fractions of the window (grab_price_region's form, so it scales to any
+# resolution). infer_inventory_region scopes each find to its box, and falls back to the full
+# window if the scoped read misses. Measured with the region tool on a 2560x1440 flea.
+EDGE_FRACTIONS = {
+    ALL_BUTTON_TARGET: (0.0000, 0.1590, 0.0355, 0.2562),
+    AUTOSELECT_TARGET: (0.2141, 0.1250, 0.3699, 0.2243),
+    'auto_sort': (0.0000, 0.9278, 0.0363, 1.0000),
+}
 SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their pixels are dropped
 # Every color an empty slot is known to take, read off screenshots showing nothing but empty
 # slots. Drop another png in that folder to teach it more. ponytail: the images are the list.
@@ -300,7 +309,10 @@ def infer_inventory_region(region=None):
     autoselect similar button, down to the bottom of auto-sort. Raises LookupError if any
     of those is missing.
     """
-    found = {name: find.find(name, region) for name in EDGES}
+    found = {}
+    for name in EDGES:
+        look = grab_price_region(region, EDGE_FRACTIONS[name])  # scoped to the orientated window
+        found[name] = find.find(name, look) or find.find(name, region)  # full-window fallback
     missing = [n for n, box in found.items() if box is None]
     if missing:
         raise LookupError(f'cannot infer inventory region, not on screen: {", ".join(missing)}')
