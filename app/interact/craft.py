@@ -139,7 +139,8 @@ HIDEOUT_TAB_SCROLL_DIFF = 8.0
 TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
 PANEL_TIMEOUT = 15.0  # seconds to wait for a station panel after clicking its tab, see _open_station
 PANEL_POLL = 0.5  # seconds between looks while that panel is awaited
-PANEL_CLOSE_SETTLE = 1.0  # seconds after pressing esc for an open station panel to clear
+PANEL_CLOSE_SETTLE = 1.0  # seconds after clicking the X for an open station panel to clear
+PANEL_CLOSE_ATTEMPTS = 3  # re-clicks of a close button before giving up, see close_open_station_panel
 
 # An open station panel carries a close (X) button in its top-right corner. Seeing that button in
 # this region says a station panel is open whichever station it is, so it reads 'a panel is open'
@@ -207,6 +208,27 @@ WATER_COLLECTOR_TARGET = 'hideout/hideout_tabs/water_collector'
 # is the folder the crop was added to. The station is the water collector.
 WATER_COLLECTOR_ACTIVE_TARGET = 'hideout/hideout_station_titles/water_filter'
 WATER_FILTER_NAME = 'water filter'  # what to type into the flea search to find one
+
+# The scav case, which like the water collector does not fit the normal row model: see
+# tend_scav_case in craft_bot. Every reward variant on the panel outputs the same '?' box, so a
+# row is named only by its input item and there is no per-input tick. We run the moonshine
+# variant, whose one input is a bottle of moonshine; the row is anchored on that bottle
+# (crafting/moonshine, reused from the booze generator craft), the one thing unique to the row.
+SCAV_CASE_MODULE_TARGET = 'hideout/hideout_tabs/scav_case'
+SCAV_CASE_ACTIVE_TARGET = 'hideout/hideout_station_titles/scav_case'
+# The 95,000-rouble scav case roll runs alongside the moonshine roll, but sits below it in the
+# production list, off screen when the panel opens. find_scav_case_95k_craft scrolls down to it.
+NINETY_FIVE_K_TARGET = 'crafting/95k_rubles'  # that roll's input (a 95k rouble stack), the row's anchor
+SCAV_CASE_DEADSPACE_COORD = (1374, 792)  # empty spot in the scav case panel, clicked to take wheel focus.
+                                         # Raw screen coords, tuned live at 2560x1440.
+SCAV_CASE_SCROLL_DOWN = 3  # mouse-wheel notches down per step while hunting the 95k roll; tuned live
+FIND_95K_CRAFT_TIMEOUT = 10.0  # seconds to keep wheeling down before giving up on the 95k roll
+# The 95k input crop anchors on the '95000/95000' count text at the bottom of its row, not a
+# mid-row icon, so the generic _row_band sits too low and clips START/GET ITEMS off the top. These
+# offsets (tuned live at 2560x1440) build the band upward from the anchor instead; raw px, like
+# _row_band's own pads. See scav_case_95k_row_band.
+SCAV_CASE_95K_BAND_ABOVE = 146  # px above the anchor's top the band reaches (up over icon/START)
+SCAV_CASE_95K_BAND_BELOW = 20   # px below the anchor's bottom the band reaches
 WATER_DROPDOWN_DELAY = 1.0  # after opening the filter dropdown, for its list to draw
 WATER_FIT_SETTLE = 1.0  # after clicking a filter, before reading the slot back
 # A purchase that never took the money is an offer somebody else got to first, which on a busy
@@ -353,8 +375,17 @@ WATER_COLLECTOR = Craft('water_collector', WATER_FILTER_TARGET,
                         (Ingredient('water_filter', WATER_FILTER_TARGET),),
                         WATER_COLLECTOR_TARGET, WATER_COLLECTOR_ACTIVE_TARGET, 'water collector')
 WATER_COLLECTOR_NAME = WATER_COLLECTOR.name  # craft_bot tests against this to pick its own branch
+# The scav case moonshine variant. output_target is the moonshine bottle: that input is the only
+# thing naming this row (every variant's output is an identical '?'), so read_craft anchors on it.
+# The single ingredient is that same bottle, so read_craft's ready read finds it and the GUI gives
+# it a ceiling; its tick always reads absent, which craft_bot ignores here. craft_bot routes this
+# name to tend_scav_case rather than the ready/producing state machine, the same as the collector.
+SCAV_CASE = Craft('scav_case', MOONSHINE_TARGET,
+                  (Ingredient('moonshine', MOONSHINE_TARGET),),
+                  SCAV_CASE_MODULE_TARGET, SCAV_CASE_ACTIVE_TARGET, 'scav case')
+SCAV_CASE_NAME = SCAV_CASE.name  # craft_bot tests against this to pick its own branch
 CRAFTS = {c.name: c for c in (SLICKERS, FLEECE, WIRES, AI2, MOONSHINE, CORDURA, RED_GUNPOWDER,
-                              WATER_COLLECTOR)}
+                              WATER_COLLECTOR, SCAV_CASE)}
 
 
 def hideout_tab_brightness(region=None):
@@ -426,22 +457,36 @@ def check_if_station_active(region=None):
 
 
 def close_open_station_panel(region=None):
-    """Click an open station panel's close (X) button so it stops covering the module row. True if one was.
+    """Click an open station panel's close (X) button until it is gone. True if one was closed,
+    False if none was open; raises LookupError if one is open but will not close.
 
     A station panel left open from the last craft sits over part of the carousel. Closed by clicking
     the X we already locate rather than pressing esc: a click lands in the game and self-focuses the
     window, where a bare esc keypress only reaches the game when it is already the foreground window,
     which is not guaranteed before navigation's first click (seen 2026-09-01: the panel stayed open
     and the run stalled). No-op when nothing is open.
+
+    The click is verified, not trusted. One that missed left the panel open, which ate the carousel
+    swipes and surfaced a swipe later as a misleading 'station never appeared' (see
+    _craft_mode_run_debugging). So re-check that the X is gone after clicking, re-click up to
+    PANEL_CLOSE_ATTEMPTS times, and raise here - at the real failure - if it will not close, rather
+    than letting a covered row fail navigation with the wrong error.
     """
-    box = find.find(CLOSE_BUTTON_TARGET, _region_from_fractions(CLOSE_BUTTON_REGION_FRACTIONS, region))
+    fractions = _region_from_fractions(CLOSE_BUTTON_REGION_FRACTIONS, region)
+    box = find.find(CLOSE_BUTTON_TARGET, fractions)
     if not box:
         log('no station panel open', 1)
         return False
-    log('a station panel is open; clicking its close button before navigating', 1)
-    pyautogui.click(*sell.jitter(pyautogui.center(box)))
-    time.sleep(PANEL_CLOSE_SETTLE)
-    return True
+    for attempt in range(1, PANEL_CLOSE_ATTEMPTS + 1):
+        log(f'a station panel is open; clicking its close button before navigating '
+            f'(attempt {attempt})', 1)
+        pyautogui.click(*sell.jitter(pyautogui.center(box)))
+        time.sleep(PANEL_CLOSE_SETTLE)
+        box = find.find(CLOSE_BUTTON_TARGET, fractions)
+        if not box:
+            return True
+    raise LookupError('a station panel is open but its close button is still on screen after '
+                      f'{PANEL_CLOSE_ATTEMPTS} clicks, so the panel would not close')
 
 
 def hideout_module_targets():
@@ -835,6 +880,50 @@ def _on_row(boxes, row_y):
     return min(on, key=lambda b: abs(_center(b)[1] - row_y)) if on else None
 
 
+def find_scav_case_95k_craft(region=None):
+    """Scroll the scav case list down to the 95,000-rouble roll. Returns its input match Box once
+    on screen, or None if it never appears within FIND_95K_CRAFT_TIMEOUT.
+
+    The 95k roll runs alongside the moonshine roll but sits below it in the list, so it is off
+    screen when the panel first opens. Click a dead spot in the panel (SCAV_CASE_DEADSPACE_COORD)
+    to give the list the mouse wheel's focus, then wheel down SCAV_CASE_SCROLL_DOWN a step at a
+    time, checking after each look for the 95k input (NINETY_FIVE_K_TARGET), until it shows or the
+    timeout elapses. The dead-spot coord and the scroll amount are tuned live against the game.
+
+    Returns the Box (truthy) so the caller can build the row band from it with
+    scav_case_95k_row_band; None (falsy) when the roll never showed.
+    """
+    if SCAV_CASE_DEADSPACE_COORD is None:
+        raise ValueError('SCAV_CASE_DEADSPACE_COORD is not set; fill it from a live grab of the '
+                         'scav case panel before calling find_scav_case_95k_craft')
+    log('hunting the 95k scav case roll: clicking dead space for scroll focus', 1)
+    pyautogui.click(*SCAV_CASE_DEADSPACE_COORD)
+    deadline = time.time() + FIND_95K_CRAFT_TIMEOUT
+    while time.time() < deadline:
+        box = find.find(NINETY_FIVE_K_TARGET, region)
+        if box:
+            log('the 95k scav case roll is on screen', 1)
+            return box
+        pyautogui.scroll(-SCAV_CASE_SCROLL_DOWN)  # negative wheels down
+        time.sleep(0.3)
+    log('the 95k scav case roll never came into view before the timeout', 1)
+    return None
+
+
+def scav_case_95k_row_band(box, region=None):
+    """The 95k roll's full-width row band, built upward from its input match `box`.
+
+    The 95k anchor is the '95000/95000' count text at the bottom of the row, so this reaches
+    SCAV_CASE_95K_BAND_ABOVE px above it (up over the icon, timer and START) and
+    SCAV_CASE_95K_BAND_BELOW px below, rather than the centred pad _row_band uses for a mid-row
+    icon anchor. Same (left, top, width, height) shape and raw-pixel convention as _row_band.
+    """
+    left, _, width, _ = region if region else screen.rect()
+    top = box.top - SCAV_CASE_95K_BAND_ABOVE
+    bottom = box.top + box.height + SCAV_CASE_95K_BAND_BELOW
+    return (left, top, width, bottom - top)
+
+
 # One look at a craft's row. state is the same four strings get_craft_state answers with;
 # output/band/start/get_items are the boxes that answer was based on, so a caller acting on the
 # state never has to search for them again; inputs is [(name, ready, where to click)] in the
@@ -894,6 +983,46 @@ def read_craft(craft, region=None):
             log(f'{ing.name}: {"ready" if ready else "not ready"}', 1)
             inputs.append((ing.name, ready, _center(icon)))
     return CraftRead(state, output, band, start, get_items, inputs)
+
+
+def _nearest_in_band(boxes, band):
+    """The match nearest the band's vertical centre, or None.
+
+    The plain nearest pick read_craft's _on_row cannot use: _on_row gates on ROW_TOL around the
+    anchor's own y to keep off the next row, because _row_band's pad makes the band overlap it.
+    The 95k band (scav_case_95k_row_band) is one row tall by construction and does not overlap,
+    and its anchor sits at the row's bottom while the buttons sit ~130px up, so a ROW_TOL gate
+    around the anchor would reject the very START it is looking for. Nearest-to-centre is enough.
+    """
+    if not boxes:
+        return None
+    _, top, _, height = band
+    cy = top + height / 2
+    return min(boxes, key=lambda b: abs(_center(b)[1] - cy))
+
+
+def read_scav_case_95k(region=None):
+    """Scroll to the 95k scav case roll and read its state and buttons, like read_craft does.
+
+    Returns a CraftRead (state, output, band, start, get_items, inputs) anchored on the 95k input
+    via find_scav_case_95k_craft and its upward exception band, since the roll has no
+    timer-anchored output row. inputs is always None: the roll's one input is a stack of roubles
+    from the stash, which cannot be bought off the flea, so there is no queue to build the way the
+    moonshine roll has. Returns None when the roll never scrolls into view.
+    """
+    anchor = find_scav_case_95k_craft(region)
+    if anchor is None:
+        return None
+    band = scav_case_95k_row_band(anchor, region)
+    start = None
+    get_items = _nearest_in_band(find.find_all(GET_ITEMS_TARGET, band), band)
+    if get_items:
+        state = 'done' if get_items_highlighted(get_items) else 'not started'
+    else:
+        start = _nearest_in_band(find.find_all(START_TARGET, band), band)
+        state = 'ready' if start else 'producing'
+    log(f'95k scav case roll state: {state}', 1)
+    return CraftRead(state, anchor, band, start, get_items, None)
 
 
 def get_craft_state(craft, region=None):

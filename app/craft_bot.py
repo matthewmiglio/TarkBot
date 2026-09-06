@@ -34,9 +34,18 @@ from sell_bot import Stopped  # shared runner plumbing, see the _pause note belo
 
 START_SETTLE = 3.0  # seconds after START for the row to flip to producing before the next look
 HANDOVER_TARGET = 'hideout/handover_button'  # the confirm button the START click brings up
-HANDOVER_DELAY = 1.0  # seconds after START for the handover confirm button to appear
+HANDOVER_APPEAR_TIMEOUT = 10.0  # poll up to this long after START for the handover dialog to draw. It
+                                # stages the stash items it hands over, so it can be slow; a single
+                                # look a fixed beat after START used to miss a slow one and end the
+                                # run (a false Blind that also wedged the dialog over the next
+                                # navigation, see _craft_mode_run_debugging). See _confirm_handover.
+HANDOVER_OPTIONAL_WAIT = 1.5  # required=False (scav case): a brief look only, no handover expected there
+HANDOVER_POLL = 0.5  # seconds between looks while waiting for the handover dialog to appear
 MAX_HANDOVER_LOOPS = 3  # re-clicks of a handover button that will not go away, see _confirm_handover
 HANDOVER_SETTLE = 2.0  # seconds between a handover click and the look that checks it landed
+RECEIVE_TARGET = 'hideout/recieve_items_button'  # the scav case's LOOT FROM SCAVS reveal confirm button
+RECEIVE_APPEAR_TIMEOUT = 10.0  # poll up to this long after GET ITEMS for the scav case RECEIVE button
+RECEIVE_POLL = 0.5  # seconds between looks while waiting for the RECEIVE button to appear
 COLLECT_SETTLE = 2.0  # seconds after collecting for the row to flip back to ready
 PARK_OFFSET = 100  # 1080p px to shove the cursor right after a click, so it stops covering the row
 
@@ -50,7 +59,7 @@ DEFAULT_SOURCE = 'Players'
 DEFAULT_MAX = {'crackers': 22000, 'alyonka': 24000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
                'power_cord': 62000, 'pile_of_meds': 16600, 'purified_water': 140000,
                'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 50000, 'matches': 20000,
-               'water_filter': 70000}
+               'water_filter': 70000, 'moonshine': 230000}
 # anything not listed defaults to players
 DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders', 'sling_bag': 'traders'}
 
@@ -175,7 +184,6 @@ class HideoutCraft:
         log(f'starting the {job.craft.name} craft, clicking START at {point}', 1)
         pyautogui.click(*point)
 
-        time.sleep(HANDOVER_DELAY)
         if not self._confirm_handover():
             log(f'START clicked but the {job.craft.name} handover was never confirmed, '
                 f'so nothing was started', 1)
@@ -185,45 +193,81 @@ class HideoutCraft:
         self.stats['total_started'] += 1
         return point
 
-    def _confirm_handover(self):
-        """Click the handover dialog's confirm until it is gone. True once it is, False if it stays.
+    def _confirm_handover(self, required=True):
+        """Wait for the handover dialog, then click its confirm until it is gone. True once it is
+        (or it never appeared and was optional), False if it appeared but would not clear.
 
         START does not start anything on its own: it opens a dialog that hands the ingredients
-        over from the stash, and the craft only runs once that is confirmed. A single click that
-        misses leaves the craft un-started with nothing in the log to say so, which is how the
-        wires craft bought a power cord and then sat there on 2026-08-30.
+        over from the stash, and the craft only runs once that is confirmed. That dialog stages
+        the stash items it will hand over, so it can take a moment to draw; a single look a fixed
+        beat after START used to miss a slow one and end the run (a false Blind that also left the
+        dialog wedged over the next navigation, see _craft_mode_run_debugging). So poll for it to
+        appear up to HANDOVER_APPEAR_TIMEOUT, acting the instant it shows.
 
-        So the dialog going away is the success test, not the click going out. Look, click, wait
-        HANDOVER_SETTLE, look again, up to MAX_HANDOVER_LOOPS re-clicks. The cursor is parked off
-        the button between looks, because the click's own hover highlight changes the very pixels
-        the next look matches against.
+        Once it is up, the dialog going away is the success test, not the click going out: look,
+        click, wait HANDOVER_SETTLE, look again, up to MAX_HANDOVER_LOOPS re-clicks. The cursor is
+        parked off the button between looks, because the click's own hover highlight changes the
+        very pixels the next look matches against. Returning False rather than raising keeps a
+        won't-clear dialog to a lost pass: the row is still ready, so the next lap tries again.
 
-    worse than saying so. Returning False rather than raising keeps that to a lost pass: the
-        row is still ready, so the next lap tries again.
-
-        No dialog at all is different, and is Blind. START was clicked, so the dialog is what
-        comes next; never seeing one means the click did not land on the button we had just
-        matched, or the dialog's crops do not match what the game drew. Either way the craft may
-        or may not have begun, and the next pass's row read cannot tell those apart.
+        No dialog within the window is Blind when required=True. START was clicked, so the dialog
+        is what comes next; never seeing one means the click did not land on the button we had just
+        matched, or the dialog's crops do not match what the game drew. required=False turns that
+        off: the scav case may raise no handover at all, so a brief look (HANDOVER_OPTIONAL_WAIT)
+        that finds nothing just means 'nothing to confirm here' and returns True. Its caller judges
+        the start by re-reading the row rather than by the dialog.
         """
-        loops = 0
+        deadline = time.monotonic() + (HANDOVER_APPEAR_TIMEOUT if required else HANDOVER_OPTIONAL_WAIT)
         while True:
             point = find.find_center(HANDOVER_TARGET, self.region)
-            if point is None:
-                if loops == 0:
+            if point is not None:
+                break
+            if time.monotonic() >= deadline:
+                if required:
                     raise craft.Blind(
-                        'no handover dialog appeared after clicking START, so there is no way '
-                        'to tell whether the craft began')
-                return True
+                        f'no handover dialog appeared within {HANDOVER_APPEAR_TIMEOUT:.0f}s of '
+                        'clicking START, so there is no way to tell whether the craft began')
+                return True  # optional: nothing came up, nothing to confirm
+            time.sleep(HANDOVER_POLL)
+
+        loops = 0
+        while point is not None:
             if loops > MAX_HANDOVER_LOOPS:
                 log(f'the handover button is still on screen after {loops} clicks', 1)
                 return False
-            point = sell.jitter(point)
-            log(f'confirming the handover at {point} (click {loops + 1})', 1)
-            pyautogui.click(*point)
-            self._park(point)
+            clicked = sell.jitter(point)
+            log(f'confirming the handover at {clicked} (click {loops + 1})', 1)
+            pyautogui.click(*clicked)
+            self._park(clicked)
             loops += 1
             time.sleep(HANDOVER_SETTLE)
+            point = find.find_center(HANDOVER_TARGET, self.region)
+        return True
+
+    def _confirm_receive(self):
+        """Confirm the scav case's LOOT FROM SCAVS reveal, which GET ITEMS opens for a scav case.
+
+        A scav case collect is two steps, unlike every other craft: GET ITEMS opens a 'LOOT FROM
+        SCAVS' reveal listing what the scavs brought, and the loot only lands in the stash once its
+        RECEIVE button is clicked. The list takes a moment to populate, so poll up to
+        RECEIVE_APPEAR_TIMEOUT for the button, then click its centre and break. Blind if it never
+        appears: the loot is then stuck behind a modal that dims everything and wedges the next
+        navigation (see _craft_mode_run_debugging), so guessing is worse than stopping.
+        """
+        deadline = time.monotonic() + RECEIVE_APPEAR_TIMEOUT
+        while True:
+            point = find.find_center(RECEIVE_TARGET, self.region)
+            if point is not None:
+                clicked = sell.jitter(point)
+                log(f'scav case loot reveal is up; clicking RECEIVE at {clicked}', 1)
+                pyautogui.click(*clicked)
+                self._park(clicked)
+                return
+            if time.monotonic() >= deadline:
+                raise craft.Blind(
+                    f'the scav case RECEIVE button never appeared within {RECEIVE_APPEAR_TIMEOUT:.0f}s '
+                    'of GET ITEMS, so the loot reveal is stuck open')
+            time.sleep(RECEIVE_POLL)
 
     def collect_craft(self, job, read):
         """Collect a finished craft: click the GET ITEMS the read already found.
@@ -327,6 +371,143 @@ class HideoutCraft:
             self._pause(START_SETTLE)
         self._swap()
 
+    def tend_scav_case(self, job):
+        """The scav case's pass: tend the moonshine roll, then the 95k roll, then leave.
+
+        Both rolls live on the one panel and neither fits the normal ready/producing state
+        machine, for the same reason: every reward variant outputs the same '?' box, so a row is
+        named only by its input item and carries no per-input tick. The panel opens scrolled to
+        the moonshine roll at the top, so that one is tended first off the visible row; the 95k
+        roll sits below it and is scrolled to (see _tend_scav_case_95k). Both are done before the
+        single swap away, so one visit works both rolls rather than one roll per visit.
+        """
+        self._tend_scav_case_moonshine(job)
+        self._tend_scav_case_95k(job)
+        self._swap()  # leave the scav case; both rolls have been tended
+
+    def _tend_scav_case_moonshine(self, job):
+        """Tend the moonshine roll on the visible (top) scav case row. Does not swap.
+
+        The row is named only by its input, so read_craft anchors on the moonshine bottle rather
+        than an output (see craft.SCAV_CASE), and there is no per-input tick, so 'ready' cannot be
+        split into have-the-input and need-to-buy the way read_craft does for other crafts: the
+        bottle is always drawn on the row, ticked or not. So readiness is judged after the fact:
+
+          producing -> nothing to do, leave it running
+          done      -> collect
+          ready     -> click START, read the row back. Producing now means it started (count it).
+                       Still ready means the click did nothing, which for a scav case means the
+                       moonshine bottle was not in the stash, so buy one and let the next lap start.
+
+        START may or may not raise a handover dialog. The other crafts always get one and treat a
+        missing one as Blind; this one was never confirmed to, so _confirm_handover(required=False)
+        clears one if it shows and shrugs if it does not. The start is judged by the row read, not
+        by the dialog.
+
+        ponytail: the re-read is the only 'did it start' signal there is, since the row carries no
+        tick. Its blind spot is a START that opens an insert dialog even when the bottle IS in the
+        stash: that dialog shows the moonshine, so the re-read could match the bottle in the dialog
+        and read 'producing' falsely. Not seen in practice (the handover is believed not to appear
+        at all), and the fix if it ever does is a crop of the 'Collecting' state or the insert
+        dialog to disambiguate, rather than trusting the bottle match alone.
+        """
+        read = craft.read_craft(job.craft, self.region)
+
+        if read.state == 'producing':  # running; leave it, move on to the 95k roll
+            log('scav case moonshine roll is producing')
+            self._pause()
+            return
+        if read.state == 'done':
+            # A scav case collect is two steps, not one: GET ITEMS opens a LOOT FROM SCAVS reveal
+            # that only deposits the loot once its RECEIVE is clicked (collect_craft's single GET
+            # ITEMS is enough for every other craft but not here). Click GET ITEMS, then confirm
+            # the reveal, or the modal is left wedging the next navigation.
+            point = sell.jitter(pyautogui.center(read.get_items))
+            log(f'collecting the scav case moonshine roll, clicking GET ITEMS at {point}', 1)
+            pyautogui.click(*point)
+            self._park(point)
+            self._confirm_receive()
+            self._pause(COLLECT_SETTLE)
+            return
+        if read.state == 'not started':  # a greyed GET ITEMS; nothing this loop can do
+            log('scav case moonshine roll is not started')
+            return
+
+        # ready: START is on the row. Click it, let any handover confirm, then read the row back.
+        point = sell.jitter(pyautogui.center(read.start))
+        log(f'starting the scav case moonshine craft, clicking START at {point}', 1)
+        pyautogui.click(*point)
+        self._confirm_handover(required=False)  # confirm one if it shows; fine if it does not
+        self._park(point)
+        self._pause(START_SETTLE)  # give the click time to flip the row to producing
+
+        if craft.read_craft(job.craft, self.region).state == 'producing':
+            log('scav case moonshine roll started')
+            self.stats['started:scav_case'] += 1
+            self.stats['total_started'] += 1
+            return
+
+        # Still ready: the START did nothing, so the moonshine bottle is not in the stash. Buy one
+        # (the row's sole input) at its ceiling and let the next lap start the craft. location is
+        # the bottle on the row, from read.inputs; quantity 1, since a scav case takes one.
+        name, _, location = read.inputs[0]
+        ceiling = job.max_prices[name]  # build() guarantees it
+        source = job.sources.get(name, 'players')
+        log(f'scav case did not start, so the {name} input is missing; buying one at up to '
+            f'{ceiling} from {source}')
+        try:
+            craft.buy_craft_input_item(location, ceiling, self.region, source=source,
+                                       craft=job.craft, checkpoint=self._pause, quantity=1)
+        except craft.Unbuyable as e:
+            log(f'{name} {e}, moving on', 1)
+        except LookupError as e:
+            log(f'{name}: {e}, moving on', 1)
+
+    def _tend_scav_case_95k(self, job):
+        """Tend the 95,000-rouble scav case roll, scrolled to below the moonshine roll. No swap.
+
+        Same shape as the moonshine roll (no timer tick, state read off the row's buttons), read
+        through craft.read_scav_case_95k, which scrolls down to the roll and reads its buttons off
+        the 95k exception band. The one difference is the missing-input path: the roll's input is a
+        stack of roubles, which cannot be bought off the flea, so a START that does not take means
+        the stash is short of roubles (the user's to top up), not an ingredient to go and buy.
+        """
+        read = craft.read_scav_case_95k(self.region)
+        if read is None:
+            log('the 95k scav case roll never scrolled into view, skipping it', 1)
+            return
+        if read.state == 'producing':
+            log('the 95k scav case roll is producing')
+            return
+        if read.state == 'done':
+            point = sell.jitter(pyautogui.center(read.get_items))
+            log(f'collecting the 95k scav case roll, clicking GET ITEMS at {point}', 1)
+            pyautogui.click(*point)
+            self._park(point)
+            self._confirm_receive()
+            self._pause(COLLECT_SETTLE)
+            return
+        if read.state == 'not started':
+            log('the 95k scav case roll is not started')
+            return
+
+        # ready: click START, confirm any handover, read the row back to judge if it took.
+        point = sell.jitter(pyautogui.center(read.start))
+        log(f'starting the 95k scav case roll, clicking START at {point}', 1)
+        pyautogui.click(*point)
+        self._confirm_handover(required=False)
+        self._park(point)
+        self._pause(START_SETTLE)
+
+        again = craft.read_scav_case_95k(self.region)
+        if again and again.state == 'producing':
+            log('the 95k scav case roll started')
+            self.stats['started:scav_case'] += 1
+            self.stats['total_started'] += 1
+        else:
+            log('the 95k scav case roll did not start, so the stash is short of roubles; '
+                'moving on', 1)
+
     def step(self):
         """One pass of the state machine over the craft currently in front of us.
 
@@ -345,6 +526,9 @@ class HideoutCraft:
         self._ensure_on(job)
         if job.craft.name == craft.WATER_COLLECTOR_NAME:  # no START, no ingredient row: its own pass
             self.tend_water_collector(job)
+            return
+        if job.craft.name == craft.SCAV_CASE_NAME:  # anchored on its input, no tick: its own pass
+            self.tend_scav_case(job)
             return
 
         read = craft.read_craft(job.craft, self.region)

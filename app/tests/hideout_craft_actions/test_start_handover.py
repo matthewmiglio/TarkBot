@@ -94,9 +94,9 @@ def start_craft_checked(runner, job):
 
     # 4. The handover dialog, which is the step that went missing. The runner's own
     # _confirm_handover does this, rather than a copy of it here, so the retry count and the
-    # waits under test are the ones a real craft run uses. It clicks until the dialog is gone,
-    # and False means it was never there or would not go away.
-    time.sleep(craft_bot.HANDOVER_DELAY)
+    # waits under test are the ones a real craft run uses. It polls up to HANDOVER_APPEAR_TIMEOUT
+    # for the dialog then clicks until it is gone, and False means it never appeared or would not
+    # go away.
     if not check(runner._confirm_handover(), 'handover confirmed',
                  f'the dialog was never there, or survived '
                  f'{craft_bot.MAX_HANDOVER_LOOPS + 1} clicks'):

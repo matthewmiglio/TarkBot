@@ -29,7 +29,7 @@ from interact import craft
 
 # Every craft is present and the cycle order is stable.
 assert list(craft.CRAFTS) == ['slickers', 'fleece', 'wires', 'ai2', 'moonshine', 'cordura',
-                              'red_gunpowder', 'water_collector'], list(craft.CRAFTS)
+                              'red_gunpowder', 'water_collector', 'scav_case'], list(craft.CRAFTS)
 
 moonshine = craft.CRAFTS['moonshine']
 assert [i.name for i in moonshine.ingredients] == ['purified_water', 'sugar'], moonshine.ingredients
@@ -54,10 +54,22 @@ assert water.station == 'water collector'
 assert water.module_target == 'hideout/hideout_tabs/water_collector'
 assert craft.WATER_COLLECTOR_NAME == 'water_collector'
 
+scav = craft.CRAFTS['scav_case']
+assert [i.name for i in scav.ingredients] == ['moonshine'], scav.ingredients
+assert scav.station == 'scav case'
+assert scav.module_target == 'hideout/hideout_tabs/scav_case'
+assert scav.station_title == 'hideout/hideout_station_titles/scav_case'
+# The row is anchored on its input, not an output: every scav case variant outputs the same '?'
+# box, so the moonshine bottle is the only thing naming this row. output_target IS that bottle,
+# and it is reused from the booze generator craft (which produces moonshine from water + sugar).
+assert scav.output_target == 'crafting/moonshine' == craft.CRAFTS['moonshine'].output_target
+assert craft.SCAV_CASE_NAME == 'scav_case'
+
 # The user's ceilings and sources reach the runner's defaults. The sling bag is the only one of
 # these bought from traders.
 for name, ceiling in (('purified_water', 140000), ('sugar', 48900), ('sling_bag', 11000),
-                      ('green_gunpowder', 50000), ('matches', 20000), ('water_filter', 70000)):
+                      ('green_gunpowder', 50000), ('matches', 20000), ('water_filter', 70000),
+                      ('moonshine', 230000)):
     assert craft_bot.DEFAULT_MAX[name] == ceiling, name
 assert craft_bot.DEFAULT_SOURCE_BY.get('sling_bag') == 'traders'
 for name in ('purified_water', 'sugar', 'green_gunpowder', 'matches', 'water_filter'):
@@ -66,17 +78,20 @@ for name in ('purified_water', 'sugar', 'green_gunpowder', 'matches', 'water_fil
 for name, profit in (('moonshine', 32111), ('cordura', 27984), ('red_gunpowder', 40250)):
     assert craft_bot.PROFIT_PER_CRAFT[name] == profit, name
 # Deliberately absent: no profit figure was measured for the water collector, so collecting it
-# books nothing rather than a guess. See the note above PROFIT_PER_CRAFT.
+# books nothing rather than a guess. See the note above PROFIT_PER_CRAFT. The scav case is the
+# same: its output is a '?' box of variable loot, so a single figure would be a fiction.
 assert 'water_collector' not in craft_bot.PROFIT_PER_CRAFT
+assert 'scav_case' not in craft_bot.PROFIT_PER_CRAFT
 
 # The GUI's saved-settings shape has every key the crafts tab reads for the four new crafts.
-for stem in ('purified_water', 'sugar', 'sling_bag', 'green_gunpowder', 'matches', 'water_filter'):
+for stem in ('purified_water', 'sugar', 'sling_bag', 'green_gunpowder', 'matches', 'water_filter',
+             'moonshine'):
     assert f'{stem}_max' in settings.DEFAULTS, stem
     assert f'{stem}_source' in settings.DEFAULTS, stem
-for name in ('moonshine', 'cordura', 'red_gunpowder', 'water_collector'):
+for name in ('moonshine', 'cordura', 'red_gunpowder', 'water_collector', 'scav_case'):
     assert f'{name}_enabled' in settings.DEFAULTS, name
 
-# Eight rows have to clear the stat rows beneath them, or the list draws over its own numbers.
+# Nine rows have to clear the stat rows beneath them, or the list draws over its own numbers.
 from gui import app as gui_app  # noqa: E402  (after the sys.path insert above)
 last_row = gui_app.CRAFT_LIST_TOP + (len(gui_app.CRAFTS) - 1) * gui_app.CRAFT_LIST_STEP
 assert last_row < gui_app.CRAFTS_ROW_TOP, (last_row, gui_app.CRAFTS_ROW_TOP)
@@ -86,7 +101,7 @@ icons = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abs
                      'craft_icons')
 for png in ('sling_bag.png', 'green_gunpowder.png', 'matches.png', 'red_gunpowder.png',
             'cordura.png', 'water_filter.png', 'purified_water.png', 'sugar.png',
-            'moonshine.png'):
+            'moonshine.png', 'scav_case_output.png'):
     assert os.path.isfile(os.path.join(icons, png)), png
 
 
@@ -101,12 +116,21 @@ class _Stub:
         self.calls.append('ensure')
 
     def tend_water_collector(self, job):
-        self.calls.append('tend')
+        self.calls.append('tend water')
+
+    def tend_scav_case(self, job):
+        self.calls.append('tend scav')
 
 
 stub = _Stub(craft_bot.CraftJob(water, {'water_filter': 70000}, {'water_filter': 'players'}))
 craft_bot.HideoutCraft.step(stub)
-assert stub.calls == ['ensure', 'tend'], stub.calls
+assert stub.calls == ['ensure', 'tend water'], stub.calls
+
+# The scav case gets the same treatment: its own tend pass, never the ready/producing machine,
+# which would read the row for a tick that this craft's row does not have.
+scav_stub = _Stub(craft_bot.CraftJob(scav, {'moonshine': 230000}, {'moonshine': 'players'}))
+craft_bot.HideoutCraft.step(scav_stub)
+assert scav_stub.calls == ['ensure', 'tend scav'], scav_stub.calls
 
 # A normal craft goes the other way: it gets as far as reading the state, which with no game on
 # screen raises rather than quietly tending the water collector.
@@ -117,5 +141,5 @@ except Exception:  # get_craft_state with no screen; reaching it at all is the a
     pass
 assert other.calls == ['ensure'], other.calls
 
-print('ok, booze/cordura/red gunpowder/water collector wired: defs, defaults, settings keys, '
-      'icons, GUI layout and the water collector branch')
+print('ok, booze/cordura/red gunpowder/water collector/scav case wired: defs, defaults, settings '
+      'keys, icons, GUI layout and the water collector and scav case branches')

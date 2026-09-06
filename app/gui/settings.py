@@ -68,6 +68,10 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # craft row, see craft.buy_water_filter, but configured like any other ingredient.
             'water_filter_max': '70000',
             'water_filter_source': 'Players',
+            # The scav case moonshine variant's one input: a bottle of moonshine. Same
+            # <stem>_max / _source shape; bought off a right click on the row like the others.
+            'moonshine_max': '230000',
+            'moonshine_source': 'Players',
             # Which crafts the runner actually runs, one <name>_enabled per craft. All on by
             # default; the GUI refuses to start with none ticked.
             'slickers_enabled': True,
@@ -78,6 +82,7 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'cordura_enabled': True,
             'red_gunpowder_enabled': True,
             'water_collector_enabled': True,
+            'scav_case_enabled': True,
             # The last mode (tab key) a run was actually started in. When the next run is a
             # different mode, the GUI wipes the logs and frames first so a mode's debug artifacts
             # are only ever its own; same mode twice running just accumulates. See gui/app.App.start.

@@ -68,7 +68,7 @@ RUBLE_GAP = 5  # px between the max field's right edge and the rouble glyph
 # List view: one row per craft. Icons left-pack from a fixed column and the arrow and output sit
 # at fixed columns, so one-input and two-input crafts line up down the list.
 CRAFT_LIST_TOP = 200  # first row's centre, under the tab rule (TAB_ROW + 32 = 170)
-CRAFT_LIST_STEP = 26  # row pitch; eight crafts fit above the stats at this and CRAFT_LIST_ICON
+CRAFT_LIST_STEP = 26  # row pitch; nine crafts fit above the stats at this and CRAFT_LIST_ICON
 CRAFT_CHECK_DX = 8  # enable box centre, right of the panel inset
 CRAFT_GEAR_DX = 32  # settings gear centre
 CRAFT_CTRL_SIZE = 16  # px square for both the enable box and the gear, so the pair match
@@ -89,7 +89,7 @@ CRAFT_CFG_ICON_DX = 320  # the input icon, right of its section title (clear of 
 CRAFT_CFG_FIELD_RIGHT_DX = 300  # dropdown / max-field right edge, from the panel inset
 CRAFT_CFG_FIELD_WIDTH = 120  # dropdown / max-field width
 CRAFT_SAVE_GREEN = '#425139'  # theme.RUNNING blended ~45% onto the plate; canvas has no real alpha
-CRAFTS_ROW_TOP = 412  # first stat row baseline, clear of the eight craft rows
+CRAFTS_ROW_TOP = 430  # first stat row baseline, clear of the nine craft rows
 CRAFTS_ROW_STEP = 26  # tighter than ROW_STEP: the crafts leave less room for the stat rows
 # Each craft is (name, output icon file, inputs); each input is (label, settings key stem, icon
 # file). The max field stores <stem>_max, the source picker <stem>_source, and the enable box
@@ -109,7 +109,8 @@ CRAFTS = (('slickers', 'slickers.png', (('CRACKERS', 'crackers', 'crackers.png')
                                                    'green_gunpowder.png'),
                                                   ('MATCHES', 'matches', 'matches.png'))),
           ('water_collector', 'purified_water.png', (('WATER FILTER', 'water_filter',
-                                                      'water_filter.png'),)))
+                                                      'water_filter.png'),)),
+          ('scav_case', 'scav_case_output.png', (('MOONSHINE', 'moonshine', 'moonshine.png'),)))
 LOG_DROP = 40  # px below the status row for the activity line, in the band under the buttons
 LOG_BOX = 17  # half the height of the box drawn round that line, and its inset from the text
 TIP_DELAY = 400  # ms of hover before a tooltip appears, so passing over one does not flash it
