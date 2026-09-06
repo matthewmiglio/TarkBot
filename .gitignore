@@ -113,3 +113,6 @@ _snipebot_captcha_debugging/
 
 # Local cleanup/audit planning scratch, machine-local, never shipped
 cleanup_*.md
+
+# Craft-mode soak debugging: per-run bug reports and log ledger, machine-local
+_craft_mode_run_debugging/
