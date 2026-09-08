@@ -11,6 +11,13 @@ offer get bought, does a dear one get left, does an unreadable price stop the pa
 being guessed at, does a Stop land part way through a sweep, and does a sweep whose filters
 would not go on refuse to read the board at all.
 
+The captcha rows are the newest and the only ones about a screen the bot cannot act on rather
+than a decision it gets wrong. Both ways one shows up are covered: sitting over the board when
+the filters are set, and thrown by a purchase click, which is how the real one was caught on
+2026-09-07. Either raises snipe.Captcha rather than a bare LookupError, so the cause is named
+instead of listed as one of three possibilities, and nothing between buy() and start() may
+swallow it into a lost race.
+
 Exits non-zero on the first thing that is wrong, because every one of these is a path that ends
 in money leaving the stash.
 """
@@ -20,14 +27,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import snipe_bot  # noqa: E402
+from interact import snipe as real_snipe  # noqa: E402  (for the real Captcha class only)
 from sell_bot import Stopped  # noqa: E402
 
 
 class FakeBoard:
     """Stands in for interact/snipe.py. Every call is recorded, nothing touches a screen."""
 
+    # The real exception, not a stand-in: the point of the captcha rows below is that a caller
+    # can tell a captcha from any other LookupError, and a lookalike class would pass that on
+    # its own while the shipping one had been renamed out from under it.
+    Captcha = real_snipe.Captcha
+
     def __init__(self, price, buttons=1, filters=True, search=True, locked=False,
-                 buy_lands=True, item_filter=False):
+                 buy_lands=True, item_filter=False, captcha=False, captcha_on_buy=False):
         self.price = price  # what read_price answers, or None for unreadable
         self.buttons = buttons  # how many offer rows the board is showing
         self.filters = filters
@@ -35,6 +48,8 @@ class FakeBoard:
         self.locked = locked  # whether the suggestion list shows a padlock
         self.buy_lands = buy_lands  # whether the balance actually moved after the confirm
         self.item_filter = item_filter  # whether a filter-by-item chip survived the filters
+        self.captcha = captcha  # whether the SECURITY CHECK modal is sitting over the board
+        self.captcha_on_buy = captcha_on_buy  # whether buy() hits one, as the real one can
         self.did = []  # the board-level steps, in the order they happened
         self.searched = []
         self.bought = []
@@ -54,7 +69,7 @@ class FakeBoard:
     def find_search_box(self, region=None, cached=None):
         self.looked += 1
         if not self.search:
-            raise LookupError('flea_enter_item_name_input not on screen')
+            raise LookupError('flea/enter_item_name_input not on screen')
         return 'box'
 
     def search_for(self, name, box, region=None):
@@ -67,8 +82,17 @@ class FakeBoard:
     def read_price(self, button):
         return self.price
 
+    def dismiss_error_popup(self, region=None):
+        return False  # the fake board never has the game's Error/0 dialog up
+
+    def captcha_up(self, region=None):
+        self.did.append('captcha check')
+        return self.captcha
+
     def buy(self, button, region=None):
         self.bought.append(button)
+        if self.captcha_on_buy:
+            raise self.Captcha('SECURITY CHECK')
         return self.buy_lands
 
 
@@ -81,6 +105,7 @@ def sniper(board, margin=500, watchlist=None):
     bot.stats = {key: 0 for key, _ in snipe_bot.STAT_LABELS}
     bot._stop = threading.Event()
     bot._search_box = None
+    bot.report = False  # reporting defaults off; check_one reads it and __new__ skips __init__
     snipe_bot.snipe = board  # module level, which is what check_one reaches through
     return bot
 
@@ -140,9 +165,43 @@ if __name__ == '__main__':
         try:
             bot.sweep_once()
             check(False, 'the sweep raised')
-        except LookupError:
+        except LookupError as e:
             check(True, 'the sweep raised')
-        check(board.did == ['filters'], 'it gave up at the filters and never touched the board')
+            check(not isinstance(e, board.Captcha), 'and not as a captcha, since none was up')
+            check('not a captcha' in str(e), 'the message rules the captcha out by name')
+        check(board.did == ['filters', 'captcha check'],
+              'it gave up at the filters, asked why, and never touched the board')
+
+        print('a captcha behind those filters is named rather than guessed at')
+        # The filter pass fails the same way whatever is sitting over the board, so the message
+        # used to list three possible causes and settle none of them. One of the three can now be
+        # looked for, and a caught one raises Captcha rather than a bare LookupError, so the GUI
+        # and anything downstream can tell a solvable screen from a stuck one.
+        board = FakeBoard(price=19_500, filters=False, captcha=True)
+        bot = sniper(board)
+        try:
+            bot.sweep_once()
+            check(False, 'the sweep raised')
+        except board.Captcha as e:
+            check(True, 'the sweep raised Captcha, not a plain LookupError')
+            check('SECURITY CHECK' in str(e), 'and the message says what is on screen')
+        check(board.did == ['filters', 'captcha check'], 'it looked before it named it')
+
+        print('a captcha thrown by a purchase ends the run there and then')
+        # Tarkov throws the modal *at* a purchase click, which is where captcha_bait.py caught
+        # one on 2026-09-07. From inside buy() that is indistinguishable from losing the offer to
+        # another buyer: no dialog, no money gone. Left as a lost race, the sweep would keep
+        # clicking a board behind a modal for the rest of the watchlist and only the next sweep's
+        # filter pass would notice. Nothing in check_one or sweep_once may swallow it.
+        board = FakeBoard(price=19_000, captcha_on_buy=True)
+        bot = sniper(board)
+        try:
+            bot.sweep_once()
+            check(False, 'the sweep raised')
+        except board.Captcha:
+            check(True, 'Captcha escapes check_one and sweep_once uncaught')
+        check(len(board.bought) == 1, 'it stopped on the purchase that hit it')
+        check(bot.stats['bought'] == 0, 'and counted no purchase for it')
 
         print('a purchase whose balance never moved is not counted')
         # The 2026-08-17 bug, in one case. Two items were bought on paper and not in the game,

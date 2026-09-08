@@ -22,13 +22,14 @@ import screen
 from interact import find, ocr, sell
 from narrate import log
 
-SEARCH_BOX_TARGET = 'flea_enter_item_name_input'  # the flea's own item name field
-PURCHASE_TARGET = 'flea_purchase_button'  # one per offer row, so there are many on a full board
+SEARCH_BOX_TARGET = 'flea/enter_item_name_input'  # the flea's own item name field
+PURCHASE_TARGET = 'flea/purchase_button'  # one per offer row, so there are many on a full board
+PURCHASE_DIALOG_TARGET = 'flea/purchase_confirmation'  # the 'Item purchase / are you sure' modal
 # The padlock beside a suggestion the account cannot buy. Looked for over the window's top left
 # quarter, which is where the suggestion list drops (see reference_image.png in
 # _item_search_testing): searching the whole window would find a padlock anywhere in the UI,
 # and searching a box around one row would have to know how many rows there are first.
-LOCKED_TARGET = 'flea_item_locked_icon'
+LOCKED_TARGET = 'flea/item_locked_icon'
 # The chips the flea shows above the board when it is filtered to one item, and the little x
 # that clears a chip. There is an x per chip, so they are found together and the leftmost one is
 # taken: the chips read left to right and an item filter is the first of them.
@@ -36,8 +37,8 @@ LOCKED_TARGET = 'flea_item_locked_icon'
 # the right-click menu's 'Filter by item', and its 'Linked search', which reads as a chip
 # saying 'Linked search' rather than the item's name. Either one answers every search the
 # sniper makes with the same handful of offers.
-APPLIED_TARGETS = ('filter_by_item_filter_applied', 'filter_by_item_linked_applied')
-CLEAR_FILTER_TARGET = 'clear_filter_button'
+APPLIED_TARGETS = ('flea/filter_by_item_filter_applied', 'flea/filter_by_item_linked_applied')
+CLEAR_FILTER_TARGET = 'flea/clear_filter_button'
 
 # Where the first suggestion under the search box lands, in heights of the box itself. The box
 # is the only thing on that part of the screen with a reference crop, and the suggestion list it
@@ -67,7 +68,7 @@ SUGGESTION_DROP = 1.5
 # resolution. It scored 0.980 to 0.998 across 9 dollar rows and never above 0.672 across 147
 # rouble ones (the rouble glyph itself is the 0.672), so the 0.9 default sits in that gap and
 # this wants no entry in find.CONFIDENCES.
-DOLLARS_TARGET = 'dollars_icon'
+DOLLARS_TARGET = 'flea/dollars_icon'
 CURRENCY_PAD = 8     # px at 1080p, added to every edge of the price box
 PRICE_LEFT = -363    # left edge of the price box, from the button's left edge
 PRICE_TOP = -11      # top edge, from the button's top edge
@@ -122,6 +123,7 @@ BUY_CONFIRM_DELAY = 0.1  # seconds between the purchase click and the key that c
 BUY_CONFIRM_KEY = 'y'    # what Tarkov's purchase confirmation is bound to
 BUY_CANCEL_KEY = 'n'     # and what answers it no, for a dialog that will not take the yes
 BUY_SETTLE = 0.6         # seconds for the dialog to close and the balance to redraw
+PURCHASE_DIALOG_TRIES = 5  # times confirm_purchase_dialog re-presses when Tarkov drops the key
 
 # Whether a purchase actually happened, measured off the balance box either side of the click.
 # Both numbers come from real captures and both are needed, because either one alone gets it
@@ -246,7 +248,7 @@ def remove_filter_by_item_filter(region=None):
 def find_search_box(region=None, cached=None):
     """The flea's search box, or `cached` if it cannot be found. Raises if there is neither.
 
-    Every crop under flea_enter_item_name_input/ is of the *placeholder* text, 'enter item
+    Every crop under flea/enter_item_name_input/ is of the *placeholder* text, 'enter item
     name', which the field only shows while it is empty. That makes the box findable exactly
     once per name: after the typing there is nothing there to match until it is cleared again.
 
@@ -387,7 +389,7 @@ def clear_search(box):
     """Empty the search box, given the box as it was found before anything was typed.
 
     Takes the box rather than looking for it again on purpose. By the time this runs the field
-    has a name in it, and every crop under flea_enter_item_name_input/ is of an empty one, so a
+    has a name in it, and every crop under flea/enter_item_name_input/ is of an empty one, so a
     fresh find() here would come back with nothing and leave the field full.
     """
     point = sell.jitter(pyautogui.center(box))
@@ -544,17 +546,72 @@ def purchase_landed(before, after):
     return moved >= BALANCE_MOVED
 
 
+def purchase_dialog_up(region=None):
+    """True if the flea's item-purchase confirmation modal is on screen.
+
+    The dialog itself is bright (it is the modal on top); only the board behind it is dimmed, so
+    its crops match cleanly. This is the direct read that the balance-brightness check in
+    purchase_landed only ever inferred: it says whether the modal is still there, not whether it
+    was answered.
+    """
+    return find.find(PURCHASE_DIALOG_TARGET, region) is not None
+
+
+class Captcha(LookupError):
+    """Tarkov's flea SECURITY CHECK modal is on screen, so nothing under it can be clicked."""
+
+
+def captcha_up(region=None):
+    """True if Tarkov is showing its flea captcha.
+
+    sell.grab_captcha_region is the detector; this is only the live-screen wrapper around it,
+    since that one takes a frame so it can be pointed at a saved screenshot too.
+
+    Measured on 2026-09-07 against a real one, caught by _snipebot_captcha_debugging/
+    captcha_bait.py on its ninth purchase: the two anchors scored 0.883 and 0.933 with the modal
+    up, against 0.549 and 0.432 on the eight captcha-free boards before it. Both thresholds
+    (0.8 and 0.83) sit in that gap with room either side, so this is a clean read rather than a
+    near miss, and the noise floor is flat enough that a single look is enough.
+    """
+    return sell.grab_captcha_region(screen.grab(region)) is not None
+
+
+def confirm_purchase_dialog(answer, region=None):
+    """Press `answer` ('y' or 'n') until the purchase dialog is gone. True once it is, else False.
+
+    Tarkov drops the confirmation key often enough to matter (documented in buy below and seen on
+    2026-08-17 for 'y' and 2026-09-06 for 'n'), and a modal left up blocks everything behind it:
+    the filter window buy_craft_input_item opens next, and the next item's clicks. So the keypress
+    is not taken on trust. Look for the dialog, press if it is there, look again, up to
+    PURCHASE_DIALOG_TRIES presses, then report whether it finally cleared.
+
+    Pressing more than once cannot double anything: with no dialog on screen the key does nothing,
+    which is also why the loop stops the moment the dialog is gone rather than pressing a fixed
+    number of times.
+    """
+    for attempt in range(1, PURCHASE_DIALOG_TRIES + 1):
+        if not purchase_dialog_up(region):
+            return True
+        log(f'purchase dialog still up, answering {answer!r} '
+            f'(try {attempt}/{PURCHASE_DIALOG_TRIES})', 1)
+        pyautogui.press(answer)
+        time.sleep(BUY_SETTLE)
+    return not purchase_dialog_up(region)
+
+
 def buy(button, region):
     """Click a PURCHASE button, confirm it, and check the money actually left. True if it did.
 
-    The confirmation is a keypress rather than a second match: Tarkov's buy dialog answers to
-    the same key wherever it lands on screen, so there is nothing to find and nothing that can
-    fail to be found. What there is, is a dialog that sometimes does not take the key at all,
-    which is why nothing here is taken on trust and the balance is read either side.
+    The confirmation is a keypress rather than a second match to click: Tarkov's buy dialog
+    answers to the same key wherever it lands, so there is nothing to aim at. What there is, is a
+    dialog that sometimes does not take the key at all, so nothing here is taken on trust: the
+    balance is read either side to say whether money left, and the dialog crop is read to say
+    whether the modal is still sat on screen.
 
-    A second yes is sent if the first did not land. It cannot double buy: with no dialog on
-    screen the key does nothing. If that fails too the dialog is answered no, so a confirmation
-    nobody answered cannot sit there swallowing the clicks of every item after this one.
+    confirm_purchase_dialog presses 'y' until the modal is gone, so a dropped yes is retried
+    rather than assumed. If money moved, it was bought. If not, the offer was lost to another
+    buyer (the common flea race) and 'n' clears whatever is left, again confirmed gone rather than
+    fired once: a modal left up on 2026-09-06 blocked the next filter window and ended the run.
     """
     before = grab_player_ruble_image(region)
     point = sell.jitter(pyautogui.center(button))
@@ -562,21 +619,27 @@ def buy(button, region):
         f'{BUY_CONFIRM_DELAY}s', 1)
     pyautogui.click(*point)
     time.sleep(BUY_CONFIRM_DELAY)
-    pyautogui.press(BUY_CONFIRM_KEY)
-    time.sleep(BUY_SETTLE)
 
+    confirm_purchase_dialog(BUY_CONFIRM_KEY, region)
     if purchase_landed(before, grab_player_ruble_image(region)):
         return True
 
-    log(f'that did not take, pressing {BUY_CONFIRM_KEY!r} once more', 1)
-    pyautogui.press(BUY_CONFIRM_KEY)
-    time.sleep(BUY_SETTLE)
-    if purchase_landed(before, grab_player_ruble_image(region)):
-        return True
+    # A captcha is the other reason the balance does not move, and from here it looks exactly
+    # like a lost race: no dialog left up, no money gone. They are told apart by looking, because
+    # they want opposite things. A lost race is ordinary and the sweep carries straight on; a
+    # captcha blocks every click after it, so the rest of the sweep would be a hundred purchase
+    # clicks aimed at a board nobody can see, and only the next sweep's filter pass would notice.
+    # Checked here rather than before the click because the modal is thrown *by* a purchase, and
+    # a look costs a screen grab and two matches that a clean buy should not pay for.
+    if captcha_up(region):
+        raise Captcha('Tarkov threw its flea SECURITY CHECK captcha, so the board cannot be '
+                      'clicked; ending the run rather than sniping a screen behind a modal')
 
-    log(f'still nothing, answering {BUY_CANCEL_KEY!r} so the dialog cannot block the next item', 1)
-    pyautogui.press(BUY_CANCEL_KEY)
-    time.sleep(BUY_SETTLE)
+    log(f'the balance did not move, so that offer was lost; answering {BUY_CANCEL_KEY!r} until '
+        f'the dialog is gone so it cannot block the next item', 1)
+    if not confirm_purchase_dialog(BUY_CANCEL_KEY, region):
+        log('the purchase dialog would not clear even after '
+            f'{PURCHASE_DIALOG_TRIES} tries', 1)
     return False
 
 
@@ -639,5 +702,24 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert not purchase_landed(plain, box(digits_at=8, dim=0.5)), 'dimmed means a live dialog'
     assert not purchase_landed(plain, box(dim=0.5)), 'dimmed and unchanged, still a live dialog'
 
-    print('ok, the suggestion point, the price box, the currency box and the purchase check '
-          'all agree with what was measured')
+    # confirm_purchase_dialog presses until the dialog crop is gone, and gives up at the cap.
+    real_press, real_sleep, real_find = pyautogui.press, time.sleep, find.find
+    pressed = []
+    pyautogui.press = lambda key: pressed.append(key)
+    time.sleep = lambda _s: None
+    try:
+        seen = [True, True, False]  # up for two looks, then gone
+        find.find = lambda *a, **k: object() if seen.pop(0) else None
+        pressed.clear()
+        assert confirm_purchase_dialog('n') is True, 'clears once the dialog is gone'
+        assert pressed == ['n', 'n'], f'pressed until the look came back empty, got {pressed}'
+
+        find.find = lambda *a, **k: object()  # never clears
+        pressed.clear()
+        assert confirm_purchase_dialog('y') is False, 'gives up when it will not clear'
+        assert len(pressed) == PURCHASE_DIALOG_TRIES, f'pressed the cap, got {len(pressed)}'
+    finally:
+        pyautogui.press, time.sleep, find.find = real_press, real_sleep, real_find
+
+    print('ok, the suggestion point, the price box, the currency box, the purchase check and the '
+          'purchase-dialog loop all agree with what was measured')

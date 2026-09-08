@@ -494,7 +494,7 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      are not reading all of, and an offer missed is invisible in a way a wrong
                      price is not.
                      find_search_box is the only thing that looks for
-                     flea_enter_item_name_input, and search_for takes the box it found as an
+                     flea/enter_item_name_input, and search_for takes the box it found as an
                      argument. Everything after the typing is aimed from where the box was then,
                      because once a name is in the field no crop of the empty box matches it any
                      more, and the suggestion list that drops has no reference image at all.
@@ -542,6 +542,21 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      second 'y' is sent if the first did not land, which cannot double buy since
                      the key does nothing with no dialog up, and a 'n' after that, so a
                      confirmation nobody answered cannot swallow the next item's clicks.
+                     captcha_up is the live-screen wrapper round sell.grab_captcha_region, and
+                     Captcha (a LookupError) is what both callers raise, so a stuck screen the bot
+                     could in principle solve is distinguishable from one it cannot. buy() asks
+                     when the balance did not move, because a captcha and a lost race look
+                     identical from there (no dialog, no money gone) and want opposite things: a
+                     lost race is ordinary, a captcha means every click for the rest of the sweep
+                     is aimed at a board behind a modal. snipe_bot.sweep_once asks again when the
+                     filters will not go on, where the message used to list three possible causes
+                     and settle none of them. Measured on 2026-09-07 against a real captcha, and
+                     it is a clean read rather than a near miss: the two anchors scored 0.883 and
+                     0.933 with the modal up against 0.549 and 0.432 on the eight captcha-free
+                     boards before it, with thresholds at 0.8 and 0.83 sitting in that gap. The
+                     modal was baited out by _snipebot_captcha_debugging/captcha_bait.py, which
+                     bought offers in a loop until one fired (it took nine). Detecting is all this
+                     does; solving one is still the debugging module's open problem.
                      purchase_landed tests brightness before pixels, and needs both. Tarkov dims
                      everything behind that dialog, and the dimming alone moves 12.8% of the
                      balance box, against the 13.6% a real purchase moves: a pixel count on its
@@ -728,7 +743,7 @@ interact/reference_images/<target>/*.png
   whole box, as it used to, made it depend on which crop won: a short crop matching gave a
   region too small to hold the checkmark needle, and pyscreeze raises rather than missing.
 - **Finding items** `find_sell_pixels` masks out empty slots using a 256³ boolean cube built
-  from every color in `reference_images/dead_pixels/`, ±5 per channel. Scav case boxes are
+  from every color in `reference_images/flea/dead_pixels/`, ±5 per channel. Scav case boxes are
   expanded 15% and excluded.
 - **Acting** `click_all_button`, `click_add_offer`, `wait_for_offer_slot` (no timeout unless
   asked for one; pass a threading.Event as `stop` to make it interruptible),
@@ -917,6 +932,10 @@ test_snipe_loop.py           The snipe loop's decisions against a stand-in scree
                              is counted nowhere but in "buys that missed", a locked item is
                              skipped before the board is ever read,
                              filters that will not go on raise and end the run rather than skipping the sweep,
+                             a captcha is named as Captcha rather than left as one of three
+                             guessed causes, whether it is sitting over the board at the filter
+                             pass or thrown by a purchase click, and in the second case nothing
+                             between buy() and start() swallows it into a lost race,
                              a shuffled sweep still covers every item exactly once and two sweeps
                              do not walk the same order, and Stop lands mid sweep. No game needed.
 test_snipe_watchlist.py      The watchlist loads and the TRADER dropdown has traders on it,
@@ -1016,7 +1035,7 @@ test_error_report.py         Crash reporting end to end. The machine id depends 
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each
-                             one is, rebuilding interact/reference_images/price_digits/ from
+                             one is, rebuilding interact/reference_images/flea/price_digits/ from
                              scratch. Rerun whenever the corpus grows.
 test_find.py [target]        find() over every reference folder, match box drawn on screen.
 test_more_offers.py          [true|false] is the add offer button lit or greyed out.

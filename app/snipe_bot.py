@@ -294,12 +294,22 @@ class FleaSniper:
         # as long as the user leaves it (2026-08-25: 961 skipped sweeps over 91 minutes). A raise
         # ends the run through gui/app.py's crash handler, which reddens the lamp and files a
         # screenshot, so the stuck screen is named instead of hidden.
+        # A captcha is one of those causes and now the only one that can be named, so it is
+        # looked for rather than listed as a maybe. The message used to offer all three
+        # possibilities and settle none of them, which left every stuck run reading the same
+        # whatever had actually stopped it. Only asked once the filters have already failed: on a
+        # working board this costs nothing, and a captcha is not something a sweep starts under.
         if not snipe.apply_flea_filters(self.region):
+            if snipe.captcha_up(self.region):
+                raise snipe.Captcha(
+                    'the flea filters would not go on because Tarkov is showing its SECURITY '
+                    'CHECK captcha over the board; ending the run rather than sweeping a board '
+                    'nothing can click')
             raise LookupError(
                 'the flea filters would not go on, so the board cannot be trusted. The flea is '
-                'blocked by something the sniper cannot clear (an out-of-money error dialog, a '
-                'captcha, or another modal over the board); ending the run rather than sweeping a '
-                'board that will never read')
+                'blocked by something the sniper cannot clear and it is not a captcha (an '
+                'out-of-money error dialog, or another modal over the board); ending the run '
+                'rather than sweeping a board that will never read')
         # And again after them, not only at Start. The filter window's reset can bring a saved
         # filter set back with it, and a board still filtered to one item answers every search
         # with that item, which reads as 77 checks and is really one.
