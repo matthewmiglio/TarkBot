@@ -1,7 +1,7 @@
 """Drive interact/sell.py's open_scav_case end to end: right-click a random scav case and
 choose 'open' from its context menu.
 
-App layer under test: interact/sell.py, sell.open_scav_case, plus find.find_all('scav_case')
+App layer under test: interact/sell.py, sell.open_scav_case, plus find.find_all('flea/scav_case')
 to enumerate the cases on screen first. Verifies that a real case is found, boxed, and that
 open_scav_case clicks an 'open' menu entry and returns the click point (non-zero exit when
 nothing was opened).
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     hwnd = window.handle()
     region = window.position(hwnd) + window.size(hwnd)
 
-    cases = find.find_all('scav_case', region)
+    cases = find.find_all('flea/scav_case', region)
     print(f'{len(cases)} scav case(s): {[tuple(int(v) for v in c) for c in cases]}')
     if not cases:
         sys.exit('no scav case on screen')

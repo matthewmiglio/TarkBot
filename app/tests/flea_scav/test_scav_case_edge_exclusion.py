@@ -47,8 +47,8 @@ find.scale = lambda: img.height / find.REFERENCE_HEIGHT  # his 1440p screen, not
 failures = []
 
 # The mechanism: searching only the clipped grid loses the case; searching the full region keeps it.
-clipped = find.find_all('scav_case', GRID_AS_LOGGED)
-whole = find.find_all('scav_case', FULL)
+clipped = find.find_all('flea/scav_case', GRID_AS_LOGGED)
+whole = find.find_all('flea/scav_case', FULL)
 print(f'scav_case in the as-logged grid {GRID_AS_LOGGED}: {len(clipped)}')
 print(f'scav_case in the full region:              {len(whole)}')
 if len(clipped) != 0:

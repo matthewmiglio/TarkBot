@@ -2,14 +2,14 @@
 
 App layer: rebuilds the digit templates interact/ocr.py matches against. It calls ocr.glyphs to
 segment each fixture in tests/fixtures/prices/ and writes the results into
-interact/reference_images/price_digits/, the answer-key folder ocr.read_number compares to.
+interact/reference_images/flea/price_digits/, the answer-key folder ocr.read_number compares to.
 
 Run:  python tests/detection/build_digit_templates.py
 
 NO GAME needed: a pure fixture-to-fixture rebuild, reading pngs off disk and writing pngs. The
 fixture filename is the answer key: 43998.png segments into five glyphs left to right, so they
 are a 4, a 3, a 9, a 9 and an 8. Writes them to
-interact/reference_images/price_digits/<digit>__<n>.png, which is what ocr.py matches against.
+interact/reference_images/flea/price_digits/<digit>__<n>.png, which is what ocr.py matches against.
 Rerun it whenever the corpus grows; it rebuilds the folder from scratch.
 """
 import sys
@@ -21,7 +21,7 @@ from PIL import Image  # noqa: E402
 from interact import ocr  # noqa: E402
 
 PRICES = Path(__file__).resolve().parents[1] / 'fixtures' / 'prices'
-DIGITS = Path(__file__).resolve().parents[2] / 'interact' / 'reference_images' / 'price_digits'
+DIGITS = Path(__file__).resolve().parents[2] / 'interact' / 'reference_images' / 'flea' / 'price_digits'
 
 if __name__ == '__main__':
     fixtures = sorted(PRICES.glob('*.png'))

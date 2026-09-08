@@ -16,7 +16,7 @@ from interact import find
 EXE = "EscapeFromTarkov.exe"
 LAUNCHER = "BsgLauncher.exe"  # the game will not boot without it, see start_tarkov
 LAUNCHER_TITLE = "BsgLauncher"
-PLAY_TARGET = "launcher_play"
+PLAY_TARGET = "launcher/play"
 CLOSE_TIMEOUT = 60  # seconds to wait for the window to go before calling the close a failure
 CLOSE_POLL = 0.5  # seconds between window checks while waiting
 LAUNCHER_TIMEOUT = 60  # seconds to wait for the launcher's own window after starting it
@@ -26,8 +26,8 @@ LOBBY_TIMEOUT = 180  # ...then for the lobby, which is both tabs being up (28s m
 START_POLL = 1.0  # seconds between looks while any of those are awaited
 
 HIDEOUT_TAB_TARGET = 'hideout/hideout_tab'  # the two the lobby is recognised by, both required:
-FLEA_TAB_TARGET = 'flea_icon'  # either alone is on screen during the loading that precedes it
-PROFILE_TARGET = 'profile_select'
+FLEA_TAB_TARGET = 'flea/icon'  # either alone is on screen during the loading that precedes it
+PROFILE_TARGET = 'launcher/profile_select'
 BUTTONS_APART = 200  # px between two SELECT centres that are different buttons (real gap is 547)
 DISPLAY_NAME = "Escape from Tarkov"  # the launcher's own uninstall entry, not Arena's
 

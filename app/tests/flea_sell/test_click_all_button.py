@@ -22,7 +22,7 @@ import pyautogui  # noqa: E402
 import window  # noqa: E402
 from interact import find, sell  # noqa: E402
 
-TARGET = 'inventory_all_button'
+TARGET = 'flea/inventory_all_button'
 DELAY = 3  # ponytail: seconds to alt-tab into Tarkov; the click misses if the game isn't focused
 OUT = Path(__file__).parents[1] / 'output'
 

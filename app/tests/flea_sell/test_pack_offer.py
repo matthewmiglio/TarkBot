@@ -33,7 +33,7 @@ def price_with(pack_text_found):
 
     def fake_find(name, region=None, *a, **k):
         looked_in.append((name, region))
-        return BOX if (name == 'flea_item_pack_sale_text' and pack_text_found) else None
+        return BOX if (name == 'flea/item_pack_sale_text' and pack_text_found) else None
 
     real_find, real_read = find.find, ocr.read_region
     find.find = fake_find
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     print(f'pack on the top offer -> {price}, and the OCR was never reached')
 
     name, region = looked_in[0]
-    assert name == 'flea_item_pack_sale_text', f'looked for {name} first, not the pack text'
+    assert name == 'flea/item_pack_sale_text', f'looked for {name} first, not the pack text'
     assert region == sell.grab_first_offer_region(WINDOW), f'looked in {region}, not the top offer'
     print(f'it looked for {name} in {region}, which is the top offer row')
 

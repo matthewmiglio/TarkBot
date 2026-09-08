@@ -22,7 +22,7 @@ import window  # noqa: E402
 from interact import find  # noqa: E402
 
 OUT = Path(__file__).parents[1] / 'output'
-TARGET = 'flea_icon'
+TARGET = 'flea/icon'
 
 if __name__ == '__main__':
     hwnd = window.handle()

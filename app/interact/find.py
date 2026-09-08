@@ -114,8 +114,8 @@ CONFIDENCE = 0.83  # the default for everything not named in CONFIDENCES below. 
 # 241 frames while peaking only 0.7943 on the ones that have it. There is no gap to put a
 # threshold in. The badged crop cut from 1787874207380-pre.png closes it at the source.
 CONFIDENCES = {'window_titles/offer_creation_window_title': 0.8,
-               'scav_case': 0.8, 'filter_by_item': 0.7,
-               'flea_enter_item_name_input': 0.8, 'captcha_window_title': 0.8,
+               'flea/scav_case': 0.8, 'filter_by_item': 0.7,
+               'flea/enter_item_name_input': 0.8, 'captcha/window_title': 0.8,
                'hideout/hideout_station_titles/nutrition_unit': 0.8,
                'crafting/power_cord': 0.65, 'crafting/wires': 0.7,
                'crafting/crackers': 0.8, 'crafting/cordura': 0.8}

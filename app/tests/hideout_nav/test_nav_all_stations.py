@@ -61,7 +61,7 @@ craft.TAB_TIMEOUT = 60.0
 CLICK_SETTLE = 2.0
 FOUND_SETTLE = 0.5  # after the tab first matches, the row is still gliding; let it stop before clicking
 SWEEP_LIMIT = 30  # more than the whole carousel is wide, so it only bites if end-detection fails
-FLEA_TAB_TARGET = 'flea_icon'  # the menu's FLEA MARKET tab, clicked to leave the hideout when we start on it
+FLEA_TAB_TARGET = 'flea/icon'  # the menu's FLEA MARKET tab, clicked to leave the hideout when we start on it
 
 # One full game-screen shot per sub-step. Saved here, numbered in run order, wiped each run.
 OUTPUT = Path(__file__).resolve().parents[1] / 'output' / 'nav_all_stations'

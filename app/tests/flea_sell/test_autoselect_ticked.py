@@ -29,7 +29,7 @@ if __name__ == '__main__':
     hwnd = window.handle()
     region = window.position(hwnd) + window.size(hwnd)
 
-    box = find.find('autoselect_similar', region)
+    box = find.find('flea/autoselect_similar', region)
     crop = sell.autoselect_similar_region(region)  # raises LookupError if the button is gone
     print(f'button {box}')
     print(f'grown by {sell.CHECKMARK_MARGIN:.0%} -> {crop}')

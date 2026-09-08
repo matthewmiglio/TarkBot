@@ -1,7 +1,7 @@
-"""Does find_all('scav_case') read the right number of cases off real 1440p screenshots.
+"""Does find_all('flea/scav_case') read the right number of cases off real 1440p screenshots.
 
-App layer under test: interact/find.py, find.find_all('scav_case'), and the confidence it
-runs at (find.CONFIDENCES['scav_case'] = 0.8). This is the detection the scav-case handling in
+App layer under test: interact/find.py, find.find_all('flea/scav_case'), and the confidence it
+runs at (find.CONFIDENCES['flea/scav_case'] = 0.8). This is the detection the scav-case handling in
 interact/sell.py and the SCAV-CASES-ONLY fallback in sell_bot.py both stand on. Verifies each
 labelled fixture reports the exact number of cases it contains (non-zero exit on a wrong count).
 
@@ -45,7 +45,7 @@ CASES = (
     ('flea-filters-open.png', 0, 'the flea with the filter window open, no stash and no case'),
 )
 
-TARGET = 'scav_case'
+TARGET = 'flea/scav_case'
 failures = []
 
 print(f'{TARGET} at confidence {find.confidence_for(TARGET)}\n')

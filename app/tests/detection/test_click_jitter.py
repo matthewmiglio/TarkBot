@@ -35,9 +35,9 @@ CENTRE = (1000, 500)
 
 # (label, the call, the target folder its box comes from, expected x spread, expected y spread)
 SITES = (
-    ('click_add_offer', lambda: sell.click_add_offer(), 'add_offer', sell.CLICK_JITTER, sell.CLICK_JITTER),
-    ('enter_price', lambda: sell.enter_price(1), 'price_rubles_input', sell.CLICK_JITTER, sell.CLICK_JITTER),
-    ('click_place_offer', lambda: sell.click_place_offer(), 'place_offer_button', sell.CLICK_JITTER, sell.CLICK_JITTER),
+    ('click_add_offer', lambda: sell.click_add_offer(), 'flea/add_offer', sell.CLICK_JITTER, sell.CLICK_JITTER),
+    ('enter_price', lambda: sell.enter_price(1), 'flea/price_rubles_input', sell.CLICK_JITTER, sell.CLICK_JITTER),
+    ('click_place_offer', lambda: sell.click_place_offer(), 'flea/place_offer_button', sell.CLICK_JITTER, sell.CLICK_JITTER),
 )
 # The gear and the OK button are jittered inside apply_flea_filters, which needs a whole filter
 # window faked to reach them. Their offsets are the same call, so jitter()'s own checks cover

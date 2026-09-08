@@ -54,7 +54,7 @@ def report(region, scav):
     except LookupError as e:
         print(f'stash region:   {e}')
     if scav:
-        print(f'scav cases:     {len(find.find_all("scav_case", region))} on screen '
+        print(f'scav cases:     {len(find.find_all("flea/scav_case", region))} on screen '
               f'({bot_module.SCAV_CHANCE:.0%} of runs would use one)')
 
 

@@ -18,7 +18,7 @@ import screen
 from interact import find  # for find.scale(), the one place the screen-vs-1080p ratio lives
 from narrate import log
 
-DIGITS = Path(__file__).parent / 'reference_images' / 'price_digits'
+DIGITS = Path(__file__).parent / 'reference_images' / 'flea' / 'price_digits'
 CANVAS = (16, 24)  # every glyph is padded into this box before comparing, width x height
 MIN_AREA = 8  # lit pixels below this is a speck, not a glyph
 MIN_SCORE = 0.85  # pixel agreement a match needs; below this the glyph is unrecognised
@@ -63,7 +63,7 @@ def _canvas(glyph, size=CANVAS):
 
 
 def templates():
-    """[(digit, mask)] from reference_images/price_digits, loaded once."""
+    """[(digit, mask)] from reference_images/flea/price_digits, loaded once."""
     global _templates
     if _templates is None:
         _templates = [(path.stem.split('__')[0], _canvas(Image.open(path)))
