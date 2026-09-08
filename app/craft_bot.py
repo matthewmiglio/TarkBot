@@ -499,14 +499,18 @@ class HideoutCraft:
         self._park(point)
         self._pause(START_SETTLE)
 
-        again = craft.read_scav_case_95k(self.region)
-        if again and again.state == 'producing':
+        # Judge it off the START button in the row we already found, not a re-read. read_scav_case_95k
+        # re-anchors on the '95000/95000' count text, and a roll that started has *consumed* those
+        # roubles, so the anchor is gone and a genuine start read back as 'did not start'. START
+        # disappearing from the stored band is the roll producing; START still there is the handover
+        # that could not complete, i.e. the stash short of roubles (the user's to top up).
+        if find.find_all(craft.START_TARGET, read.band):
+            log('the 95k scav case roll did not start, so the stash is short of roubles; '
+                'moving on', 1)
+        else:
             log('the 95k scav case roll started')
             self.stats['started:scav_case'] += 1
             self.stats['total_started'] += 1
-        else:
-            log('the 95k scav case roll did not start, so the stash is short of roubles; '
-                'moving on', 1)
 
     def step(self):
         """One pass of the state machine over the craft currently in front of us.
