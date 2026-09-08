@@ -16,14 +16,14 @@ import screen
 from interact import find, ocr
 from narrate import log
 
-ALL_BUTTON_TARGET = 'inventory_all_button'  # the ALL tab over the inventory grid
-AUTOSELECT_TARGET = 'autoselect_similar'  # the autoselect similar checkbox, on the offer window
+ALL_BUTTON_TARGET = 'flea/inventory_all_button'  # the ALL tab over the inventory grid
+AUTOSELECT_TARGET = 'flea/autoselect_similar'  # the autoselect similar checkbox, on the offer window
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
-EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'auto_sort')
+EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'flea/auto_sort')
 SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their pixels are dropped
 # Every color an empty slot is known to take, read off screenshots showing nothing but empty
 # slots. Drop another png in that folder to teach it more. ponytail: the images are the list.
-DEAD_REFERENCE = 'dead_pixels'  # a folder under reference_images/, any number of pngs
+DEAD_REFERENCE = 'flea/dead_pixels'  # a folder under reference_images/, any number of pngs
 DEAD_TOL = 5  # per-channel slack; this close to a known slot color still counts as empty
 MENU_DELAY = 0.3  # seconds for the right-click menu to draw before we go looking for it
 WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab its title bar
@@ -47,15 +47,15 @@ SELECT_ATTEMPTS = 10
 # when the panel is done, so this is measured slack, not a signal.
 SELECT_POLL_DELAY = 0.5  # after a click, before reading what it did
 SELECT_WINDOW_DELAY = WINDOW_DELAY / 2  # after filter by item, for the flea panel to catch up
-ADD_OFFER_TARGET = 'add_offer'  # the button that opens the offer creation window
+ADD_OFFER_TARGET = 'flea/add_offer'  # the button that opens the offer creation window
 OFFER_TARGET = 'window_titles/offer_creation_window_title'  # that window's title bar, for dragging and for
 # spotting one left open. Named to match scav_case_window_title and flea_filters/window_title:
 # the three things recovery escapes are all matched on their title bars, for the same reason.
 SCAV_WINDOW_TARGET = 'window_titles/scav_case_window_title'  # reference images for the opened scav case window
 CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we want the leftmost
-NO_SELECTION_TARGET = 'no_items_selected'  # the placeholder shown while nothing is picked
-SELECTION_TARGET = 'item_is_selected'  # the panel shown once something is, the other half of the read
-FLEA_ICON_TARGET = 'flea_icon'  # the taskbar entry, one folder holding both its states
+NO_SELECTION_TARGET = 'flea/no_items_selected'  # the placeholder shown while nothing is picked
+SELECTION_TARGET = 'flea/item_is_selected'  # the panel shown once something is, the other half of the read
+FLEA_ICON_TARGET = 'flea/icon'  # the taskbar entry, one folder holding both its states
 # The one pause recovery uses, everywhere: after the click that focuses a window, after the
 # escape that closes it, and between rounds of the loop in sell_bot._recover. One number rather
 # than a long one for closing and a short one for looking, because the two were never actually
@@ -151,12 +151,12 @@ TOP_PAD = 30  # px below the autoselect similar button, and so the grid's top ed
 BOTTOM_PAD = -10
 UNDERCUT_FRACTION = 0.90  # of the suggested price
 UNDERCUT_FLAT = 2000  # roubles off the suggested price
-PRICE_INPUT_TARGET = 'price_rubles_input'
-PLACE_OFFER_TARGET = 'place_offer_button'
+PRICE_INPUT_TARGET = 'flea/price_rubles_input'
+PLACE_OFFER_TARGET = 'flea/place_offer_button'
 # The "are you sure, this is below market value" confirmation. It only appears for some items,
 # and while it is up the offer has NOT been placed, so a pass that ignores it counts a sale it
 # never made and then clicks the next pass into a modal that is still sat there.
-CHEAP_OFFER_POPUP_TARGET = 'cheap_offer_popup'
+CHEAP_OFFER_POPUP_TARGET = 'flea/cheap_offer_popup'
 CHEAP_OFFER_POPUP_DELAY = 1.0  # seconds after place offer for the popup to draw, if it is coming
 # The game's plain "Error / 0" dialog. Nothing about it is ours: it lands over the flea on its
 # own schedule, and while it is up every read underneath it fails, which is what the mode's
@@ -180,27 +180,27 @@ MISSING_BUTTON_LIMIT = 5  # consecutive 'add offer button not on screen' reads b
 # ~10s, long enough to ride out the board redraw after a reopen and far short of the old silent
 # forever: a 1440p user sat in this wait for four minutes with four slots open (my offers 3/7)
 # because a marginal match kept reading 'not on screen' and the loop treated that as a full board.
-# Everything belonging to the flea's filter window shares a flea_filters_ prefix, so the
+# Everything belonging to the flea's filter window lives under flea/filters/, so the
 # reference_images listing groups them instead of scattering them through the alphabet.
 # filter_by_item is deliberately not one of these: that is the inventory right-click menu.
-FILTER_BUTTON_TARGET = 'flea_filters/button'  # opens the flea's filter window
+FILTER_BUTTON_TARGET = 'flea/filters/button'  # opens the flea's filter window
 FILTERS_WINDOW_TARGET = 'window_titles/window_title'  # that window's title bar, for dragging it
 # Clears every filter on that window, and closes it doing so. Only the buyer's pass uses it:
 # see apply_flea_filters for why a buyer resets and a seller does not.
-RESET_TARGET = 'flea_filters/reset_button'
-CURRENCY_ANY_TARGET = 'flea_filters/currency_dropdown_any'  # currency, while it still says any
-CURRENCY_RUBLES_OPTION = 'flea_filters/currency_dropdown_select_rubles'  # roubles, in the opened dropdown
-CURRENCY_RUB_TARGET = 'flea_filters/currency_dropdown_rub'  # the dropdown once it reads roubles
-OFFERS_FROM_ANY_TARGET = 'flea_filters/offers_from_any'  # offers-from, while it still says any
-OFFERS_FROM_PLAYERS_OPTION = 'flea_filters/offers_from_select_players'  # players, in the opened dropdown
-OFFERS_FROM_PLAYERS_TARGET = 'flea_filters/offers_from_players'  # the dropdown once it reads players
-OFFERS_FROM_TRADERS_OPTION = 'flea_filters/offers_from_select_traders'  # traders, in the opened dropdown
-OFFERS_FROM_TRADERS_TARGET = 'flea_filters/offers_from_traders'  # the dropdown once it reads traders
+RESET_TARGET = 'flea/filters/reset_button'
+CURRENCY_ANY_TARGET = 'flea/filters/currency_dropdown_any'  # currency, while it still says any
+CURRENCY_RUBLES_OPTION = 'flea/filters/currency_dropdown_select_rubles'  # roubles, in the opened dropdown
+CURRENCY_RUB_TARGET = 'flea/filters/currency_dropdown_rub'  # the dropdown once it reads roubles
+OFFERS_FROM_ANY_TARGET = 'flea/filters/offers_from_any'  # offers-from, while it still says any
+OFFERS_FROM_PLAYERS_OPTION = 'flea/filters/offers_from_select_players'  # players, in the opened dropdown
+OFFERS_FROM_PLAYERS_TARGET = 'flea/filters/offers_from_players'  # the dropdown once it reads players
+OFFERS_FROM_TRADERS_OPTION = 'flea/filters/offers_from_select_traders'  # traders, in the opened dropdown
+OFFERS_FROM_TRADERS_TARGET = 'flea/filters/offers_from_traders'  # the dropdown once it reads traders
 # The offers-from choice, keyed by the source name callers pass: (option in the open list, settled
 # field once picked). 'players' is the default everywhere but crafts mode, which buys from either.
 OFFERS_FROM = {'players': (OFFERS_FROM_PLAYERS_OPTION, OFFERS_FROM_PLAYERS_TARGET),
                'traders': (OFFERS_FROM_TRADERS_OPTION, OFFERS_FROM_TRADERS_TARGET)}
-FILTERS_OK_TARGET = 'flea_filters/OK_button'  # applies the filters and closes the window
+FILTERS_OK_TARGET = 'flea/filters/OK_button'  # applies the filters and closes the window
 CONDITION_VALUE = '100'  # only sell pristine items, so the board we undercut is pristine ones
 # The number box carries no border of its own worth matching and its contents are the thing
 # being set, so it is aimed at by crossing two labels that never change instead: the row's Y
@@ -209,8 +209,8 @@ CONDITION_VALUE = '100'  # only sell pristine items, so the board we undercut is
 # the 80/100 crops cannot do. Keep both crop folders internally consistent in extent: find()
 # cannot say which png matched, so a crop with more padding than its neighbours moves the
 # centre this aims at.
-CONDITION_LABEL_TARGET = 'flea_filters/condition_from_label'  # gives the row: its middle Y
-EXPIRING_TEXT_TARGET = 'flea_filters/items_expiring_text'  # gives the column: its middle X
+CONDITION_LABEL_TARGET = 'flea/filters/condition_from_label'  # gives the row: its middle Y
+EXPIRING_TEXT_TARGET = 'flea/filters/items_expiring_text'  # gives the column: its middle X
 DROPDOWN_DELAY = 0.3  # seconds for the currency dropdown to unroll
 OFFERS_FROM_DELAY = 0.33  # and for the offers-from one
 # The filter pass's own waits, a tenth of the three general ones above (0.3, 0.3, 0.33) that it
@@ -245,20 +245,20 @@ FILTER_ATTEMPTS = 3
 FILTER_REGION_PAD = 30      # slack around the title's top-left, for a drag that lands a little off
 FILTER_REGION_WIDTH = 560   # past the offers-from list, the widest thing that opens under a row
 FILTER_REGION_HEIGHT = 760  # past a dropdown list opened at the bottom row
-CHECKMARK_TARGET = 'checkmark'  # the tick beside the autoselect similar button
+CHECKMARK_TARGET = 'flea/checkmark'  # the tick beside the autoselect similar button
 # The right half of that button's box grows this much per side before we look inside it. Half,
 # because the checkbox is at the right hand end of every reference crop of the button, and a
 # region that starts at the left end has the whole label in it for a checkmark to go wrong in.
 CHECKMARK_MARGIN = 0.15
-MY_OFFERS_TAB_TARGET = 'my_offers_tab_button'  # the flea tab listing what we have up for sale
+MY_OFFERS_TAB_TARGET = 'flea/my_offers_tab_button'  # the flea tab listing what we have up for sale
 # The browse tab, split into one folder per state. The tab draws differently depending on
 # whether it is the active one, which is the only thing on screen that says which flea page we
 # are on, so the two crops are a state read and not just something to click. Clicking it is
 # clicking the unselected one: if the selected crop is what matched, we are already there.
-BROWSE_SELECTED_TARGET = 'browse_button_selected'  # the browse tab while it is the active tab
-BROWSE_UNSELECTED_TARGET = 'browse_button_unselected'  # and the same tab while it is not
+BROWSE_SELECTED_TARGET = 'flea/browse_button_selected'  # the browse tab while it is the active tab
+BROWSE_UNSELECTED_TARGET = 'flea/browse_button_unselected'  # and the same tab while it is not
 TAB_ATTEMPTS = 3  # clicks at a tab before giving up, same reason the dropdowns get more than one
-REMOVE_BUTTON_TARGET = 'remove_button'  # cancels one offer; several can be on screen at once
+REMOVE_BUTTON_TARGET = 'flea/remove_button'  # cancels one offer; several can be on screen at once
 # The column of our own offers, walked top to bottom to expand each row. Fractions of the
 # window rather than pixels, measured at 1920x1080: x 250, y 153 down to 380, every 20px.
 STALE_X_FRACTION = 250 / 1920
@@ -283,7 +283,7 @@ SCOPED_FRACTIONS = {
     # inventory-grid frame (EDGES), offer creation window at its bottom-left home corner:
     ALL_BUTTON_TARGET: (0.0000, 0.1590, 0.0355, 0.2562),
     AUTOSELECT_TARGET: (0.2141, 0.1250, 0.3699, 0.2243),
-    'auto_sort': (0.0000, 0.9278, 0.0363, 1.0000),
+    'flea/auto_sort': (0.0000, 0.9278, 0.0363, 1.0000),
     # flea board header (browse page):
     ADD_OFFER_TARGET: (0.6020, 0.0208, 0.7160, 0.1201),
     FLEA_ICON_TARGET: (0.5281, 0.9347, 0.6465, 1.0000),
@@ -293,8 +293,13 @@ SCOPED_FRACTIONS = {
     SELECTION_TARGET: (0.4512, 0.3979, 0.6469, 0.6875),
     PLACE_OFFER_TARGET: (0.4191, 0.8861, 0.5578, 0.9993),
     PRICE_INPUT_TARGET: (0.3453, 0.4604, 0.6047, 0.5576),
-    # flea filter window, dragged to the top-left corner:
-    FILTERS_WINDOW_TARGET: (0.0000, 0.0000, 0.1453, 0.0604),
+    # flea filter window, dragged to the top-left corner. Width is 0.2000 not the ~0.1453 that
+    # frames a corner-landed title, because the widest window_title crop grows to 489px at 1440p
+    # and a box narrower than the needle makes find hand pyscreeze a needle bigger than the
+    # haystack, which raises ValueError rather than missing (the 2026-09-07 crash, log 074520,
+    # when an under-shot drag left the title outside the box so the small crops missed and find
+    # fell through to the wide one). The __main__ check below asserts the box clears every crop.
+    FILTERS_WINDOW_TARGET: (0.0000, 0.0000, 0.2000, 0.0604),
 }
 
 
@@ -407,8 +412,8 @@ def grab_first_item_price_region(region=None):
     return grab_price_region(region, FIRST_ITEM_PRICE_FRACTIONS)
 
 
-CAPTCHA_TITLE_TARGET = 'captcha_window_title'      # the 'SECURITY CHECK' bar at the top of the modal
-CAPTCHA_CONFIRM_TARGET = 'captcha_confirm_button'  # its 'CONFIRM' button at the bottom
+CAPTCHA_TITLE_TARGET = 'captcha/window_title'      # the 'SECURITY CHECK' bar at the top of the modal
+CAPTCHA_CONFIRM_TARGET = 'captcha/confirm_button'  # its 'CONFIRM' button at the bottom
 
 
 def grab_captcha_region(frame):
@@ -442,7 +447,7 @@ def first_offer_is_a_pack(region=None):
     whole pack. Listing one item at it is not an undercut, it is a giveaway, and nothing later
     in the pass can tell the two apart: the number in the box is perfectly readable either way.
     """
-    return find.find('flea_item_pack_sale_text', grab_first_offer_region(region)) is not None
+    return find.find('flea/item_pack_sale_text', grab_first_offer_region(region)) is not None
 
 
 def get_price(region=None):
@@ -1061,7 +1066,7 @@ def _expand(box, margin=SCAV_MARGIN):
 
 def scav_case_regions(region=None, margin=SCAV_MARGIN):
     """(left, top, right, bottom) of every scav case on screen, each grown by margin. [] if none."""
-    return [_expand(box, margin) for box in find.find_all('scav_case', region)]
+    return [_expand(box, margin) for box in find.find_all('flea/scav_case', region)]
 
 
 def _pack(rgb):
@@ -1861,7 +1866,7 @@ def open_scav_case(region=None):
     infer_scav_case_region then had nothing to measure from, and the pass fell back to the
     stash reporting a case that was on screen the whole time, just late.
     """
-    cases = find.find_all('scav_case', region)
+    cases = find.find_all('flea/scav_case', region)
     log(f'scav cases on screen: {len(cases)}', 1)
     if not cases:
         return None
@@ -1871,7 +1876,7 @@ def open_scav_case(region=None):
     time.sleep(MENU_DELAY)
     # The menu drops at the cursor, so scope to the box around the click, full-window fallback on
     # a miss, the same way select_item_from_inventory scopes its filter_by_item search.
-    box = find.find('open_scav_case', menu_region(case, region)) or find.find('open_scav_case', region)
+    box = find.find('flea/open_scav_case', menu_region(case, region)) or find.find('flea/open_scav_case', region)
     if not box:
         log('no open entry in the right click menu', 1)
         return None
@@ -2010,6 +2015,23 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
 
     assert grab_price_region((0, 0, 1920, 1080)) == (1339, 147, 159, 39)  # where it was measured
     assert grab_price_region((0, 0, 3840, 2160)) == (2678, 294, 318, 78)  # scales with the window
+
+    # Every scoped box must be at least as large as each reference crop it searches, grown to the
+    # screen. A box smaller than the needle makes find hand pyscreeze a needle bigger than the
+    # haystack, which raises ValueError instead of missing, so the _scoped full-window fallback
+    # never runs and the pass dies. Checked at 2560x1440 (the 16:9 screen this runs on), where the
+    # crops are largest relative to the box. FILTERS_WINDOW_TARGET is the one this bit; the loop
+    # covers every scoped target so a new crop or a retuned fraction cannot reopen the hole quietly.
+    from PIL import Image as _Image
+    _grow = 1440 / find.REFERENCE_HEIGHT
+    for _target, _fracs in SCOPED_FRACTIONS.items():
+        _box = grab_price_region((0, 0, 2560, 1440), _fracs)
+        for _p in find.images(_target):
+            with _Image.open(_p) as _im:
+                _gw, _gh = round(_im.width * _grow), round(_im.height * _grow)
+            assert _box[2] >= _gw and _box[3] >= _gh, (
+                f'scoped box for {_target} is {_box[2]}x{_box[3]} but crop {_p.name} grows to '
+                f'{_gw}x{_gh}; widen SCOPED_FRACTIONS[{_target!r}] or it raises ValueError')
 
     rows = stale_offer_rows((0, 0, 1920, 1080))  # where the column was measured
     assert rows[0] == (250, 153) and rows[-1] == (250, 373), rows[:1] + rows[-1:]
