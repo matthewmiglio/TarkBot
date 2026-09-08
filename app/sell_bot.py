@@ -223,10 +223,15 @@ class FleaSeller:
         the same as putting the screen back, and Tarkov closes the offer window when it raises
         one. Retrying against a screen the window has left costs a second failure and then ends
         the run over something a fresh pass would walk straight past, so the answer there is
-        Retry and not RuntimeError. The run of 2026-08-31 ended
-        here: a Morphine injector the flea had no offers for, the game's dialog over a board
-        reading 'No offers have been found in the Morphine injector category', and the offer
-        window gone with it. 18 items had already sold that run.
+        Retry and not RuntimeError. That question is asked whether or not this wrapper was the
+        one to clear the dialog: a step's own handler often clears it first (select_item's inner
+        dismiss does), so dismiss_error_popup here comes back false while the window is gone all
+        the same. That false used to fall straight through to RuntimeError, which was the
+        flea-sell soak's dominant fatal, 19 sightings, 'cannot infer inventory region' after a
+        right-click's Error dialog closed the offer window. The run of 2026-08-31 ended here too:
+        a Morphine injector the flea had no offers for, the game's dialog over a board reading
+        'No offers have been found in the Morphine injector category', and the offer window gone
+        with it. 18 items had already sold that run.
         """
         try:
             result = step()
@@ -235,11 +240,20 @@ class FleaSeller:
             why = failed
         except LookupError as e:
             why = f'{failed}: {e}'
-        if not sell.dismiss_error_popup(self.region):
-            raise RuntimeError(why)
+        had_dialog = sell.dismiss_error_popup(self.region)
+        # The window check runs whether or not this wrapper was the one to clear the dialog.
+        # Tarkov's Error/0 closes the offer creation window when it raises it, and a step's own
+        # handler often clears that dialog before this wrapper ever looks: select_item's inner
+        # dismiss does exactly that, which is the flea-sell soak's 19-times fatal. So a False
+        # here does not mean the screen is clean, it can mean the dialog is already gone and the
+        # window with it. Either way, a step that needs that window and finds it gone is stranded
+        # on the browse board with nothing to retry against here; a fresh pass reopens it via ADD
+        # OFFER, so Retry rather than the bare RuntimeError the region inference would raise.
         if needs_offer_window and not find.find(sell.OFFER_TARGET, self.region):
-            raise Retry(f'{why}, and clearing the error dialog left no offer creation window '
-                        f'on screen, so there is nothing here to retry against')
+            raise Retry(f'{why}, and the offer creation window is gone, so there is nothing '
+                        f'here to retry against')
+        if not had_dialog:
+            raise RuntimeError(why)  # a clean screen, window up: the real unreadable-screen case
         log(f'{why}: trying once more now the error dialog is gone', 1)
         try:
             result = step()

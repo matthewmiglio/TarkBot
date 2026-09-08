@@ -199,9 +199,29 @@ print('a dialog that took the offer creation window with it')
 outcome, calls = wrapper_with([anchors], dialog=True, needs_offer_window=True,
                               offer_window=False)
 assert outcome.startswith('Retry: '), f'ended the run instead of starting a fresh pass: {outcome}'
-assert 'no offer creation window' in outcome, outcome
+assert 'offer creation window is gone' in outcome, outcome
 assert calls == {'step': 1, 'dismiss': 1, 'looked': 1},     f'retried the step against a screen with no window on it: {calls}'
 print(f'  ok  window gone       Retry, and the step is not run a second time  {calls}')
+
+# The flea-sell soak's dominant fatal, 19 sightings. select_item's inner handler clears the
+# Error/0 dialog before this wrapper ever looks, so dismiss_error_popup here comes back false
+# even though the window it also closed is gone. This used to fall straight to RuntimeError;
+# now the window check runs regardless of who cleared the dialog, so it recovers with a Retry.
+outcome, calls = wrapper_with([anchors], dialog=False, needs_offer_window=True,
+                              offer_window=False)
+assert outcome.startswith('Retry: '), f'the soak\'s 19-times fatal still ends the run: {outcome}'
+assert 'offer creation window is gone' in outcome, outcome
+assert calls == {'step': 1, 'dismiss': 1, 'looked': 1}, calls
+print(f'  ok  dialog pre-cleared Retry even though we found no dialog to clear  {calls}')
+
+# But window up and the step still failing on an otherwise clean screen stays fatal: that is a
+# genuinely unreadable screen, not a window the dialog took away, and must not be papered over.
+outcome, calls = wrapper_with([anchors], dialog=False, needs_offer_window=True,
+                              offer_window=True)
+assert outcome == ('could not do the thing: cannot infer inventory region, '
+                   'not on screen: a, b, c'), outcome
+assert calls == {'step': 1, 'dismiss': 1, 'looked': 1}, calls
+print(f'  ok  window up, clean   still the fatal it always was  {calls}')
 
 # The window still up is the ordinary case, and it must behave exactly as it always did.
 outcome, calls = wrapper_with([anchors, 'picked'], dialog=True, needs_offer_window=True)
