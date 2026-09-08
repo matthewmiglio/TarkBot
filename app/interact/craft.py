@@ -203,6 +203,12 @@ MATCHES_TARGET = 'crafting/matches'
 WATER_FILTER_TARGET = 'crafting/water_filter'  # a filter itself, on the panel or in the dropdown
 WATER_FILTER_DROPDOWN_TARGET = 'crafting/water_filter_dropdown'  # opens the list of filters to fit
 MISSING_WATER_FILTER_TARGET = 'crafting/missing_water_filter'  # the empty slot: no filter is in
+# The single input slot, as (left, top, width, height) window fractions, so water_filter_state
+# reads only the slot square and not the dropdown control right beside it. The fitted-filter crop
+# false-matched that dropdown chrome at 0.853 on 2026-09-05, which read as both states at once and
+# raised Blind. Measured on a 2560x1440 panel: the slot square is (1718, 808) 102x141, tuned to
+# stop short of the dropdown strip (see the slot tuner). The dropdown-count read stays full-panel.
+WATER_FILTER_SLOT_FRACTIONS = (0.6710, 0.5610, 0.0400, 0.0980)
 WATER_COLLECTOR_TARGET = 'hideout/hideout_tabs/water_collector'
 # The panel header's crop folder is named water_filter rather than water_collector, because that
 # is the folder the crop was added to. The station is the water collector.
@@ -1471,9 +1477,15 @@ def water_filter_state(region=None):
 
     Neither crop matching is Blind, and so is both matching: one of the two sets would then be
     loose enough to match the other state, and nothing here can say which.
+
+    Both reads are scoped to the slot square (WATER_FILTER_SLOT_FRACTIONS), not the whole panel:
+    the fitted-filter crop false-matched the dropdown control beside the slot at 0.853, so a fitted
+    filter and the empty X both matched and it raised Blind for the wrong reason. The dropdown-count
+    read in open_filter_dropdown keeps the full panel, since the list can be anywhere on it.
     """
-    fitted = find.find(WATER_FILTER_TARGET, region)
-    empty = find.find(MISSING_WATER_FILTER_TARGET, region)
+    slot = _region_from_fractions(WATER_FILTER_SLOT_FRACTIONS, region)
+    fitted = find.find(WATER_FILTER_TARGET, slot)
+    empty = find.find(MISSING_WATER_FILTER_TARGET, slot)
     if fitted and empty:
         raise Blind('the water collector slot matched both a fitted filter and the empty-slot '
                     'icon, so one of those two crop sets is too loose to tell them apart')
@@ -1701,3 +1713,9 @@ if __name__ == '__main__':
     visible_station_positions = lambda region=None: []             # nothing placeable on screen
     assert _preferred_first_dx(med, 100) is None, 'no known icons on screen: no hint'
     print('ok: _preferred_first_dx points at the target side and abstains when blind')
+
+    # The water filter slot box lands where it was measured, so a fat-fingered fraction is caught
+    # here rather than as the read scoping onto the dropdown again.
+    assert _region_from_fractions(WATER_FILTER_SLOT_FRACTIONS, (0, 0, 2560, 1440)) \
+        == (1718, 808, 102, 141), 'water filter slot box moved off its measured square'
+    print('ok: the water filter slot box is where it was measured')
