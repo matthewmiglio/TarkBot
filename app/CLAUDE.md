@@ -1069,7 +1069,7 @@ find_tarkov_window.py        Dead: a standalone spike that predates window.py.
   cannot meet it gets its own number in `find.CONFIDENCES`, which every call goes through, so a
   looser threshold does not have to be threaded down to one call site. Only add one with both
   readings behind it, the score with the thing on screen and the score with it gone, so the
-  number can be seen to sit in the gap. The default is 0.83 (was 0.9), and the ten entries today all
+  number can be seen to sit in the gap. The default is 0.83 (was 0.9), and the eleven entries today all
   go LOWER still. 0.9 kept losing thin grown text on a hair: the `+ ADD OFFER` button matched 0.891
   to 0.920 on a 1440p board and the flat 0.9 lost it on whichever poll dipped, which read as a full
   board and stalled the run, so the default dropped to 0.83. That clears every real match while

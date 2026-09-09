@@ -37,6 +37,20 @@ CONFIDENCE = 0.83  # the default for everything not named in CONFIDENCES below. 
 # offer_creation_window_title scores 0.88 with the window open and 0.58 with it shut, so 0.8 sits
 # in a gap rather than close to a false positive.
 # Put a number here only with both readings behind it, present and absent, off a real screen.
+# flea/add_offer is back with its own number, and for a different reason than the one that took it
+# away. The button is outline text with no opaque plate, so its score tracks whatever the board
+# draws behind it rather than the button's own state. Measured on the run of 2026-09-09, four
+# seconds apart on the same open flea: 0.931 over the darker backdrop and 0.762 to 0.774 over the
+# lighter one, with the flea genuinely shut reading 0.425 to 0.436. The 0.83 default sits inside
+# that present band, so the same greyed button read present eleven times and then absent, and
+# wait_for_offer_slot ended the run calling a full 7/7 board a flea that had moved. 0.75 clears the
+# light backdrop, and a 250-frame sweep says nothing false comes with it: the scores are cleanly
+# bimodal, 28 frames with the flea shut reading 0.425 to 0.617 and 222 with it open reading 0.87 to
+# 0.933, with the whole span from 0.62 to 0.87 empty. 0.75 sits in the middle of that gap.
+# See _sell_mode_run_debugging/20260909-102516_sell_add-offer-button-not-on-screen-for-
+# 5-reads-running.md. Note the margin above the light-backdrop reading is thin (0.012), and that
+# case is not in the 250: those frames had already rotated out. A crop of the button over a light
+# backdrop is the other half of this fix, and is what would widen that side properly.
 # scav_case is the same story a third time, and the clearest reading of it: on a 1440p player's
 # frames the case sits dimmed and cross-hatched in the offer creation window and scores 0.852,
 # against 0.752 across 24 frames of the same session with no stash on screen and 0.641 on the
@@ -114,6 +128,7 @@ CONFIDENCE = 0.83  # the default for everything not named in CONFIDENCES below. 
 # 241 frames while peaking only 0.7943 on the ones that have it. There is no gap to put a
 # threshold in. The badged crop cut from 1787874207380-pre.png closes it at the source.
 CONFIDENCES = {'window_titles/offer_creation_window_title': 0.8,
+               'flea/add_offer': 0.75,
                'flea/scav_case': 0.8, 'filter_by_item': 0.7,
                'flea/enter_item_name_input': 0.8, 'captcha/window_title': 0.8,
                'hideout/hideout_station_titles/nutrition_unit': 0.8,
