@@ -117,3 +117,8 @@ cleanup_*.md
 # Pressure-test soak debugging: per-run bug reports and log ledger, machine-local, one folder per
 # mode (_craft_mode_run_debugging/, _sell_mode_run_debugging/, ...)
 _*_mode_run_debugging/
+
+# Item name recognition bench: 306 captured name strips off a real stash, the transcribed answer
+# key, and the glyph references built from them. Same rule as the benches above, the strips are
+# crops of a live inventory. build then harvest rebuilds the references from any names/ folder.
+_item_name_recognition/
