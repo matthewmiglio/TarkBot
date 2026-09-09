@@ -94,6 +94,10 @@ FIRST_OFFER_FRACTIONS = (1109 / 2560, 190 / 1440, 1774 / 2560, 284 / 1440)
 # is framed around the offer's title for first_offer_is_a_pack and moving either edge of it to
 # suit a price read would break the pack check that has to keep working.
 FIRST_ITEM_PRICE_FRACTIONS = (1778 / 2560, 191 / 1440, 2004 / 2560, 284 / 1440)
+# The item name on the offer being created, the strip of text beside the item's icon in the
+# offer creation window. Same (left, top, right, bottom) fractions and the same scaling,
+# measured on a 2560x1440 window: left 1199, top 196, right 1770, bottom 236.
+OFFER_ITEM_NAME_FRACTIONS = (1199 / 2560, 196 / 1440, 1770 / 2560, 236 / 1440)
 SCAV_TOP_PAD = 5  # px below the scav window title before its grid starts
 SCAV_HEIGHT_FRACTION = 0.81  # of the monitor height
 OFFER_CORNER = 'bottom left'  # where orientate_offer_creation parks the window by default
@@ -410,6 +414,17 @@ def grab_first_item_price_region(region=None):
     the tuning loop for the four numbers above.
     """
     return grab_price_region(region, FIRST_ITEM_PRICE_FRACTIONS)
+
+
+def grab_flea_offer_item_name_region(region=None):
+    """A PIL image of the offer's item name strip, not the rectangle around it.
+
+    The odd one out among the grab_*_region functions above, which all return
+    (left, top, width, height): what a caller wants here is the pixels, since there is
+    nothing to click and the name has to be read. OFFER_ITEM_NAME_FRACTIONS through the
+    same scaling, so it lands in the same place at any resolution.
+    """
+    return screen.grab(grab_price_region(region, OFFER_ITEM_NAME_FRACTIONS))
 
 
 CAPTCHA_TITLE_TARGET = 'captcha/window_title'      # the 'SECURITY CHECK' bar at the top of the modal
