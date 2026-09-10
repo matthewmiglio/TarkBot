@@ -531,9 +531,7 @@ interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.re
                      rouble ones, so the 0.9 default sits in the gap.
                      Pack offers are deliberately not refused here, though sell.get_price does
                      refuse them. The same board means opposite things to the two modes: a pack
-                     is a giveaway to a seller undercutting it and a bargain to a buyer. The
-                     board could not support the check anyway, since it truncates a long item
-                     name with an ellipsis and '- pack' is on the end that gets cut.
+                     is a giveaway to a seller undercutting it and a bargain to a buyer.
                      buy() checks that the money left rather than that the click went out, by
                      photographing ruble_region either side of itself and handing the pair to
                      purchase_landed. It has to: Tarkov's confirmation sometimes does not take
@@ -779,10 +777,18 @@ interact/reference_images/<target>/*.png
   `click_place_offer`, `select_item_from_inventory`, `select_item_from_random_scav_case`,
   `open_scav_case`, `orientate_offer_creation` / `orientate_scav_box` (drag to the corner).
 - **Pricing** `get_price` reads the suggested price, but only after `first_offer_is_a_pack` has
-  said the top comparable offer is a single item. A pack offer's title ends '- pack' and the
-  price quoted under it is the whole pack's, so undercutting it lists one item at twenty items'
-  money. Nothing later in the pass can catch that: the number in the box is perfectly readable,
-  and every counter in the run's totals agrees it went well. A pack reads as None, which is
+  said the top comparable offer is a single item. A pack's quoted price is the whole pack's, so
+  undercutting it lists one item at twenty items' money. Nothing later in the pass can catch
+  that: the number in the box is perfectly readable, and every counter in the run's totals agrees
+  it went well. The signal is the board's own label under the price, 'per item' or
+  'per pack (N items)', read inside `grab_first_item_price_region` so the check and the price read
+  cannot end up on different rows. It was the title's '- pack' suffix inside
+  `grab_first_offer_region` until 2026-09-09, which could not work: that suffix is past the box's
+  right edge, and the item-name column is behind the offer creation window parked in the corner
+  for the whole pass, so the check said 'not a pack' every time. It cost a 41-egg pack undercut
+  from 2,091,000 to 2,086,000 for one egg. Measured on that board: 0.931 on the pack row against
+  0.670 on the 'per item' rows, which share the word 'per' and are the nearest miss, so the 0.83
+  default sits in the gap and no `CONFIDENCES` entry is needed. A pack reads as None, which is
   already the answer `sell_bot` handles correctly, by skipping the item and starting a fresh
   pass, so no new failure mode had to be threaded through. `undercut_price(price, fraction, flat)`
   returns the higher of `price * fraction` and `price - flat`, so the flat cut wins on expensive

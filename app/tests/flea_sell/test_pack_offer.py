@@ -1,10 +1,16 @@
 """A suggested price quoted against a pack is refused, so the pass skips the item.
 
 Exercises interact/sell.py's get_price and the first_offer_is_a_pack guard in front of it: a
-pack is detected by finding flea_item_pack_sale_text in grab_first_offer_region (the top
-comparable offer row), and when it is there get_price returns None before the OCR is ever
-reached. Asserts both directions: pack present reads as None and never calls the reader, pack
-absent still reads the number, and that the pack text is looked for in the first-offer region.
+pack is detected by finding flea_item_pack_sale_text in grab_first_item_price_region (the top
+comparable offer's price and the 'per item' / 'per pack (N items)' label under it), and when it
+is there get_price returns None before the OCR is ever reached. Asserts both directions: pack
+present reads as None and never calls the reader, pack absent still reads the number, and that
+the pack text is looked for in the price region rather than anywhere else on the row.
+
+That last assertion is the regression. The check used to read grab_first_offer_region and hunt
+the title's '- pack' suffix, which on 2026-09-09 was both outside that box's right edge and
+behind the offer creation window, so it answered 'not a pack' 36 passes running and the bot
+undercut a 41-egg pack at 2,091,000 down to 2,086,000 for a single egg.
 
 A no-game, stubbed test: interact/find.find and interact/ocr.read_region are both replaced, so
 nothing is clicked and no window is needed. Worth a test rather than a careful reading because
@@ -51,8 +57,9 @@ if __name__ == '__main__':
 
     name, region = looked_in[0]
     assert name == 'flea/item_pack_sale_text', f'looked for {name} first, not the pack text'
-    assert region == sell.grab_first_offer_region(WINDOW), f'looked in {region}, not the top offer'
-    print(f'it looked for {name} in {region}, which is the top offer row')
+    assert region == sell.grab_first_item_price_region(WINDOW), \
+        f'looked in {region}, not the price region the pack label sits in'
+    print(f'it looked for {name} in {region}, which is the top offer\'s price region')
 
     price, _ = price_with(pack_text_found=False)
     assert price == 45000, f'a normal offer must still read its price, got {price}'

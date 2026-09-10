@@ -90,9 +90,12 @@ FIRST_OFFER_FRACTIONS = (1109 / 2560, 190 / 1440, 1774 / 2560, 284 / 1440)
 # The asking price on that same row, cut narrow enough to hold the number and the currency glyph
 # beside it and nothing from the row either side. Same (left, top, right, bottom) fractions and
 # the same scaling, measured on the same 2560x1440 window: left 1778, top 191, right 2004,
-# bottom 284. A region of its own rather than a slice of FIRST_OFFER_FRACTIONS, because that one
-# is framed around the offer's title for first_offer_is_a_pack and moving either edge of it to
-# suit a price read would break the pack check that has to keep working.
+# bottom 284. A region of its own rather than a slice of FIRST_OFFER_FRACTIONS, which is framed
+# around the whole row for the sniper's reads. This box is now two jobs, not one: the number
+# get_price reads and the 'per item' / 'per pack (N items)' label under it that
+# first_offer_is_a_pack reads. Keeping both in one box is the point, since a check and a read of
+# two different rows is the failure this box exists to make impossible. Moving the bottom edge up
+# would cut the label off and silently switch the pack check back off.
 FIRST_ITEM_PRICE_FRACTIONS = (1778 / 2560, 191 / 1440, 2004 / 2560, 284 / 1440)
 # The item name on the offer being created, the strip of text beside the item's icon in the
 # offer creation window. Same (left, top, right, bottom) fractions and the same scaling,
@@ -408,7 +411,8 @@ def grab_first_item_price_region(region=None):
     same place at any resolution and keeps a negative left edge on a monitor left of the primary.
 
     Narrower than grab_first_offer_region, and deliberately not carved out of it: that region is
-    the whole row and is framed for first_offer_is_a_pack, which reads the offer's title.
+    the whole row, framed for the sniper. This one holds the price and the 'per item' /
+    'per pack (N items)' label under it, which is what first_offer_is_a_pack reads.
 
     tests/test_find_first_offer_dollar.py draws this box on the screen it was cut from, which is
     the tuning loop for the four numbers above.
@@ -458,11 +462,26 @@ def grab_captcha_region(frame):
 def first_offer_is_a_pack(region=None):
     """Is the topmost comparable offer a pack rather than a single item?
 
-    A pack offer's title ends '- pack', and the suggested price under it is the price of the
-    whole pack. Listing one item at it is not an undercut, it is a giveaway, and nothing later
-    in the pass can tell the two apart: the number in the box is perfectly readable either way.
+    A pack's quoted price is the whole pack's. Listing one item at it is not an undercut, it is a
+    giveaway, and nothing later in the pass can tell the two apart: the number in the box is
+    perfectly readable either way.
+
+    Read inside the price region, not the offer's title. The board labels every row under its
+    price, 'per item' or 'per pack (N items)', and that label is the signal this needs: it sits
+    beside the very number get_price reads, so the check and the read cannot disagree about which
+    row they are looking at. The title was the old signal and could not work here. Its '- pack'
+    suffix is outside FIRST_OFFER_FRACTIONS' right edge on this board, and the item-name column
+    is behind the offer creation window parked in the corner for the whole pass anyway, so the
+    check answered 'not a pack' every time. The run of 2026-09-09 undercut a 41-egg pack at
+    2,091,000 down to 2,086,000 for one egg on the back of it. The '- pack' crops are kept for
+    the layouts that do put it on the row.
+
+    The item count varies per offer, so the crop is the words alone. Measured on that run's
+    board: 0.931 on the pack row, 0.670 on the 'per item' rows under it, which share the word
+    'per' and are the nearest miss there is. The 0.83 default sits in that gap.
     """
-    return find.find('flea/item_pack_sale_text', grab_first_offer_region(region)) is not None
+    return find.find('flea/item_pack_sale_text',
+                     grab_first_item_price_region(region)) is not None
 
 
 def get_price(region=None):
