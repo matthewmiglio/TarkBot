@@ -28,7 +28,8 @@ import snipe_bot  # noqa: E402
 import update  # noqa: E402
 import window  # noqa: E402
 import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
-from sell_bot import (AUTOSELECT, DEFAULT_AUTOSELECT, DEFAULT_STALE, DEFAULT_UNDERCUT,  # noqa: E402
+from sell_bot import (AUTO_RESTART, AUTOSELECT, DEFAULT_AUTO_RESTART,  # noqa: E402
+                      DEFAULT_AUTOSELECT, DEFAULT_STALE, DEFAULT_UNDERCUT,
                       MODES, STALE_THRESHOLDS, UNDERCUTS)
 from snipe_bot import DEFAULT_MARGIN, MARGINS  # noqa: E402
 from gui import settings, theme  # noqa: E402
@@ -563,6 +564,22 @@ class App:
             self._pick_autoselect, 62, tag='tab:flea', row=1,
             tip='Leave the offer window\'s autoselect similar box ticked, so picking one item '
                 'picks every matching one and the offer lists the whole stack')
+        # Down in the character panel rather than up in the header, because the header is full:
+        # four slots on each of its two rows, all taken, and a third row does not fit between
+        # the header's foot at 92 and the panels at 110. _dropdown's y= puts a picker inside a
+        # panel, which is how crafts mode's max-price fields already sit. The panel's right
+        # inset is 436 - PAD; the figure behind it is a backdrop, so drawing over it is fine.
+        # One picker answers both halves of the question: OFF, or the profile to come back as.
+        if self.prefs['autorestart'] not in AUTO_RESTART:  # an edited settings file must not wedge it
+            self.prefs['autorestart'] = DEFAULT_AUTO_RESTART
+        self.autorestart_var = self._dropdown(
+            'AUTO-RESTART', theme.CHARACTER_PANEL[2] - PAD, list(AUTO_RESTART),
+            self.prefs['autorestart'],
+            lambda value: self._save_pref('autorestart', value), 112,
+            tag='tab:flea', y=theme.CHARACTER_PANEL[3] - 28,
+            tip='Close and relaunch Tarkov as this character when a run gets wedged, which is '
+                'two of the game\'s Error dialogs inside half an hour. OFF clears the dialogs '
+                'without ever restarting')
 
         self._draw_crafts_tab()
 

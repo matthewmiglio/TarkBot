@@ -42,6 +42,31 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      under threshold, so a free slot reads as full, and left alone that never
                      raises at all, it just waits stale_minutes, cancels nothing through the
                      modal, and goes round again until Stop.
+                     Auto restart is the answer to the failure those two graceful paths hide.
+                     An unreadable price is a Retry and an Error/0 dialog is a click, so a
+                     client that has stopped answering produces a run that looks busy, raises
+                     nothing, and sells nothing: 2026-09-09 sold 46 items and then spent its
+                     last fifteen minutes picking an item, reading an empty price box, giving
+                     up, and clearing the same dialog over and over. AUTO_RESTART is the GUI's
+                     AUTO-RESTART dropdown and one picker answers both halves of the question,
+                     OFF being None and every other value the tarkov.Character to come back as,
+                     so "restart, but nobody said as whom" cannot be reached. restart_as None
+                     is the old behaviour exactly, down to the same exception ending the run.
+                     What counts as wedged is ERROR_DIALOG_LIMIT (2) dialogs cleared inside
+                     ERROR_DIALOG_WINDOW (30 minutes), not the first one: that same run cleared
+                     ten while selling perfectly well, so one dialog is a blip and the pair
+                     close together is the shape of the failure. _dismiss_error_popup is the
+                     one place that tallies them, which is why every call in the file goes
+                     through it rather than sell.dismiss_error_popup; counting where the dialog
+                     is cleared and not where it is looked for matters, since several steps in a
+                     pass look for the same one. _restart_game closes, relaunches, re-measures
+                     the window (a new client is a new handle and a new region), clears the
+                     tally so the fixed wedge cannot trigger a second restart, and runs
+                     _recover to bridge the lobby back to the flea. It runs between passes only,
+                     from the two hooks in start(): the wedge check at the top of the loop, and
+                     the fatal handler beside the Retry one. There is no cap on restarts on
+                     purpose, so a launcher that never reaches the lobby has to be fatal, and it
+                     is. The stall itself is untouched by any of this; only its symptom is.
                      UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown,
                      STALE_THRESHOLDS its STALE OFFER THRESHOLD one and AUTOSELECT its
                      AUTOSELECT SIMILAR one: ON leaves the offer window's checkbox ticked, so
@@ -371,8 +396,12 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      across tabs, since a backdrop, a screen and a start key belong to the window
                      rather than to a mode. STALE OFFER THRESHOLD and AUTOSELECT SIMILAR are
                      FLEA SELL's alone, the second one on the empty left of the second header
-                     row, which is the only free slot: a third row does not fit between the
-                     header's foot at 92 and the panels at 110. Each
+                     row, which was the last free slot: a third row does not fit between the
+                     header's foot at 92 and the panels at 110. With the header full, FLEA
+                     SELL's AUTO-RESTART sits at the foot of the character panel instead, on
+                     _dropdown's y= (an explicit centre line, the same escape hatch crafts
+                     mode's max-price fields use to put a picker inside a panel). The figure
+                     behind it is a backdrop, so drawing over it costs nothing. Each
                      dropdown can carry a Tip, a hover tooltip drawn after TIP_DELAY.
                      Run: python -m gui.app
                      Under the buttons, one boxed line of narrate.LAST, repainted by tick()

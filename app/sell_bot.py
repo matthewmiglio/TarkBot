@@ -9,6 +9,7 @@ import pyautogui
 
 import screen
 import window
+from game_client import tarkov
 from interact import find, sell, snipe
 from narrate import log
 
@@ -80,6 +81,20 @@ DEFAULT_UNDERCUT = '2k rubles | 90%'
 # read for a single one, so off is the default and on is a deliberate choice.
 AUTOSELECT = {'OFF': False, 'ON': True}
 DEFAULT_AUTOSELECT = 'OFF'
+# Whether a wedged run closes and relaunches the game, and as whom. One dropdown answers both
+# questions on purpose: OFF is None, and anything else is the profile to come back as, so
+# "restart, but nobody said which character" is a state that cannot be reached.
+AUTO_RESTART = {'OFF': None,
+                'SEASONAL': tarkov.Character.SEASONAL,
+                'PERMANENT': tarkov.Character.PERMANENT,
+                'PVE': tarkov.Character.PVE}
+DEFAULT_AUTO_RESTART = 'OFF'
+# When a cleared Error dialog stops meaning "a blip" and starts meaning "the client is wedged".
+# One on its own is ordinary: the run of 2026-09-09 cleared ten and sold 46 items around them.
+# Two close together is the shape of the failure that ends runs, where the board stops returning
+# offers, every pass reads an empty price box, and the dialog comes back pass after pass.
+ERROR_DIALOG_LIMIT = 2
+ERROR_DIALOG_WINDOW = 30 * 60  # seconds the limit is counted over
 REFRESH_DELAY = 1.0  # seconds either side of the f5 that refreshes the flea after an offer
 # The suggested price arrives from the server a moment after the item is filtered in, not
 # instantly. Poll for it rather than sleeping a flat wait and reading once: read as soon as it is
@@ -138,8 +153,39 @@ class FleaSeller:
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
                  undercut=UNDERCUTS[DEFAULT_UNDERCUT],
-                 autoselect=AUTOSELECT[DEFAULT_AUTOSELECT], stats=None):
+                 autoselect=AUTOSELECT[DEFAULT_AUTOSELECT],
+                 restart_as=AUTO_RESTART[DEFAULT_AUTO_RESTART], stats=None):
         log('Initalizing Flea Seller')
+        self._measure_window()
+        self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
+        self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
+        self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
+        self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
+        self.autoselect = autoselect  # leave autoselect similar ticked, so an offer is the stack
+        self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
+        log(f'scav cases {"on" if target_scav_cases else "off"} '
+            f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
+            f'undercut {undercut[0]:.1%} or {undercut[1]} roubles, '
+            f'autoselect similar {"on" if autoselect else "off"}, '
+            f'auto restart {restart_as.name.lower() if restart_as else "off"}', 1)
+        # The GUI hands in its own dict, which outlives any one FleaSeller, so the counters carry
+        # across stop/start and only reset when the app does. Nothing passed, count from zero.
+        self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
+        self._stop = threading.Event()  # set from whichever thread owns the stop button
+        # When each Error dialog was cleared, monotonic seconds. Pruned by _game_looks_wedged
+        # rather than capped, since the rule is "how many inside a window", not "the last N".
+        self._error_times = []
+        # Not in stats: the GUI's panel is full at ten rows, and the closing summary only prints
+        # STAT_LABELS. This is here so the log can say which restart it is.
+        self._restarts = 0
+
+    def _measure_window(self):
+        """Find the Tarkov window and work out what part of the screen to search.
+
+        Its own method rather than eight lines of __init__ because a restart has to do all of
+        it again: the relaunched client is a different window with a different handle, and
+        every one of these five values is stale the moment the old one closes.
+        """
         self.hwnd = window.handle()  # raises WindowError if missing or duplicated
         self.position = window.position(self.hwnd)
         self.size = window.size(self.hwnd)
@@ -153,22 +199,9 @@ class FleaSeller:
                 f'Tarkov is at {self.position + self.size}, which is not on monitor '
                 f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
                 f'the game onto this one.')
-        self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
-        self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
-        self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
-        self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
-        self.autoselect = autoselect  # leave autoselect similar ticked, so an offer is the stack
         log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
         log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
             f'searching {self.region}', 1)
-        log(f'scav cases {"on" if target_scav_cases else "off"} '
-            f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
-            f'undercut {undercut[0]:.1%} or {undercut[1]} roubles, '
-            f'autoselect similar {"on" if autoselect else "off"}', 1)
-        # The GUI hands in its own dict, which outlives any one FleaSeller, so the counters carry
-        # across stop/start and only reset when the app does. Nothing passed, count from zero.
-        self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
-        self._stop = threading.Event()  # set from whichever thread owns the stop button
 
     def _pause(self, seconds=0):
         """Wait, or abandon the pass right now if stop() has been called.
@@ -184,6 +217,60 @@ class FleaSeller:
             # above this one is the step it was interrupted at.
             log(f'stop seen at the {seconds:.1f}s checkpoint, unwinding this pass', 1)
             raise Stopped()
+
+    def _dismiss_error_popup(self):
+        """sell.dismiss_error_popup, remembering when one was actually cleared.
+
+        Every call in this file goes through here so the restart rule has one honest tally.
+        Counted where the dialog is cleared rather than where it is noticed: several steps in a
+        pass look for the same dialog and only the first of them clears it, so counting the
+        looks would read one wedged client as a dozen.
+        """
+        cleared = sell.dismiss_error_popup(self.region)
+        if cleared:
+            self._error_times.append(time.monotonic())
+        return cleared
+
+    def _game_looks_wedged(self):
+        """True once ERROR_DIALOG_LIMIT dialogs have been cleared inside ERROR_DIALOG_WINDOW.
+
+        Prunes as it reads, so the list stays the length of the window rather than the length
+        of the run. One dialog an hour is a client having a moment; two in half an hour is the
+        client that stops returning offers and never recovers on its own.
+        """
+        cutoff = time.monotonic() - ERROR_DIALOG_WINDOW
+        self._error_times = [seen for seen in self._error_times if seen >= cutoff]
+        return len(self._error_times) >= ERROR_DIALOG_LIMIT
+
+    def _restart_game(self, why):
+        """Close Tarkov, bring it back as self.restart_as, and get back to the flea.
+
+        Called from the pass loop and nowhere else. Between passes is the only moment nothing
+        is half open, and killing the client with an offer window up would leave the item in
+        whatever state the server last heard about.
+
+        close_game and start_tarkov both block, worst case a couple of minutes, and neither can
+        see a stop. So the stop is checked either side of them instead of inside: pressing Stop
+        during a restart lands when the game is back up, not never.
+
+        A launcher that never reaches the lobby ends the run rather than being retried. There is
+        deliberately no cap on restarts, but a client that will not start is not a wedge this
+        can clear, and looping on it would burn the night in silence.
+        """
+        log(f'{why}: restarting Tarkov as {self.restart_as.name.lower()}')
+        self._pause()  # unwind here rather than part way through a two minute relaunch
+        tarkov.close_game()
+        if not tarkov.start_tarkov(self.restart_as):
+            raise RuntimeError(f'Tarkov did not come back up as '
+                               f'{self.restart_as.name.lower()} after {why}')
+        self._pause()
+        self._measure_window()  # a new client is a new window handle and a new region
+        # The wedge went with the old client. Without this the next pass restarts again on the
+        # strength of dialogs the restart already fixed.
+        self._error_times.clear()
+        self._restarts += 1
+        self._recover()  # the lobby is not the flea; this is the same bridge Start uses
+        log(f'back at the flea, restart {self._restarts} of this run', 1)
 
     def _past_error_dialog(self, step, failed, needs_offer_window=False):
         """Run `step`; if it fails, clear a Tarkov Error dialog and run it once more.
@@ -240,7 +327,7 @@ class FleaSeller:
             why = failed
         except LookupError as e:
             why = f'{failed}: {e}'
-        had_dialog = sell.dismiss_error_popup(self.region)
+        had_dialog = self._dismiss_error_popup()
         # The window check runs whether or not this wrapper was the one to clear the dialog.
         # Tarkov's Error/0 closes the offer creation window when it raises it, and a step's own
         # handler often clears that dialog before this wrapper ever looks: select_item's inner
@@ -284,7 +371,7 @@ class FleaSeller:
                 # under threshold, so clear one if it is there and look again. With no dialog to
                 # explain it there is nothing to wait for and nothing to fix here, so let it end
                 # the run loudly rather than spin: a missing button is a real problem, not a slot.
-                if sell.dismiss_error_popup(self.region):
+                if self._dismiss_error_popup():
                     log(f'{e}; that was an error dialog dimming the button away, looking again', 1)
                     continue
                 raise
@@ -299,7 +386,7 @@ class FleaSeller:
             # this is the worst of the dialog's hiding places, because it never raises: the
             # sweep below cannot cancel anything through a modal that eats every click, so the
             # loop waits stale_minutes, removes nothing, and goes round again until Stop.
-            if sell.dismiss_error_popup(self.region):
+            if self._dismiss_error_popup():
                 log('the wait was behind an error dialog, not a full board, so waiting again', 1)
                 continue
             log(f'no slot after {self.stale_minutes}m, clearing out the offers that never sold')
@@ -605,6 +692,13 @@ class FleaSeller:
             with _human_jitter():
                 self._recover()
                 while not self._stop.is_set():
+                    # Checked before the pass, not after the failure that raised the dialogs:
+                    # the second dialog usually lands mid pass, and a client that has stopped
+                    # answering will only waste the pass that follows it.
+                    if self.restart_as and self._game_looks_wedged():
+                        self._restart_game(
+                            f'{ERROR_DIALOG_LIMIT} Error dialogs inside '
+                            f'{ERROR_DIALOG_WINDOW // 60} minutes')
                     passes += 1
                     log(f'===== pass {passes} =====')
                     try:
@@ -615,7 +709,15 @@ class FleaSeller:
                         # the Error dialog is the one that fails all of them at once. Costs one
                         # match on a pass that was already lost, and a run stuck behind that
                         # dialog would otherwise lose every pass after it until Stop.
-                        sell.dismiss_error_popup(self.region)
+                        self._dismiss_error_popup()
+                    except (RuntimeError, LookupError, window.WindowError) as e:
+                        # Every fatal in a pass funnels here. With auto restart off this is a
+                        # bare re-raise, so the run ends exactly where it always did. With it on,
+                        # the thing that ended the run becomes the thing that triggers a fresh
+                        # client, and passes and stats carry straight on across it.
+                        if not self.restart_as:
+                            raise
+                        self._restart_game(f'the run hit {type(e).__name__}: {e}')
         except Stopped:
             log('stopped part way through a pass')
         finally:
@@ -643,5 +745,9 @@ def build(prefs, stats):
     stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
     undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])
     autoselect = AUTOSELECT.get(prefs.get('autoselect'), AUTOSELECT[DEFAULT_AUTOSELECT])
+    # Upper-cased because the GUI writes the label it draws and a --autorestart flag is typed by
+    # hand; 'seasonal' silently meaning 'off' is the wrong way for this one to fail.
+    restart_as = AUTO_RESTART.get(str(prefs.get('autorestart', '')).upper(),
+                                  AUTO_RESTART[DEFAULT_AUTO_RESTART])
     return FleaSeller(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
-                   undercut=undercut, autoselect=autoselect, stats=stats)
+                   undercut=undercut, autoselect=autoselect, restart_as=restart_as, stats=stats)

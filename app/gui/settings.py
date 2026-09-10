@@ -25,6 +25,10 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # Whether to leave the offer window's autoselect similar checkbox ticked, which
             # lists every matching item as one offer. See sell_bot.AUTOSELECT.
             'autoselect': 'OFF',
+            # Whether flea sell mode closes and relaunches Tarkov when a run gets wedged, and
+            # which profile to come back as. 'OFF' handles errors without ever restarting,
+            # which is what the app did before this existed. See sell_bot.AUTO_RESTART.
+            'autorestart': 'OFF',
             # How many roubles under trader value a flea offer has to be before snipe mode
             # buys it. See snipe_bot.MARGINS.
             'margin': '500 rubles',
