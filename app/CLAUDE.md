@@ -52,6 +52,18 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      OFF being None and every other value the tarkov.Character to come back as,
                      so "restart, but nobody said as whom" cannot be reached. restart_as None
                      is the old behaviour exactly, down to the same exception ending the run.
+                     It also covers the client not being up *yet*, not only one that dies mid
+                     run. Pressing Start with Tarkov closed used to fail instantly with 'no
+                     Tarkov window': __init__ measured the window before anything could act on
+                     it, so the one setting that exists to get a client up could never be the
+                     reason one came up. __init__ now leaves hwnd None instead of raising when
+                     restart_as is set, and start() calls _boot_game before its first pass.
+                     The launch is deliberately not in __init__: build() runs on the GUI thread
+                     and start_tarkov blocks for a couple of minutes, which would freeze the
+                     control panel with no lamp, no narration and no working Stop. _boot_game
+                     rather than _restart_game because there is nothing to close, no wedge tally
+                     to clear and no restart to count, and start() recovers straight after it
+                     anyway, so _restart_game would bridge the lobby to the flea twice.
                      What counts as wedged is ERROR_DIALOG_LIMIT (2) dialogs cleared inside
                      ERROR_DIALOG_WINDOW (30 minutes), not the first one: that same run cleared
                      ten while selling perfectly well, so one dialog is a blip and the pair

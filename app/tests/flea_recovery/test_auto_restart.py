@@ -42,8 +42,11 @@ class Ran(Exception):
     """Raised by the last scripted pass, to end start()'s loop without calling stop()."""
 
 
-def run(script, restart_as=None, launcher_works=True, seed_errors=()):
+def run(script, restart_as=None, launcher_works=True, seed_errors=(), game_open=True):
     """start() over `script`, one entry per pass. Returns (log, error) with what happened.
+
+    `game_open` False is a FleaSeller built with no Tarkov window, which __init__ leaves with
+    hwnd None rather than refusing to build when auto restart is on.
 
     Each entry is what that pass does before it returns:
       None        a clean pass
@@ -62,6 +65,7 @@ def run(script, restart_as=None, launcher_works=True, seed_errors=()):
     bot = object.__new__(sell_bot.FleaSeller)
     bot._stop = threading.Event()
     bot.region = None
+    bot.hwnd = 1 if game_open else None
     bot.restart_as = restart_as
     bot._restarts = 0
     bot.stats = {key: 0 for key, _ in sell_bot.STAT_LABELS}
@@ -128,9 +132,13 @@ if __name__ == '__main__':
     # And it put the state back: a relaunched client is a new window handle, and the lobby is
     # not the flea. Missing either one leaves every later pass searching the wrong rectangle or
     # clicking at a menu.
+    # Measured from the close onwards, not from the top of the log: start() opens with a recover
+    # of its own, so order.index('recover') is index 0 and the whole chain reads as out of order
+    # however right it is. This assertion had been quietly failing on exactly that.
     order = [entry[0] for entry in log]
-    assert order.index('close') < order.index('start') < order.index('measure') < \
-        order.index('recover'), f'restart steps out of order: {order}'
+    after = order[order.index('close'):]
+    assert after.index('close') < after.index('start') < after.index('measure') < \
+        after.index('recover'), f'restart steps out of order: {order}'
     print('  ok  state put back      closed, relaunched, re-measured the window, back to the flea')
 
     # 3. One Error dialog is ordinary. Ten of them across a healthy run is a normal Tuesday.
@@ -174,4 +182,32 @@ if __name__ == '__main__':
     assert len(restarts(log)) == 1, f'it kept trying to relaunch a client that will not start: {log}'
     print(f'  ok  launcher failed     run ended after one attempt: {error}')
 
-    print('\nok, off changes nothing, a wedge restarts once, and a dead launcher stops the run')
+    # 7. Start pressed with the game shut. Auto restart is the setting whose whole job is to get
+    # a client up, so it has to cover the client not being up yet, not only one that died mid
+    # run. This used to fail before a thread even started: __init__ measured the window, got
+    # WindowError, and the GUI printed 'no Tarkov window' with the one setting that could have
+    # fixed it turned on.
+    log, error = run([None, None], restart_as=SEASONAL, game_open=False)
+    assert error is None, f'a cold start with auto restart on still failed: {error!r}'
+    assert restarts(log) == [('start', SEASONAL)], f'wanted one launch, got {log}'
+    order = [entry[0] for entry in log]
+    assert 'close' not in order, f'it tried to close a game that was never running: {log}'
+    assert order.index('start') < order.index('measure') < order.index('recover') \
+        < order.index('pass'), f'booted in the wrong order: {order}'
+    print(f'  ok  cold start          launched as {SEASONAL.name.lower()}, measured, '
+          f'recovered, then sold')
+
+    # And it is one boot, not a boot per pass: hwnd is set by the measure, so a second pass must
+    # not walk back into _boot_game.
+    assert len(restarts(log)) == 1, f'it relaunched on every pass: {log}'
+    print('  ok  boots once          pass 2 ran without launching the game again')
+
+    # A cold start whose launcher never comes up ends the run, the same as a mid-run relaunch
+    # that fails. Nothing sells against a client that is not there.
+    log, error = run([None], restart_as=SEASONAL, game_open=False, launcher_works=False)
+    assert isinstance(error, RuntimeError), f'a cold start with a dead launcher ran on: {error!r}'
+    assert ('pass', 1) not in log, f'it tried to sell with no game up: {log}'
+    print(f'  ok  cold start, no game run ended before pass 1: {error}')
+
+    print('\nok, off changes nothing, a wedge restarts once, a closed game is booted once, and a\n'
+          'dead launcher stops the run')

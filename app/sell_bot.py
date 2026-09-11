@@ -156,13 +156,28 @@ class FleaSeller:
                  autoselect=AUTOSELECT[DEFAULT_AUTOSELECT],
                  restart_as=AUTO_RESTART[DEFAULT_AUTO_RESTART], stats=None):
         log('Initalizing Flea Seller')
-        self._measure_window()
+        self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
+        # A closed game is only fatal when nothing is allowed to open one. With auto restart on,
+        # "Tarkov is not running" is the very thing that feature exists to fix, and refusing to
+        # build over it meant the one setting that can launch the client could never be the
+        # reason it launched: pressing Start with the game shut failed instantly with 'no Tarkov
+        # window', which is exactly the state a restart resolves.
+        # The launch itself does NOT happen here. build() runs on the GUI thread, and
+        # start_tarkov blocks for a couple of minutes, which would freeze the control panel
+        # solid with no lamp, no log line and no working Stop. hwnd None is the note to start(),
+        # which is already on the bot thread, to boot the game before its first pass.
+        try:
+            self._measure_window()
+        except window.WindowError:
+            if not restart_as:
+                raise            # unchanged: with restart off this is the same error it always was
+            self.hwnd = None
+            log('Tarkov is not open; auto restart will launch it at Start', 1)
         self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
         self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
         self.autoselect = autoselect  # leave autoselect similar ticked, so an offer is the stack
-        self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
         log(f'scav cases {"on" if target_scav_cases else "off"} '
             f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
             f'undercut {undercut[0]:.1%} or {undercut[1]} roubles, '
@@ -241,6 +256,23 @@ class FleaSeller:
         cutoff = time.monotonic() - ERROR_DIALOG_WINDOW
         self._error_times = [seen for seen in self._error_times if seen >= cutoff]
         return len(self._error_times) >= ERROR_DIALOG_LIMIT
+
+    def _boot_game(self):
+        """Bring Tarkov up from nothing, for a Start pressed with the game closed.
+
+        Not _restart_game: there is no client to close, no wedge tally to clear, and no restart
+        to count, and _recover runs immediately after this in start() anyway, so calling the
+        other one would bridge the lobby to the flea twice.
+
+        start_tarkov blocks and cannot see a stop, so the stop is checked either side of it, the
+        same bargain _restart_game makes. A launcher that never reaches the lobby ends the run.
+        """
+        log(f'Tarkov is not running: launching it as {self.restart_as.name.lower()}')
+        self._pause()
+        if not tarkov.start_tarkov(self.restart_as):
+            raise RuntimeError(f'Tarkov would not start as {self.restart_as.name.lower()}')
+        self._pause()
+        self._measure_window()  # everything __init__ could not measure with no window up
 
     def _restart_game(self, why):
         """Close Tarkov, bring it back as self.restart_as, and get back to the flea.
@@ -690,6 +722,8 @@ class FleaSeller:
         passes = 0
         try:
             with _human_jitter():
+                if self.hwnd is None:  # built with the game shut, and auto restart says open it
+                    self._boot_game()
                 self._recover()
                 while not self._stop.is_set():
                     # Checked before the pass, not after the failure that raised the dialogs:

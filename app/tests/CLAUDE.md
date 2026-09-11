@@ -88,7 +88,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_flea_open_error_dialog.py` — sell_bot.open_offer_creation + _past_error_dialog — a failed step gets exactly one retry once the Error dialog is cleared — no-game
 - `test_window_gone.py` — sell_bot.open_offer_creation (window guard) — a game closed mid-run raises and clicks nothing before the add-offer click — no-game
 - `test_drag_failsafe.py` — sell._drag_to_corner — a drag that raises still parks the cursor off the corner before the fail-safe comes back on — no-game
-- `test_auto_restart.py` — sell_bot auto-restart (AUTO_RESTART, _game_looks_wedged, _restart_game) — off changes nothing, a fatal or two Error dialogs in half an hour relaunches the game once between passes and carries on, a dead launcher ends the run — no-game
+- `test_auto_restart.py` — sell_bot auto-restart (AUTO_RESTART, _game_looks_wedged, _restart_game, _boot_game) — off changes nothing, a fatal or two Error dialogs in half an hour relaunches the game once between passes and carries on, a Start pressed with the game closed boots it once rather than failing before a thread starts, and a dead launcher ends the run either way — no-game
 
 ### `flea_snipe/` — the flea buyer (`interact/snipe.py`, `snipe_bot.py`)
 - `test_snipe_loop.py` — snipe_bot.sweep_once/check_one — buy/skip decisions vs a fake board: cheap bought, dear left, unreadable never acted on, locked skipped, a captcha raised as `snipe.Captcha` from both the filter pass and a purchase click, Stop lands mid-sweep — no-game
