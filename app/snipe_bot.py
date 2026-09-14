@@ -36,7 +36,7 @@ import snipe_report
 import window
 from interact import snipe  # everything this mode does to a screen goes through that module
 from narrate import log
-from sell_bot import Stopped  # shared runner plumbing, see the note on _pause below
+from sell_bot import GameRestarts, Stopped, auto_restart_from  # shared runner plumbing, see _pause
 
 # The watchlist. setup_msi.py copies it to lib/ beside the frozen modules, but this one is a
 # top-level module and cx_Freeze packs those into lib/library.zip, so __file__ points inside the
@@ -136,33 +136,23 @@ def for_trader(watchlist, trader):
     return [row for row in watchlist if row[1] == trader]
 
 
-class FleaSniper:
+class FleaSniper(GameRestarts):
+    # restart_as sits before report on purpose: the self-check pins report as the last default.
     def __init__(self, margin=MARGINS[DEFAULT_MARGIN], watchlist=None, stats=None,
-                 report=False):
+                 restart_as=None, report=False):
         log('Initalizing Flea Sniper')
-        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
-        self.position = window.position(self.hwnd)
-        self.size = window.size(self.hwnd)
-        self.monitor = screen.current()
-        # The window clipped to the chosen monitor, the same rule and the same reason as
-        # FleaSeller.__init__: the window alone is wrong when the user picked a screen the game is
-        # not on, the monitor alone is wrong when the game is windowed.
-        self.region = screen.overlap(self.position + self.size, self.monitor.rect)
-        if self.region is None:
-            raise window.WindowError(
-                f'Tarkov is at {self.position + self.size}, which is not on monitor '
-                f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
-                f'the game onto this one.')
+        self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
+        # The window clipped to the chosen monitor, or hwnd None for start() to boot the game when
+        # it is shut and auto restart is on. See GameRestarts._measure_or_defer.
+        self._measure_or_defer()
         self.margin = margin  # fraction under trader value an offer has to be, see MARGINS
         self.watchlist = targets() if watchlist is None else watchlist
         # Off unless the GUI turns it on. A sniper built in a test or a shell has no business
         # posting purchases to the website, so the quiet default is the safe one. See build().
         self.report = report
-        log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
-        log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
-            f'searching {self.region}', 1)
         log(f'{len(self.watchlist)} items on the watchlist, buying anything listed {self.margin:,} '
-            f'roubles or more under trader value', 1)
+            f'roubles or more under trader value, '
+            f'auto restart {restart_as.name.lower() if restart_as else "off"}', 1)
         # The GUI hands in its own dict so the counters span the session, exactly as the other
         # two modes do. Nothing passed, count from zero.
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
@@ -179,6 +169,17 @@ class FleaSniper:
         """
         if self._stop.wait(seconds):  # wait(0) is just a check, no sleep
             raise Stopped()
+
+    def _after_restart(self):
+        """GameRestarts' hook: get from the lobby back onto a clean flea board.
+
+        The cached search box belongs to the old window, so it is dropped. A flea that will not
+        open on a fresh client ends the run rather than going round again: the next sweep would
+        fail its filters, restart, and fail them again all night.
+        """
+        self._search_box = None
+        if not snipe.open_clean_board(self.region):
+            raise RuntimeError('the flea did not open after restarting Tarkov')
 
     def worth_buying(self, asking, trader_price):
         """True if `asking` is at least self.margin roubles under what the trader pays.
@@ -340,6 +341,8 @@ class FleaSniper:
         sweeps = 0
         started = time.perf_counter()
         try:
+            if self.hwnd is None:  # built with the game shut, and auto restart says open it
+                self._boot_game()
             # Opens, escapes, opens again so the filter chips come back to the front of the
             # header, then clears a leftover filter-by-item if one is showing. A board still
             # filtered to one item would answer every search with that item.
@@ -349,7 +352,22 @@ class FleaSniper:
             while not self._stop.is_set():
                 sweeps += 1
                 log(f'===== sweep {sweeps} =====')
-                self.sweep_once()
+                try:
+                    self.sweep_once()
+                except snipe.Captcha:
+                    raise  # never restart through a captcha: it is the account being watched
+                except (RuntimeError, LookupError, window.WindowError) as e:
+                    # Every other fatal in a sweep funnels here. Off, a bare re-raise, so the run
+                    # ends exactly where it always did. On, a fresh client, unless a captcha is
+                    # what really broke the sweep under some other name (a search box that will
+                    # not match, a board that will not read): that still ends the run.
+                    if not self.restart_as:
+                        raise
+                    if snipe.captcha_up(self.region):
+                        raise snipe.Captcha(
+                            f'{e}, and Tarkov is showing its SECURITY CHECK captcha; ending the '
+                            f'run rather than restarting into it') from e
+                    self._restart_game(f'the run hit {type(e).__name__}: {e}')
                 self._pause(SWEEP_PAUSE)
         except Stopped:
             log('stopped part way through a sweep')
@@ -382,6 +400,7 @@ def build(prefs, stats):
     # The same preference that gates crash reports, so there is one switch and one meaning:
     # a user who opted out of telling us about a crash has opted out of this too.
     return FleaSniper(margin=margin, watchlist=watchlist, stats=stats,
+                      restart_as=auto_restart_from(prefs),
                       report=bool(prefs.get('send_telemetry')))
 
 

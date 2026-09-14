@@ -576,10 +576,13 @@ class App:
             'AUTO-RESTART', theme.CHARACTER_PANEL[2] - PAD, list(AUTO_RESTART),
             self.prefs['autorestart'],
             lambda value: self._save_pref('autorestart', value), 112,
-            tag='tab:flea', y=theme.CHARACTER_PANEL[3] - 28,
-            tip='Close and relaunch Tarkov as this character when a run gets wedged, which is '
-                'two of the game\'s Error dialogs inside half an hour. OFF clears the dialogs '
-                'without ever restarting')
+            # Its own tag, not tab:flea: it shows on three tabs, and _show_tab hides tab tags one
+            # after another, so an item carrying several of them ends up hidden on all of them.
+            tag='autorestart', y=theme.CHARACTER_PANEL[3] - 28,
+            tip='Close and relaunch Tarkov as this character when a run fails, instead of '
+                'stopping, and launch it at Start if it is shut. Flea sell also restarts after '
+                'two Error dialogs inside half an hour. Never restarts through a captcha or a '
+                'full stash. OFF never restarts')
 
         self._draw_crafts_tab()
 
@@ -910,6 +913,8 @@ class App:
             self.canvas.itemconfigure(f'tab:{key}', state='normal' if key == tab else 'hidden')
             if key not in DISABLED_TABS:  # select() would light a tab that cannot be used
                 self.tabs[key].select(key == tab)
+        # Every mode but the gym can restart the game; the gym has no fatal to restart over.
+        self.canvas.itemconfigure('autorestart', state='hidden' if tab == 'gym' else 'normal')
         if tab == 'crafts':  # entering the tab shows list + every settings panel; start on the list
             self._show_craft_view(None)
 

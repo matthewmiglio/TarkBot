@@ -79,6 +79,11 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      the fatal handler beside the Retry one. There is no cap on restarts on
                      purpose, so a launcher that never reaches the lobby has to be fatal, and it
                      is. The stall itself is untouched by any of this; only its symptom is.
+                     The measure/boot/restart plumbing lives in the GameRestarts mixin at the top
+                     of the file, shared with FleaSniper and HideoutCraft; each mode supplies
+                     _after_restart (flea: clear the tally and _recover) and decides in its own
+                     start() what is never restarted through. auto_restart_from(prefs) is the one
+                     reader of the shared 'autorestart' pref for all three build()s.
                      UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown,
                      STALE_THRESHOLDS its STALE OFFER THRESHOLD one and AUTOSELECT its
                      AUTOSELECT SIMILAR one: ON leaves the offer window's checkbox ticked, so
@@ -140,6 +145,11 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      is the third mode gym_bot.py's note said would settle it: hoist _pause,
                      _stop and stop() into a Runner before any of the four grows a checkpoint
                      the other three do not have.
+                     Auto restart (sell_bot.GameRestarts, the same AUTO-RESTART pref): a fatal out
+                     of sweep_once relaunches the game, drops the cached search box and reopens a
+                     clean board. Never through a captcha: snipe.Captcha re-raises, and any other
+                     fatal looks for one with captcha_up before restarting and raises Captcha if
+                     it is up. tests/flea_snipe/test_snipe_auto_restart.py.
                      Self-check, no game needed: python -m snipe_bot
 snipe_targets.csv    That watchlist: name, trader, trader price, 24h flea average, gap, category.
                      Generated, not hand written. _price_scraper/rouble_flips.py writes it from
@@ -295,6 +305,13 @@ craft_bot.py         HideoutCraft: the fourth mode, keeping several hideout craf
                      No standalone self-check; the craft tests are the net (test_new_crafts,
                      test_more_crafts, test_craft_state_unreadable, test_craft_input_confidence,
                      test_craft_buy_retry, test_craft_menu_retry, test_craft_station_grouping).
+                     Auto restart (sell_bot.GameRestarts, the same AUTO-RESTART pref): a
+                     RuntimeError, LookupError, Blind or WindowError out of step() relaunches the
+                     game and the next step() navigates back from the lobby. Never through a full
+                     stash: StashFull is not in that tuple, and any other fatal calls
+                     check_stash_full before restarting, since 2026-09-02 saw one surface as a
+                     Blind. start()'s totals line and find.VERBOSE restore are in a finally.
+                     tests/hideout_craft_actions/test_craft_auto_restart.py.
 window.py            Locates windows via ctypes/user32. Load bearing: bot, gui and every test
                      import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h),
                      bounds() -> (l,t,r,b). Raises WindowError if the window is missing or

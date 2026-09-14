@@ -30,7 +30,7 @@ import screen
 import window
 from interact import craft, find, sell
 from narrate import log
-from sell_bot import Stopped  # shared runner plumbing, see the _pause note below
+from sell_bot import GameRestarts, Stopped, auto_restart_from  # shared runner plumbing, see _pause
 
 START_SETTLE = 3.0  # seconds after START for the row to flip to producing before the next look
 HANDOVER_TARGET = 'hideout/handover_button'  # the confirm button the START click brings up
@@ -101,26 +101,19 @@ def _book_profit(stats, name):
 CraftJob = namedtuple('CraftJob', 'craft max_prices sources')
 
 
-class HideoutCraft:
-    def __init__(self, jobs, stats=None, one_pass=False):
+class HideoutCraft(GameRestarts):
+    def __init__(self, jobs, stats=None, one_pass=False, restart_as=None):
         log('Initalizing Hideout Craft')
-        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
-        self.position = window.position(self.hwnd)
-        self.size = window.size(self.hwnd)
-        self.monitor = screen.current()
-        self.region = screen.overlap(self.position + self.size, self.monitor.rect)
-        if self.region is None:  # same rule as FleaSeller and HideoutGym
-            raise window.WindowError(
-                f'Tarkov is at {self.position + self.size}, which is not on monitor '
-                f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
-                f'the game onto this one.')
+        self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
+        # The window clipped to the chosen monitor, or hwnd None for start() to boot the game when
+        # it is shut and auto restart is on. See GameRestarts._measure_or_defer.
+        self._measure_or_defer()
         self.jobs = list(jobs)  # the crafts to cycle between, in order
         self.index = 0  # which job we are working right now
         self.one_pass = one_pass  # stop after every station has been visited once, see _swap
         self.stats = {key: 0 for key, _ in STAT_LABELS} if stats is None else stats
         self._stop = threading.Event()
-        log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}', 1)
-        log(f'monitor {self.monitor.label} at {self.monitor.rect}, searching {self.region}', 1)
+        log(f'auto restart {restart_as.name.lower() if restart_as else "off"}', 1)
         for job in self.jobs:
             log(f'{job.craft.name}: ceilings {job.max_prices}, sources {job.sources}', 1)
 
@@ -594,9 +587,23 @@ class HideoutCraft:
         was_verbose = find.VERBOSE
         find.VERBOSE = True
         try:
-            self._ensure_on(self.jobs[self.index])
+            if self.hwnd is None:  # built with the game shut, and auto restart says open it
+                self._boot_game()
+            # No navigation up here: step() opens with _ensure_on, and inside the loop a failed
+            # first navigation is covered by auto restart like any other.
             while not self._stop.is_set():
-                self.step()
+                try:
+                    self.step()
+                except (RuntimeError, LookupError, craft.Blind, window.WindowError) as e:
+                    # Every fatal in a step funnels here; StashFull and Stopped are not in the
+                    # tuple and fall through to the handlers below. Off, a bare re-raise. On, a
+                    # fresh client, unless a full stash is what really broke the step under some
+                    # other name (2026-09-02 saw one surface as Blind): check_stash_full raises
+                    # StashFull then, which ends the run rather than restarting into the same wall.
+                    if not self.restart_as:
+                        raise
+                    craft.check_stash_full(self.region)
+                    self._restart_game(f'the run hit {type(e).__name__}: {e}')
         except Stopped:
             log('stopped between steps')
         except craft.StashFull as e:
@@ -605,6 +612,9 @@ class HideoutCraft:
             # cleanly rather than crash. The user has to empty the stash before a run is any use.
             craft.dismiss_stash_full(self.region)
             log(f'{e}; stopping the run, empty the stash and start again')
+        finally:
+            # finally, like the other modes: these used to run only after a full stash, so any
+            # other ending left find.VERBOSE on and the totals unlogged.
             find.VERBOSE = was_verbose
             log(f'Hideout Craft finished after {time.perf_counter() - started:.0f}s. '
                 f"Crafts started {self.stats['total_started']}, "
@@ -673,4 +683,5 @@ def build(prefs, stats):
     jobs.sort(key=lambda job: order[job.craft.station])
     if not jobs:
         raise ValueError('No crafts are enabled. Tick at least one craft to run.')
-    return HideoutCraft(jobs, stats=stats, one_pass=bool(prefs.get('one_pass', False)))
+    return HideoutCraft(jobs, stats=stats, one_pass=bool(prefs.get('one_pass', False)),
+                        restart_as=auto_restart_from(prefs))

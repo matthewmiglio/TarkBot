@@ -149,7 +149,110 @@ class Retry(Exception):
     """
 
 
-class FleaSeller:
+class GameRestarts:
+    """Auto restart, shared by the three modes that have it: flea sell, flea snipe and crafts.
+
+    A mixin rather than a Runner base because the modes share nothing else yet. Each one sets
+    self.restart_as (a tarkov.Character, or None for off), self._restarts and self._stop, and
+    supplies _after_restart: whatever gets it from the lobby back to where its loop expects to be.
+    Deciding *when* to restart stays in each mode's start(), since what counts as a run-ender that
+    must never be restarted through (a captcha, a full stash) is different in each.
+
+    Class-level defaults so a runner built with __new__ in a test is simply auto restart off.
+    """
+    restart_as = None  # a tarkov.Character to relaunch as, or None to never restart
+    _restarts = 0  # which restart this is, for the log; not a stat
+    hwnd = 0  # anything but None, which is start()'s "boot the game first"; _measure_window sets it
+
+    def _measure_or_defer(self):
+        """_measure_window, except a closed game is not fatal when auto restart can open one.
+
+        With auto restart on, "Tarkov is not running" is the very thing that feature exists to
+        fix, and refusing to build over it meant the one setting that can launch the client could
+        never be the reason it launched. The launch itself does NOT happen here: build() runs on
+        the GUI thread, and start_tarkov blocks for a couple of minutes, which would freeze the
+        control panel solid. hwnd None is the note to start(), already on the bot thread, to call
+        _boot_game before its first pass.
+        """
+        try:
+            self._measure_window()
+        except window.WindowError:
+            if not self.restart_as:
+                raise            # unchanged: with restart off this is the same error it always was
+            self.hwnd = None
+            log('Tarkov is not open; auto restart will launch it at Start', 1)
+
+    def _measure_window(self):
+        """Find the Tarkov window and work out what part of the screen to search.
+
+        Its own method because a restart has to do all of it again: the relaunched client is a
+        different window with a different handle, and every one of these values is stale the
+        moment the old one closes.
+        """
+        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
+        self.position = window.position(self.hwnd)
+        self.size = window.size(self.hwnd)
+        self.monitor = screen.current()
+        # What gets searched is the window clipped to the chosen monitor. The window alone is
+        # wrong when the user has picked a screen the game is not on, and the monitor alone is
+        # wrong when the game is windowed; the part they share is right either way.
+        self.region = screen.overlap(self.position + self.size, self.monitor.rect)
+        if self.region is None:
+            raise window.WindowError(
+                f'Tarkov is at {self.position + self.size}, which is not on monitor '
+                f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
+                f'the game onto this one.')
+        log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
+        log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
+            f'searching {self.region}', 1)
+
+    def _boot_game(self):
+        """Bring Tarkov up from nothing, for a Start pressed with the game closed.
+
+        Not _restart_game: there is no client to close and no restart to count, and each start()
+        runs its own opening straight after this anyway, so _after_restart would do it twice.
+
+        start_tarkov blocks and cannot see a stop, so the stop is checked either side of it, the
+        same bargain _restart_game makes. A launcher that never reaches the lobby ends the run.
+        """
+        log(f'Tarkov is not running: launching it as {self.restart_as.name.lower()}')
+        self._pause()
+        if not tarkov.start_tarkov(self.restart_as):
+            raise RuntimeError(f'Tarkov would not start as {self.restart_as.name.lower()}')
+        self._pause()
+        self._measure_window()  # everything __init__ could not measure with no window up
+
+    def _restart_game(self, why):
+        """Close Tarkov, bring it back as self.restart_as, and get back to work.
+
+        Called between passes only. That is the only moment nothing is half open, and killing the
+        client with a window up would leave the item in whatever state the server last heard about.
+
+        close_game and start_tarkov both block, worst case a couple of minutes, and neither can
+        see a stop. So the stop is checked either side of them instead of inside: pressing Stop
+        during a restart lands when the game is back up, not never.
+
+        A launcher that never reaches the lobby ends the run rather than being retried. There is
+        deliberately no cap on restarts, but a client that will not start is not a wedge this
+        can clear, and looping on it would burn the night in silence.
+        """
+        log(f'{why}: restarting Tarkov as {self.restart_as.name.lower()}')
+        self._pause()  # unwind here rather than part way through a two minute relaunch
+        tarkov.close_game()
+        if not tarkov.start_tarkov(self.restart_as):
+            raise RuntimeError(f'Tarkov did not come back up as '
+                               f'{self.restart_as.name.lower()} after {why}')
+        self._pause()
+        self._measure_window()  # a new client is a new window handle and a new region
+        self._restarts += 1
+        self._after_restart()  # the lobby is not where the loop works; each mode knows the way back
+        log(f'back to work, restart {self._restarts} of this run', 1)
+
+    def _after_restart(self):
+        """Get from the lobby back to where this mode's loop expects to be. Nothing by default."""
+
+
+class FleaSeller(GameRestarts):
     def __init__(self, target_scav_cases=False, scav_chance=SCAV_CHANCE,
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
                  undercut=UNDERCUTS[DEFAULT_UNDERCUT],
@@ -157,22 +260,7 @@ class FleaSeller:
                  restart_as=AUTO_RESTART[DEFAULT_AUTO_RESTART], stats=None):
         log('Initalizing Flea Seller')
         self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
-        # A closed game is only fatal when nothing is allowed to open one. With auto restart on,
-        # "Tarkov is not running" is the very thing that feature exists to fix, and refusing to
-        # build over it meant the one setting that can launch the client could never be the
-        # reason it launched: pressing Start with the game shut failed instantly with 'no Tarkov
-        # window', which is exactly the state a restart resolves.
-        # The launch itself does NOT happen here. build() runs on the GUI thread, and
-        # start_tarkov blocks for a couple of minutes, which would freeze the control panel
-        # solid with no lamp, no log line and no working Stop. hwnd None is the note to start(),
-        # which is already on the bot thread, to boot the game before its first pass.
-        try:
-            self._measure_window()
-        except window.WindowError:
-            if not restart_as:
-                raise            # unchanged: with restart off this is the same error it always was
-            self.hwnd = None
-            log('Tarkov is not open; auto restart will launch it at Start', 1)
+        self._measure_or_defer()  # a closed game is only fatal when nothing is allowed to open one
         self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
         self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
@@ -193,30 +281,6 @@ class FleaSeller:
         # Not in stats: the GUI's panel is full at ten rows, and the closing summary only prints
         # STAT_LABELS. This is here so the log can say which restart it is.
         self._restarts = 0
-
-    def _measure_window(self):
-        """Find the Tarkov window and work out what part of the screen to search.
-
-        Its own method rather than eight lines of __init__ because a restart has to do all of
-        it again: the relaunched client is a different window with a different handle, and
-        every one of these five values is stale the moment the old one closes.
-        """
-        self.hwnd = window.handle()  # raises WindowError if missing or duplicated
-        self.position = window.position(self.hwnd)
-        self.size = window.size(self.hwnd)
-        self.monitor = screen.current()
-        # What gets searched is the window clipped to the chosen monitor. The window alone is
-        # wrong when the user has picked a screen the game is not on, and the monitor alone is
-        # wrong when the game is windowed; the part they share is right either way.
-        self.region = screen.overlap(self.position + self.size, self.monitor.rect)
-        if self.region is None:
-            raise window.WindowError(
-                f'Tarkov is at {self.position + self.size}, which is not on monitor '
-                f'{self.monitor.label} at {self.monitor.rect}. Pick the other monitor, or move '
-                f'the game onto this one.')
-        log(f'Tarkov window {self.hwnd} at {self.position} size {self.size}')
-        log(f'monitor {self.monitor.label} ({self.monitor.name}) at {self.monitor.rect}, '
-            f'searching {self.region}', 1)
 
     def _pause(self, seconds=0):
         """Wait, or abandon the pass right now if stop() has been called.
@@ -257,52 +321,15 @@ class FleaSeller:
         self._error_times = [seen for seen in self._error_times if seen >= cutoff]
         return len(self._error_times) >= ERROR_DIALOG_LIMIT
 
-    def _boot_game(self):
-        """Bring Tarkov up from nothing, for a Start pressed with the game closed.
+    def _after_restart(self):
+        """GameRestarts' hook: forget the old client's dialogs, then bridge the lobby to the flea.
 
-        Not _restart_game: there is no client to close, no wedge tally to clear, and no restart
-        to count, and _recover runs immediately after this in start() anyway, so calling the
-        other one would bridge the lobby to the flea twice.
-
-        start_tarkov blocks and cannot see a stop, so the stop is checked either side of it, the
-        same bargain _restart_game makes. A launcher that never reaches the lobby ends the run.
+        The wedge went with the old client. Without clearing the tally the next pass restarts
+        again on the strength of dialogs the restart already fixed. _recover is the same bridge
+        Start uses.
         """
-        log(f'Tarkov is not running: launching it as {self.restart_as.name.lower()}')
-        self._pause()
-        if not tarkov.start_tarkov(self.restart_as):
-            raise RuntimeError(f'Tarkov would not start as {self.restart_as.name.lower()}')
-        self._pause()
-        self._measure_window()  # everything __init__ could not measure with no window up
-
-    def _restart_game(self, why):
-        """Close Tarkov, bring it back as self.restart_as, and get back to the flea.
-
-        Called from the pass loop and nowhere else. Between passes is the only moment nothing
-        is half open, and killing the client with an offer window up would leave the item in
-        whatever state the server last heard about.
-
-        close_game and start_tarkov both block, worst case a couple of minutes, and neither can
-        see a stop. So the stop is checked either side of them instead of inside: pressing Stop
-        during a restart lands when the game is back up, not never.
-
-        A launcher that never reaches the lobby ends the run rather than being retried. There is
-        deliberately no cap on restarts, but a client that will not start is not a wedge this
-        can clear, and looping on it would burn the night in silence.
-        """
-        log(f'{why}: restarting Tarkov as {self.restart_as.name.lower()}')
-        self._pause()  # unwind here rather than part way through a two minute relaunch
-        tarkov.close_game()
-        if not tarkov.start_tarkov(self.restart_as):
-            raise RuntimeError(f'Tarkov did not come back up as '
-                               f'{self.restart_as.name.lower()} after {why}')
-        self._pause()
-        self._measure_window()  # a new client is a new window handle and a new region
-        # The wedge went with the old client. Without this the next pass restarts again on the
-        # strength of dialogs the restart already fixed.
         self._error_times.clear()
-        self._restarts += 1
-        self._recover()  # the lobby is not the flea; this is the same bridge Start uses
-        log(f'back at the flea, restart {self._restarts} of this run', 1)
+        self._recover()
 
     def _past_error_dialog(self, step, failed, needs_offer_window=False):
         """Run `step`; if it fails, clear a Tarkov Error dialog and run it once more.
@@ -779,9 +806,17 @@ def build(prefs, stats):
     stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
     undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])
     autoselect = AUTOSELECT.get(prefs.get('autoselect'), AUTOSELECT[DEFAULT_AUTOSELECT])
-    # Upper-cased because the GUI writes the label it draws and a --autorestart flag is typed by
-    # hand; 'seasonal' silently meaning 'off' is the wrong way for this one to fail.
-    restart_as = AUTO_RESTART.get(str(prefs.get('autorestart', '')).upper(),
-                                  AUTO_RESTART[DEFAULT_AUTO_RESTART])
     return FleaSeller(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
-                   undercut=undercut, autoselect=autoselect, restart_as=restart_as, stats=stats)
+                   undercut=undercut, autoselect=autoselect, restart_as=auto_restart_from(prefs),
+                   stats=stats)
+
+
+def auto_restart_from(prefs):
+    """The AUTO-RESTART pref as a tarkov.Character, or None for off. One pref, shared by every
+    mode that has auto restart, so snipe_bot.build and craft_bot.build read it through here too.
+
+    Upper-cased because the GUI writes the label it draws and a --autorestart flag is typed by
+    hand; 'seasonal' silently meaning 'off' is the wrong way for this one to fail.
+    """
+    return AUTO_RESTART.get(str(prefs.get('autorestart', '')).upper(),
+                            AUTO_RESTART[DEFAULT_AUTO_RESTART])

@@ -92,6 +92,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 
 ### `flea_snipe/` — the flea buyer (`interact/snipe.py`, `snipe_bot.py`)
 - `test_snipe_loop.py` — snipe_bot.sweep_once/check_one — buy/skip decisions vs a fake board: cheap bought, dear left, unreadable never acted on, locked skipped, a captcha raised as `snipe.Captcha` from both the filter pass and a purchase click, Stop lands mid-sweep — no-game
+- `test_snipe_auto_restart.py` — snipe_bot.FleaSniper auto restart (restart_as, start()'s fatal handler, GameRestarts) — off changes nothing, a fatal relaunches once and sweeps on, a captcha (named or hidden behind another error) ends the run with no restart, a cold start boots once, a dead launcher ends the run — no-game
 - `test_snipe_watchlist.py` — snipe_bot.targets/TARGETS_PATH — the watchlist csv loads, TRADER dropdown has traders, frozen build looks in lib/ — no-game
 - `test_remove_item_filter.py` — snipe.remove_filter_by_item_filter — what the filter-by-item chip clear sees, and with --click what it clicks — game or with a frame
 - `test_ruble_region.py` — snipe.ruble_region — where the purchase-confirm balance box lands, drawn on the frame it was cut from — game or with a frame
@@ -121,6 +122,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_water_collector.py` — craft_bot.tend_water_collector — the collector pass fits/collects/buys, finishing on its own panel — game
 - `test_booze_generator.py` — craft_bot.step — the moonshine craft state machine collects/starts/buys — game
 - `test_water_buy_race.py` — craft.buy_water_filter — a lost water-filter race is retried (no refresh), capped, then False — no-game
+- `test_craft_auto_restart.py` — craft_bot.HideoutCraft auto restart (restart_as, start()'s fatal handler, GameRestarts) — off changes nothing, a Blind/LookupError/RuntimeError relaunches once and steps on, a full stash (named or hidden behind another error) stops the run with no restart, a cold start boots once, a dead launcher ends the run — no-game
 - `test_craft_buy_retry.py` — craft.buy_craft_input_item — a lost-race refresh-in-place retry, capped at BUY_ATTEMPTS, with four distinct Unbuyable messages — no-game
 
 ### `hideout_nav/` — hideout carousel navigation (`interact/craft.py`)
