@@ -29,7 +29,9 @@ HIDEOUT_TAB_TARGET = 'hideout/hideout_tab'  # the two the lobby is recognised by
 FLEA_TAB_TARGET = 'flea/icon'  # either alone is on screen during the loading that precedes it
 PROFILE_TARGET = 'launcher/profile_select'
 BUTTONS_APART = 200  # px between two SELECT centres that are different buttons (real gap is 547)
-DISPLAY_NAME = "Escape from Tarkov"  # the launcher's own uninstall entry, not Arena's
+DISPLAY_NAME = "Escape from Tarkov"  # the game's own uninstall entry, not Arena's
+# The launcher's entry carries its version, "Battlestate Games Launcher 15.0.0.4603", hence a prefix.
+LAUNCHER_DISPLAY_NAME = "Battlestate Games Launcher"
 
 # Where Windows records installed programs. The 32-bit view is listed too because BSG's
 # installer is 32-bit on some machines, and a 64-bit Python cannot see it any other way.
@@ -47,8 +49,8 @@ def _value(key, name):
         return None
 
 
-def _candidates():
-    """Every path the registry offers for the game's exe, best first."""
+def _candidates(matches=lambda name: name == DISPLAY_NAME, exe_name=EXE):
+    """Every path the registry offers for an exe, best first, from entries whose name matches."""
     for root, path in UNINSTALL:
         try:
             parent = winreg.OpenKey(root, path)
@@ -58,11 +60,11 @@ def _candidates():
             for i in range(winreg.QueryInfoKey(parent)[0]):
                 try:
                     with winreg.OpenKey(parent, winreg.EnumKey(parent, i)) as key:
-                        if _value(key, "DisplayName") != DISPLAY_NAME:
+                        if not matches(_value(key, "DisplayName") or ""):
                             continue
                         location = _value(key, "InstallLocation")
                         if location:
-                            yield Path(location) / EXE
+                            yield Path(location) / exe_name
                         icon = _value(key, "DisplayIcon")
                         if icon:
                             yield Path(icon.split(",")[0].strip('"'))
@@ -80,6 +82,28 @@ def find_game():
         if exe.name.lower() == EXE.lower() and exe.is_file():
             return exe
     raise FileNotFoundError(f"No {DISPLAY_NAME} install found in the registry")
+
+
+def find_launcher():
+    """Path to BsgLauncher.exe. Raises FileNotFoundError naming every path it tried.
+
+    The launcher's own uninstall entry first, since it is the one record that says where it
+    really is. It used to be taken from inside the game folder, which is only one of the layouts
+    seen: D:\\Battlestate Games holds BsgLauncher\\ on one machine, while another has the game
+    at C:\\Battlestate Games\\Escape from Tarkov with BsgLauncher\\ beside it, and there every
+    boot and restart failed. Both of those are still tried after the registry, for an install
+    that was copied rather than installed.
+    """
+    tried = list(_candidates(lambda name: name.startswith(LAUNCHER_DISPLAY_NAME), LAUNCHER))
+    try:
+        game_dir = find_game().parent
+        tried += [game_dir / "BsgLauncher" / LAUNCHER, game_dir.parent / "BsgLauncher" / LAUNCHER]
+    except FileNotFoundError:
+        pass
+    for launcher in tried:
+        if launcher.name.lower() == LAUNCHER.lower() and launcher.is_file():
+            return launcher
+    raise FileNotFoundError(f"No {LAUNCHER} found, tried: {', '.join(map(str, tried)) or 'nothing'}")
 
 
 def is_running():
@@ -195,7 +219,7 @@ def in_lobby(region=None):
     return bool(find.find(HIDEOUT_TAB_TARGET, region) and find.find(FLEA_TAB_TARGET, region))
 
 
-def start_tarkov(character=Character.PVE, installation_path=None):
+def start_tarkov(character=Character.PVE):
     """Boot the game onto `character`'s profile and wait for the lobby. True once it is there.
 
     Four steps, each with its own budget, because the game will not start from any one of them
@@ -209,18 +233,18 @@ def start_tarkov(character=Character.PVE, installation_path=None):
       4. wait for the lobby, both tabs                            (LOBBY_TIMEOUT)
 
     character is a Character, whose value is the card's column, left to right on that screen.
-    installation_path defaults to find_game(); the launcher is taken from beside it. Returns
-    False at whichever step timed out, having said which in the log.
+    The launcher comes from find_launcher(). Returns False at whichever step failed, having said
+    which in the log.
     """
     if is_running():
         return True
-    exe = Path(installation_path) if installation_path else find_game()
 
     hwnd = _launcher_window()
     if hwnd is None:
-        launcher = exe.parent / "BsgLauncher" / LAUNCHER
-        if not launcher.is_file():
-            print(f"no launcher at {launcher}")
+        try:
+            launcher = find_launcher()
+        except FileNotFoundError as e:
+            print(e)
             return False
         subprocess.Popen([str(launcher)], cwd=str(launcher.parent))
         hwnd = _wait(_launcher_window, LAUNCHER_TIMEOUT)
@@ -273,6 +297,10 @@ if __name__ == "__main__":
         print(f"install  {find_game()}")
     except FileNotFoundError as e:
         print(f"install  {e}")
+    try:
+        print(f"launcher {find_launcher()}")
+    except FileNotFoundError as e:
+        print(f"launcher {e}")
     print(f"running  {is_running()}")
     if "--close" in sys.argv:  # ponytail: opt in, so a plain run never shuts the game
         print(f"closed   {close_game()}")

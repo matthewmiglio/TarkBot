@@ -48,6 +48,10 @@ def game_status():
         print(f'install  {tarkov.find_game()}')
     except FileNotFoundError as e:
         print(f'install  {e}')
+    try:
+        print(f'launcher {tarkov.find_launcher()}')
+    except FileNotFoundError as e:
+        print(f'launcher {e}')
     running = tarkov.is_running()
     print(f'running  {running}')
     return True

@@ -24,6 +24,7 @@ WHAT IT DOES  (NO GAME NEEDED: the launcher, mouse, matcher and clock are all st
 Run:  python tests/platform/test_game_client.py
 """
 import sys
+import tempfile
 import types
 from pathlib import Path
 
@@ -49,12 +50,17 @@ def ticking_clock(step=10.0):
     return types.SimpleNamespace(monotonic=monotonic, sleep=lambda s: None)
 
 
+def no_launcher_installed():
+    raise FileNotFoundError('No BsgLauncher.exe found, tried: nothing')
+
+
 def start_with(character=None, running=(False,), play=PLAY, region=REGION,
-               buttons=None, lobby=True, launcher=object()):
-    """Run start_tarkov against stubbed answers. Returns (result, clicks)."""
-    clicks = []
+               buttons=None, lobby=True, launcher=object(),
+               find_launcher=lambda: Path(r'D:\Battlestate Games\BsgLauncher\BsgLauncher.exe')):
+    """Run start_tarkov against stubbed answers. Returns (result, clicks, launches)."""
+    clicks, launches = [], []
     names = ('is_running', '_launcher_window', '_play_point', '_game_region', '_profile_buttons',
-             'in_lobby', 'pyautogui', 'time', 'find_game', 'subprocess')
+             'in_lobby', 'pyautogui', 'time', 'find_launcher', 'subprocess')
     saved = {n: getattr(tarkov, n) for n in names}
     answers = list(running)
     tarkov.is_running = lambda: answers.pop(0) if answers else False
@@ -65,10 +71,10 @@ def start_with(character=None, running=(False,), play=PLAY, region=REGION,
     tarkov.in_lobby = lambda r=None: lobby
     tarkov.pyautogui = types.SimpleNamespace(click=lambda x, y: clicks.append((x, y)))
     tarkov.time = ticking_clock()
-    tarkov.find_game = lambda: Path(r'D:\Battlestate Games\EscapeFromTarkov.exe')
-    tarkov.subprocess = types.SimpleNamespace(Popen=lambda *a, **k: None)
+    tarkov.find_launcher = find_launcher
+    tarkov.subprocess = types.SimpleNamespace(Popen=lambda *a, **k: launches.append(a))
     try:
-        return tarkov.start_tarkov(character or tarkov.Character.PVE), clicks
+        return tarkov.start_tarkov(character or tarkov.Character.PVE), clicks, launches
     finally:
         for name, value in saved.items():
             setattr(tarkov, name, value)
@@ -89,6 +95,24 @@ def close_with(running):
         tarkov.is_running, tarkov.subprocess, tarkov.time = saved
 
 
+def launcher_with(root, registry=(), game=None):
+    """Run find_launcher with the registry answering `registry` and find_game answering `game`,
+    paths relative to `root`. Returns the path found, or the FileNotFoundError raised."""
+    def find_game():
+        if game is None:
+            raise FileNotFoundError('no game')
+        return root / game
+    saved = (tarkov._candidates, tarkov.find_game)
+    tarkov._candidates = lambda matches, exe_name: iter([root / r for r in registry])
+    tarkov.find_game = find_game
+    try:
+        return tarkov.find_launcher()
+    except FileNotFoundError as e:
+        return e
+    finally:
+        tarkov._candidates, tarkov.find_game = saved
+
+
 def cluster(boxes):
     """_profile_buttons over a stubbed find_all."""
     saved = tarkov.find
@@ -105,13 +129,19 @@ if __name__ == '__main__':
     # profile rather than a failure.
     for character, centre in zip(tarkov.Character, CENTRES):
         assert character.value == CENTRES.index(centre), f'{character} is not its column'
-        result, clicks = start_with(character)
+        result, clicks, _ = start_with(character)
         assert result is True, f'{character.name} should have booted, got {result}'
         assert clicks == [PLAY, centre], f'{character.name} clicked {clicks}, wanted {centre}'
 
     # A game already up is left alone: no second Play press into a live session.
-    result, clicks = start_with(running=(True,))
+    result, clicks, _ = start_with(running=(True,))
     assert result is True and clicks == [], f'clicked at a running game: {clicks}'
+
+    # No launcher installed anywhere is a False, not a raise out of the run, and nothing is
+    # launched or clicked.
+    result, clicks, launches = start_with(launcher=None, find_launcher=no_launcher_installed)
+    assert result is False and clicks == [] and launches == [], \
+        f'a missing launcher went on: {result} {clicks} {launches}'
 
     # Nothing found means nothing clicked, at each of the three things that can go missing.
     for label, kwargs, expected in (
@@ -119,9 +149,34 @@ if __name__ == '__main__':
             ('no Play button', {'play': None}, []),
             ('no profile buttons', {'buttons': []}, [PLAY]),
             ('no lobby', {'lobby': False}, [PLAY, CENTRES[0]])):
-        result, clicks = start_with(**kwargs)
+        result, clicks, _ = start_with(**kwargs)
         assert result is False, f'{label} must not report a successful start'
         assert clicks == expected, f'{label} clicked {clicks}, wanted {expected}'
+
+    # Where the launcher is found. The launcher used to be assumed inside the game folder, and on
+    # a machine with it beside the game folder every boot and restart failed.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        inside = Path('A/Battlestate Games/BsgLauncher/BsgLauncher.exe')  # D:\Battlestate Games
+        beside = Path('B/Battlestate Games/BsgLauncher/BsgLauncher.exe')  # C:\...\Escape from Tarkov
+        elsewhere = Path('C/Launchers/BsgLauncher/BsgLauncher.exe')
+        for exe in (inside, beside, elsewhere):
+            (root / exe).parent.mkdir(parents=True)
+            (root / exe).write_bytes(b'')
+        game_a = Path('A/Battlestate Games/EscapeFromTarkov.exe')
+        game_b = Path('B/Battlestate Games/Escape from Tarkov/EscapeFromTarkov.exe')
+
+        found = launcher_with(root, registry=[elsewhere], game=game_a)
+        assert found == root / elsewhere, f'the registry entry should win, got {found}'
+        found = launcher_with(root, registry=[Path('gone/BsgLauncher.exe')], game=game_a)
+        assert found == root / inside, f'launcher inside the game folder not found: {found}'
+        found = launcher_with(root, game=game_b)
+        assert found == root / beside, f'launcher beside the game folder not found: {found}'
+        found = launcher_with(root, registry=[elsewhere])
+        assert found == root / elsewhere, f'no game entry must not hide the launcher: {found}'
+        found = launcher_with(root, game=Path('D/Tarkov/EscapeFromTarkov.exe'))
+        assert isinstance(found, FileNotFoundError) and 'BsgLauncher' in str(found), \
+            f'nothing anywhere should raise naming what was tried, got {found}'
 
     # The clustering. Every button matches its full crop and its sub-crop, and those overlap by
     # about a third, under find's IOU dedupe, so all six come back and have to be collapsed to
@@ -144,4 +199,5 @@ if __name__ == '__main__':
     assert result is True, 'the window went, so the close worked'
     assert kills == [['taskkill', '/F', '/IM', tarkov.EXE]], f'not a forced kill: {kills}'
 
-    print('ok: boots each profile at its own column, clicks nothing it cannot see, forces closes')
+    print('ok: boots each profile at its own column, clicks nothing it cannot see, finds the '
+          'launcher inside or beside the game folder, forces closes')
