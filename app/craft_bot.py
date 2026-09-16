@@ -56,9 +56,14 @@ DEFAULT_SOURCE = 'Players'
 
 # Per-ingredient defaults, used when the GUI has no saved value (or a junk one). The max is the most
 # roubles to pay on the flea; the source is who to buy from. These match settings.DEFAULTS.
-DEFAULT_MAX = {'crackers': 22000, 'alyonka': 24000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
-               'power_cord': 62000, 'pile_of_meds': 16600, 'purified_water': 140000,
-               'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 50000, 'matches': 20000,
+# Set 2026-09-16 off tarkov-market 24h averages, each ~10% under its craft's break-even, so a buy
+# at the ceiling still profits. Break-even is revenue / input cost, and the tightest crafts have
+# almost none: moonshine ran 1.04x and ai2 0.73x, so their inputs (sugar, purified water, pile of
+# meds) are deliberately left where a rising market stops the buy rather than funding a loss.
+# ponytail: constants, and they drift. _price_scraper/item_price.py reprices them in ~2s.
+DEFAULT_MAX = {'crackers': 22000, 'alyonka': 37000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
+               'power_cord': 79000, 'pile_of_meds': 16600, 'purified_water': 107000,
+               'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 62000, 'matches': 26000,
                'water_filter': 70000, 'moonshine': 230000}
 # anything not listed defaults to players
 DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders', 'sling_bag': 'traders'}
