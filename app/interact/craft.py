@@ -14,6 +14,7 @@ from collections import namedtuple
 import numpy as np
 import pyautogui
 
+import frames
 import screen
 from interact import find, sell, snipe
 from narrate import log
@@ -203,12 +204,22 @@ MATCHES_TARGET = 'crafting/matches'
 WATER_FILTER_TARGET = 'crafting/water_filter'  # a filter itself, on the panel or in the dropdown
 WATER_FILTER_DROPDOWN_TARGET = 'crafting/water_filter_dropdown'  # opens the list of filters to fit
 MISSING_WATER_FILTER_TARGET = 'crafting/missing_water_filter'  # the empty slot: no filter is in
-# The single input slot, as (left, top, width, height) window fractions, so water_filter_state
-# reads only the slot square and not the dropdown control right beside it. The fitted-filter crop
-# false-matched that dropdown chrome at 0.853 on 2026-09-05, which read as both states at once and
-# raised Blind. Measured on a 2560x1440 panel: the slot square is (1718, 808) 102x141, tuned to
-# stop short of the dropdown strip (see the slot tuner). The dropdown-count read stays full-panel.
-WATER_FILTER_SLOT_FRACTIONS = (0.6710, 0.5610, 0.0400, 0.0980)
+# The single input slot, as (left, top, width, height) window fractions, wide enough to hold the
+# slot in both of its states. The row reflows: a fitted filter draws 80px left of where the empty
+# slot's X does, because the 'Producing (hh:mm:ss)' text appears beside it and shoves the row over.
+# Measured at 1080p on 2026-09-16, both states off the same station minutes apart: the empty X at
+# x 1304-1358 with its dropdown strip at 1369-1385, a fitted filter at x 1224-1278 with that same
+# 17px strip at 1289-1305.
+# The old box was x 1288-1364, tuned on the empty state alone, so a fitted filter fell entirely
+# outside it: water_filter_state read the dropdown strip, matched neither crop, and raised Blind
+# every pass the collector was actually working. It scored 0.731 for a fitted filter against 0.398
+# for an empty slot, high enough to show something was there and never enough to clear 0.83.
+# This box stops at 1362, short of the empty state's strip at 1369, which is the chrome the
+# fitted-filter crop false-matched at 0.853 on 2026-09-05 (a1244be). The fitted state's strip does
+# fall inside and is harmless: the real filter is on screen to match, and the empty X is not drawn
+# at all, so there is no second state left to be confused with. The dropdown-count read in
+# open_filter_dropdown stays full-panel.
+WATER_FILTER_SLOT_FRACTIONS = (0.6354, 0.5610, 0.0740, 0.0980)
 WATER_COLLECTOR_TARGET = 'hideout/hideout_tabs/water_collector'
 # The panel header's crop folder is named water_filter rather than water_collector, because that
 # is the folder the crop was added to. The station is the water collector.
@@ -484,15 +495,27 @@ def close_open_station_panel(region=None):
         log('no station panel open', 1)
         return False
     for attempt in range(1, PANEL_CLOSE_ATTEMPTS + 1):
-        log(f'a station panel is open; clicking its close button before navigating '
-            f'(attempt {attempt})', 1)
-        pyautogui.click(*sell.jitter(pyautogui.center(box)))
+        point = sell.jitter(pyautogui.center(box))
+        log(f'a station panel is open; clicking its close button at {tuple(box)} via {point} '
+            f'before navigating (attempt {attempt})', 1)
+        pyautogui.click(*point)
         time.sleep(PANEL_CLOSE_SETTLE)
         box = find.find(CLOSE_BUTTON_TARGET, fractions)
         if not box:
             return True
+        log(f'the close button is still there at {tuple(box)}', 2)
+    # Every click was aimed inside the button and none of them moved it, so this is not a miss and
+    # not a bad crop: it is something modal on top eating the clicks, or input not reaching the
+    # game at all. The button being found perfectly well is exactly what makes this look like a
+    # detection problem when it is not, so name the screen and keep a picture of it.
+    # 2026-09-16: three runs died here, each with the X at the identical (1865, 89) and each within
+    # a minute of a power cord buy that could not open its 'filter by item' menu. The logging on
+    # both ends exists to show whether those two are the same event.
+    state = _screen_state(region)
+    frames.capture('panel-would-not-close')
     raise LookupError('a station panel is open but its close button is still on screen after '
-                      f'{PANEL_CLOSE_ATTEMPTS} clicks, so the panel would not close')
+                      f'{PANEL_CLOSE_ATTEMPTS} clicks, so the panel would not close; '
+                      f'on screen: {state}')
 
 
 def hideout_module_targets():
@@ -1191,6 +1214,43 @@ def validate_slickers_craftable(region=None):
     return validate_craftable(SLICKERS, region)
 
 
+def _screen_state(region=None):
+    """A short description of what can be seen on screen right now, for a log line at a failure.
+
+    Read-only and non-clicking on purpose: every check is a find or a brightness read, so this can
+    be called from inside a failure path without disturbing the thing being diagnosed. In
+    particular it is not sell.dismiss_error_popup, which clicks.
+
+    It names only what it can positively see. 'no Error dialog' and 'the Error dialog crop stopped
+    matching' are the same answer from here, and a log line that claims the first would be lying
+    about the second.
+
+    Added 2026-09-16 for the failure this could not explain: three runs ended at
+    close_open_station_panel, each one within a minute of a power cord buy that could not find its
+    'filter by item' menu entry, each finding a real close button at exactly (1865, 89) and
+    clicking it three times with no effect. A correct find and a correctly aimed click that does
+    nothing is the signature of something modal on top, and nothing in the log said whether
+    anything was.
+    """
+    seen = []
+    if find.find(sell.ERROR_POPUP_TARGET, region):
+        seen.append('an Error dialog')
+    if find.find('filter_by_item', region):
+        seen.append('a filter-by-item menu entry')
+    if find.find(CLOSE_BUTTON_TARGET, _region_from_fractions(CLOSE_BUTTON_REGION_FRACTIONS, region)):
+        seen.append('a panel close button')
+    try:
+        if sell.is_flea_open(region):
+            seen.append('the flea open')
+    except Exception:  # a brightness read wants a window; a diagnosis must not raise
+        pass
+    try:
+        seen.append('hideout tab active' if is_hideout_tab_active(region) else 'hideout tab dim')
+    except Exception:
+        seen.append('hideout tab not readable')
+    return ', '.join(seen) if seen else 'nothing this knows how to name'
+
+
 def _open_item_menu(location, region=None, attempts=2):
     """Right-click a craft input and return the 'filter by item' entry's box, or None.
 
@@ -1225,7 +1285,18 @@ def _open_item_menu(location, region=None, attempts=2):
             time.sleep(MENU_DELAY)
             pyautogui.rightClick(*location)
             time.sleep(MENU_DELAY)
-            return find.find('filter_by_item', region)
+            found = find.find('filter_by_item', region)
+            if found:
+                log('the menu opened once the dialog was gone', 1)
+                return found
+            log('still no menu after clearing the dialog', 1)
+        elif attempt == attempts - 1:
+            # Only the last attempt looks, and only this branch knows it looked and found none.
+            # Saying so matters: an Error dialog that will not clear and one that was never there
+            # leave the same silence otherwise, and they want opposite responses.
+            log('no Error dialog over the menu either', 1)
+    log(f'gave up on the item menu after {attempts} tries at {location}; on screen: '
+        f'{_screen_state(region)}', 1)
     return None
 
 
@@ -1282,7 +1353,16 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     checkpoint()  # Stop pressed before we even touch the flea: drop out here
     box = _open_item_menu(location, region)
     if not box:
-        raise LookupError('no filter by item in the menu, cannot narrow the board to this item')
+        # Nothing is cleaned up here, deliberately: whatever the right click left on screen is the
+        # evidence. What this does do is name that screen and keep a picture of it, because this
+        # failure has been surfacing a minute later somewhere else entirely. Three runs on
+        # 2026-09-16 ended at close_open_station_panel, and every one of them was preceded by this
+        # exact raise on the power cord. Tying the two together in the log beats inferring it from
+        # timestamps hours afterwards, which is what it cost the first time.
+        state = _screen_state(region)
+        frames.capture('no-filter-by-item')
+        raise LookupError('no filter by item in the menu, cannot narrow the board to this item; '
+                          f'on screen: {state}')
     point = sell.jitter(pyautogui.center(box), y=0)  # a 6px tall crop says nothing about the row
     log(f'clicking filter by item at {point}', 1)
     pyautogui.click(*point)
@@ -1480,8 +1560,14 @@ def water_filter_state(region=None):
 
     Both reads are scoped to the slot square (WATER_FILTER_SLOT_FRACTIONS), not the whole panel:
     the fitted-filter crop false-matched the dropdown control beside the slot at 0.853, so a fitted
-    filter and the empty X both matched and it raised Blind for the wrong reason. The dropdown-count
-    read in open_filter_dropdown keeps the full panel, since the list can be anywhere on it.
+    filter and the empty X both matched and it raised Blind for the wrong reason.
+
+    That square has to hold the slot in both of its states, which are not in the same place: the row
+    reflows, and a fitted filter draws 80px left of where the empty slot's X does. Scoped to the
+    empty state alone, as it was until 2026-09-16, a fitted filter fell entirely outside the box and
+    this raised Blind on every pass the collector was actually working, having just fitted a filter
+    successfully. The dropdown-count read in open_filter_dropdown keeps the full panel, since the
+    list can be anywhere on it.
     """
     slot = _region_from_fractions(WATER_FILTER_SLOT_FRACTIONS, region)
     fitted = find.find(WATER_FILTER_TARGET, slot)
@@ -1717,5 +1803,12 @@ if __name__ == '__main__':
     # The water filter slot box lands where it was measured, so a fat-fingered fraction is caught
     # here rather than as the read scoping onto the dropdown again.
     assert _region_from_fractions(WATER_FILTER_SLOT_FRACTIONS, (0, 0, 2560, 1440)) \
-        == (1718, 808, 102, 141), 'water filter slot box moved off its measured square'
-    print('ok: the water filter slot box is where it was measured')
+        == (1627, 808, 189, 141), 'water filter slot box moved off its measured square'
+    # And it holds the slot in both states rather than only the empty one, which is the bug it was
+    # widened for, while still stopping short of the dropdown strip the 0.853 false match came from.
+    # Spelled out in 1080p pixels because that is what the three numbers were measured in.
+    _left, _, _width, _ = _region_from_fractions(WATER_FILTER_SLOT_FRACTIONS, (0, 0, 1920, 1080))
+    assert _left <= 1224, 'the slot box no longer reaches a fitted filter at x 1224'
+    assert _left + _width >= 1358, 'the slot box no longer reaches the empty slot X at x 1358'
+    assert _left + _width < 1369, 'the slot box reaches the dropdown strip that false-matched'
+    print('ok: the water filter slot box holds both states and stops short of the dropdown')
