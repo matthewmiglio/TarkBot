@@ -151,6 +151,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_monitors.py` — screen.py grab (use/rect/grab) — a colour put on each monitor reads back through the picked one — no-game
 - `test_window_overlap.py` — window.state()/overlap_state() — tell the three panel-vs-game overlap cases apart — no-game *(one pre-existing FAIL, see below)*
 - `test_game_client.py` — game_client launcher start_tarkov/close_game — pin the boot/close step order, which profile card is clicked, and find_launcher finding BsgLauncher.exe from its registry entry or inside/beside the game folder — no-game
+- `test_launcher_login.py` — game_client tarkov.login_page_up/_play_or_login/_play_point/start_tarkov + craft_bot.start — a launcher sat on its sign-in page raises NeedsLogin out of the boot and craft mode ends the run with an explanation, never a restart; NeedsLogin is asserted *not* to be a RuntimeError, since the restart tuple would otherwise relaunch into the same dialog forever, and a window smaller than the Play crop reads as "not found yet" rather than a matcher ValueError — no-game
 - `view_screenshot.py` — screen/window pixel inspector — matplotlib grid/coord/colour viewer for cropping references — game (live grab) or with a saved image
 
 ### `gui/` — the control panel (`gui/app.py`)

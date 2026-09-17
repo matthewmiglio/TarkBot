@@ -17,6 +17,13 @@ EXE = "EscapeFromTarkov.exe"
 LAUNCHER = "BsgLauncher.exe"  # the game will not boot without it, see start_tarkov
 LAUNCHER_TITLE = "BsgLauncher"
 PLAY_TARGET = "launcher/play"
+# The launcher's sign-in dialog. No Play button exists while this is up, and no amount of waiting
+# or relaunching produces one: only a person typing a password does. Measured 2026-09-17 over 3
+# crops, 1.000 with the dialog up against 0.583 worst case across 7 frames without it (5 in the
+# hideout, 2 of the launcher still loading), so the 0.83 default sits in the gap and this needs no
+# find.CONFIDENCES entry. The launcher's loading screen is deliberately NOT this: it scores 0.53
+# to 0.58 here, so a launcher that is merely slow keeps being waited for rather than giving up.
+LOGIN_TARGET = "launcher/login_page"
 CLOSE_TIMEOUT = 60  # seconds to wait for the window to go before calling the close a failure
 CLOSE_POLL = 0.5  # seconds between window checks while waiting
 LAUNCHER_TIMEOUT = 60  # seconds to wait for the launcher's own window after starting it
@@ -32,6 +39,19 @@ BUTTONS_APART = 200  # px between two SELECT centres that are different buttons 
 DISPLAY_NAME = "Escape from Tarkov"  # the game's own uninstall entry, not Arena's
 # The launcher's entry carries its version, "Battlestate Games Launcher 15.0.0.4603", hence a prefix.
 LAUNCHER_DISPLAY_NAME = "Battlestate Games Launcher"
+
+
+class NeedsLogin(Exception):
+    """The launcher is sat on its sign-in dialog, so nothing can boot until a person signs in.
+
+    Deliberately NOT a RuntimeError, and that is the whole point of it existing. craft_bot.start
+    catches RuntimeError and answers it by calling _restart_game, which calls start_tarkov again:
+    a login page raised as RuntimeError would close and relaunch the client into the same dialog
+    for as long as the run lasted, logging a restart each time and never saying why. Inheriting
+    straight from Exception keeps it out of every mode's restart tuple, so it travels up to the
+    one handler that knows to stop and tell the user to sign in.
+    """
+
 
 # Where Windows records installed programs. The 32-bit view is listed too because BSG's
 # installer is 32-bit on some machines, and a 64-bit Python cannot see it any other way.
@@ -157,8 +177,43 @@ def _play_point(hwnd):
     screen.use(screen.containing((left, top)).name)
     try:
         return find.find_center(PLAY_TARGET, (left, top, right - left, bottom - top))
+    except ValueError:
+        # "needle dimension(s) exceed the haystack": the window is smaller than the Play crop, so
+        # this cannot be the launcher's main screen. A minimised window reports about 160x28 at
+        # -32000,-32000, which is the shape that ended the run of 2026-09-17 11:41 with a matcher
+        # error naming neither the launcher nor the window. None means "not found yet", so _wait
+        # keeps polling and the window has time to be restored or finish drawing.
+        return None
     finally:
         screen.use(was.name)
+
+
+def login_page_up(region=None):
+    """True when the launcher is showing its sign-in dialog rather than a screen with Play on it.
+
+    Searched over the whole screen rather than the launcher's own rect, deliberately: that rect is
+    the one thing not to be trusted here, since a window reporting about 160x28 handed over as a
+    haystack is what raised a bare matcher error on 2026-09-17 instead of naming the real problem.
+    The crops are at most 365x225, so a screen is always large enough to search.
+    """
+    return bool(find.find(LOGIN_TARGET, region))
+
+
+def _play_or_login(hwnd):
+    """Where Play is, or raise NeedsLogin because the launcher is asking for a password instead.
+
+    One poll does both so a sign-in page is noticed within a second or so rather than after
+    PLAY_TIMEOUT has run out waiting for a button that cannot appear. The launcher's loading
+    screen is neither of the two, and correctly just keeps the poll going.
+
+    Raising from inside the look() that _wait is calling unwinds straight out of the wait, which
+    is what makes this fail fast rather than time out.
+    """
+    if login_page_up():
+        raise NeedsLogin('the launcher is on its sign-in page, so nothing can be launched: sign '
+                         'in to Battlestate Games on this machine, tick "Keep me logged in", and '
+                         'start the bot again')
+    return _play_point(hwnd)
 
 
 def _wait(look, timeout, poll=START_POLL):
@@ -235,6 +290,12 @@ def start_tarkov(character=Character.PVE):
     character is a Character, whose value is the card's column, left to right on that screen.
     The launcher comes from find_launcher(). Returns False at whichever step failed, having said
     which in the log.
+
+    The one exception to "returns False" is NeedsLogin, raised out of step 2 when the launcher is
+    asking for a password. That is not a failure a caller should retry, and False would be read as
+    one: _boot_game turns False into a RuntimeError, which craft mode answers by relaunching the
+    client straight back into the same dialog. Raising instead carries it past every restart tuple
+    to the handler that stops the run and tells the user to sign in.
     """
     if is_running():
         return True
@@ -252,7 +313,7 @@ def start_tarkov(character=Character.PVE):
             print(f"the launcher window never appeared in {LAUNCHER_TIMEOUT}s")
             return False
 
-    point = _wait(lambda: _play_point(hwnd), PLAY_TIMEOUT)
+    point = _wait(lambda: _play_or_login(hwnd), PLAY_TIMEOUT)
     if point is None:
         print(f"no Play button on the launcher after {PLAY_TIMEOUT}s")
         return False

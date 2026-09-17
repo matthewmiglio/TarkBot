@@ -28,6 +28,7 @@ import pyautogui
 
 import screen
 import window
+from game_client import tarkov  # for NeedsLogin, which must miss the restart tuple in start()
 from interact import craft, find, sell
 from narrate import log
 from sell_bot import GameRestarts, Stopped, auto_restart_from  # shared runner plumbing, see _pause
@@ -632,6 +633,14 @@ class HideoutCraft(GameRestarts):
             # cleanly rather than crash. The user has to empty the stash before a run is any use.
             craft.dismiss_stash_full(self.region)
             log(f'{e}; stopping the run, empty the stash and start again')
+        except tarkov.NeedsLogin as e:
+            # The other run-ender a person has to clear, and the reason NeedsLogin inherits from
+            # Exception rather than RuntimeError: restarting is exactly the wrong answer here, and
+            # the RuntimeError branch above would do precisely that, closing and relaunching the
+            # client into the same sign-in dialog for the whole run while logging a restart each
+            # time and never naming the cause. Nothing to dismiss on the way out either, since the
+            # launcher is its own window and the game never started.
+            log(f'{e}')
         finally:
             # finally, like the other modes: these used to run only after a full stash, so any
             # other ending left find.VERBOSE on and the totals unlogged.
