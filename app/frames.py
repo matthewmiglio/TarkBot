@@ -42,6 +42,10 @@ from narrate import log
 
 FRAME_DIR = APP_DIR / 'frames'  # sister of logs/, same reason: it belongs to the app, not the repo
 KEEP = 250  # frames on disk, oldest deleted as new ones arrive
+# Frames taken at a failure go in here instead, and are never pruned. See capture(pin=True): the
+# cap is right for the thousands of ordinary frames an hour and exactly wrong for the handful that
+# are the only picture of a failure, which it deleted within minutes of them being taken.
+KEPT_SUBDIR = 'kept'
 SUFFIX = '.png'  # lossless. ponytail: '.bmp' for literally uncompressed, at ~6MB a frame
 COMPRESS = 1  # PNG level: 0-9, all lossless. 1 is the fastest that still packs anything
 # The pyautogui calls that change what is on screen. moveTo is deliberately absent: the cursor
@@ -143,20 +147,37 @@ def _prune():
     return dropped
 
 
-def capture(label='', image=None):
+def capture(label='', image=None, pin=False):
     """Save one frame named for now, as `<unix milliseconds>-<label>.png`. Its path, or None.
 
     None when capture has not been started, which is what makes every call site safe to leave
     in: the tests and the geometry self-checks import sell.py without ever calling start().
 
     image: a PIL image to save instead of grabbing the screen. Only the self-check passes one.
+
+    pin: write into the `kept/` subfolder and never prune it. The cap is right for ordinary frames,
+    which arrive in their thousands an hour and are only interesting for the last few minutes. It is
+    exactly wrong for a frame taken *at* a failure, which is the one picture worth having and is
+    reliably destroyed by the frames that come after it. On 2026-09-17 five runs died at the same
+    station panel, each calling capture('panel-would-not-close'), and not one of those frames lasted
+    long enough to be looked at: craft mode forces find.VERBOSE on, which writes a full-screen frame
+    per detection, so 250 frames is a couple of minutes of history. Pinned frames are not counted
+    against `_keep`, and neither start() nor clear() reaches them, because both glob the top level
+    only.
     """
     if _dir is None:
         return None
     stamp = int(time.time() * 1000)
     # No collision guard: a grab takes tens of milliseconds, so two frames cannot share a
     # stamp *and* a label unless the clock jumps, and a lost frame is not worth a stat call.
-    path = _dir / (f'{stamp}-{label}{SUFFIX}' if label else f'{stamp}{SUFFIX}')
+    name = f'{stamp}-{label}{SUFFIX}' if label else f'{stamp}{SUFFIX}'
+    if pin:
+        kept = _dir / KEPT_SUBDIR
+        kept.mkdir(parents=True, exist_ok=True)
+        path = kept / name
+        _saves.put((path, image if image is not None else screen.grab()))
+        return path  # deliberately never appended to _kept, so _prune cannot reach it
+    path = _dir / name
     # The working monitor, not the primary and not the whole desk: the point of a frame is what
     # the game was showing, and screen.py is the only thing that knows which screen that is.
     # The grab is the bot thread's; the encode and the write belong to the saver.
@@ -286,6 +307,24 @@ if __name__ == '__main__':
         flush()
         assert not list(directory.glob(f'*{SUFFIX}')), 'clear() emptied the folder'
         assert len(_kept) == 0, 'and reset the cap bookkeeping'
+
+        # A pinned frame goes in the subfolder, outlives any amount of pruning, and is invisible to
+        # both of the things that manage ordinary frames. That is the entire point of it: on
+        # 2026-09-17 five runs died at the same station panel, each one captured a frame at the
+        # failure, and every one of those frames was deleted by the cap before it could be looked at.
+        start(directory, keep=2)
+        pinned = capture('evidence', blank, pin=True)
+        for n in range(6):
+            capture(f'flood{n}', blank)
+        flush()
+        assert pinned.parent.name == KEPT_SUBDIR, f'pinned into {pinned.parent.name}, not kept/'
+        assert pinned.exists(), 'a pinned frame outlives the cap'
+        assert len(list(directory.glob(f'*{SUFFIX}'))) == 2, 'and the cap still holds for the rest'
+        start(directory, keep=2)  # adopting the folder must not adopt, and so prune, pinned frames
+        assert pinned.exists(), 'start() does not reach into kept/'
+        clear()
+        flush()
+        assert pinned.exists(), 'and neither does clear()'
 
         stop()
         count = len(list(directory.glob(f'*{SUFFIX}')))

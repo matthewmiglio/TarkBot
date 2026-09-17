@@ -273,6 +273,22 @@ craft_bot.py         HideoutCraft: the fourth mode, keeping several hideout craf
                      not a live read (ponytail: constants, update them when input prices and output
                      values drift), and a craft the dict does not list (the water collector) books 0
                      rather than a guess that would inflate the total.
+                     The GET ITEMS click is verified, not trusted, and the profit is booked only
+                     once it is: _click_until_taken clicks, parks the cursor off the button, waits,
+                     and asks for proof, up to GET_ITEMS_ATTEMPTS times. On 2026-09-17 a red
+                     gunpowder collect was watched going out while the game was frozen for a beat;
+                     the click registered nowhere, the button stayed lit with the loot on the row,
+                     and the pass booked the profit anyway, because a click Tarkov ignores leaves
+                     the screen exactly as it was and nothing downstream can tell. The two kinds of
+                     collect need different proof and both are wired through that one helper: a
+                     normal craft collects instantly, so the button going away is the whole of it
+                     (craft.get_items_cleared, scoped to the button's own row because the padded
+                     band overlaps the next craft's); a scav case instead opens a LOOT FROM SCAVS
+                     reveal whose RECEIVE has to be clicked before any loot lands, and that modal
+                     *covers* the button rather than removing it, so there the proof is the reveal
+                     appearing (_receive_point). A button that will not take after the last attempt
+                     is a lost pass, not a raise: the row is still done, so the next lap collects
+                     it. tests/hideout_craft_actions/test_collect_retry.py.
                      buy_input buys one missing ingredient at its GUI ceiling from its GUI source.
                      Unbuyable and LookupError (the game would not open a context menu on the slot)
                      both make step() swap craft rather than end the run: one bad slot or one
@@ -345,7 +361,17 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      changes are captured. 250 frames across all sessions, oldest deleted as
                      new ones arrive. Whole screen, native resolution, lossless. The bot thread
                      only grabs; a saver thread does the encoding, the writing and the deleting,
-                     so flush() before reading the folder. Self-check: python -m frames
+                     so flush() before reading the folder.
+                     capture(pin=True) writes into frames/kept/ instead, and nothing ever prunes
+                     it: not the cap, not start()'s adopt, not clear(), since all three glob the
+                     top level only. For frames taken *at* a failure, which are the one picture
+                     worth having and the one the cap is guaranteed to destroy. Craft mode forces
+                     find.VERBOSE on, which writes a frame per detection, so 250 frames is about
+                     two minutes of history: on 2026-09-17 five runs died at the same station
+                     panel, each calling capture('panel-would-not-close'), and not one of those
+                     frames survived long enough to be looked at. Pin sparingly, and never on a
+                     path that runs every pass, or it is an unbounded folder.
+                     Self-check: python -m frames
 crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame from before the
                      last click and the screen as it is now. Was report.py, which read like a
                      run report sitting beside session_log.py and frames.py; crashes are all it

@@ -47,7 +47,16 @@ HANDOVER_SETTLE = 2.0  # seconds between a handover click and the look that chec
 RECEIVE_TARGET = 'hideout/recieve_items_button'  # the scav case's LOOT FROM SCAVS reveal confirm button
 RECEIVE_APPEAR_TIMEOUT = 10.0  # poll up to this long after GET ITEMS for the scav case RECEIVE button
 RECEIVE_POLL = 0.5  # seconds between looks while waiting for the RECEIVE button to appear
-COLLECT_SETTLE = 2.0  # seconds after collecting for the row to flip back to ready
+COLLECT_SETTLE = 3.0  # seconds after collecting for the row to flip back to ready. Was 2.0; raised
+                      # 2026-09-17 because a GET ITEMS click makes the whole client lag, sometimes
+                      # close to a freeze, and the next thing the loop does is read the row again.
+                      # Note this is on top of GET_ITEMS_SETTLE, so a collect now has ~8s before
+                      # anything reads that row, and the 12:54 Blind that prompted the change came
+                      # off the failed-handover path (START_SETTLE, already 3.0s) rather than off a
+                      # collect, so this hardens the lag but is not proven to be that fix.
+SCAV_CASE_MAX_COLLECTS = 6  # lit GET ITEMS clicked in one scav case pass before giving up. The panel
+                            # holds five rows, so reaching this means a button that will not clear,
+                            # and a bounded loop ends the pass instead of spinning on it.
 PARK_OFFSET = 100  # 1080p px to shove the cursor right after a click, so it stops covering the row
 
 # The GUI's per-ingredient SOURCE picker. 'Players' or 'Traders' as shown; build() lowercases them
@@ -82,6 +91,11 @@ PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321, 'wires': 47235, 'ai2': 3
 # one is. Same as any craft the dict does not list, see collect_craft.
 
 GET_ITEMS_SETTLE = 5.0  # seconds after clicking GET ITEMS; collecting can hang for a beat
+GET_ITEMS_ATTEMPTS = 3  # clicks of a GET ITEMS that will not clear before giving the pass up. Same
+                        # shape and same reason as MAX_HANDOVER_LOOPS above: on 2026-09-17 a red
+                        # gunpowder collect was watched going out with the game frozen for a beat,
+                        # the click landing nowhere, and the row left with its loot on it. See
+                        # collect_craft.
 
 # The crafts the GUI draws a STARTED and a PROFIT column against, in craft.CRAFTS' order so the
 # stat keys and the GUI's rows name the same crafts.
@@ -245,44 +259,116 @@ class HideoutCraft(GameRestarts):
             point = find.find_center(HANDOVER_TARGET, self.region)
         return True
 
+    def _receive_point(self, timeout=RECEIVE_APPEAR_TIMEOUT):
+        """Poll up to `timeout` for the scav case's LOOT FROM SCAVS reveal. Its centre, or None.
+
+        Split out from the click because it has a second job: it is the proof that a scav case GET
+        ITEMS click landed. On that panel the button cannot be the proof the way it is for every
+        other craft, because clicking it opens a modal that covers the button rather than removing
+        it, so 'the button is gone' reads true for a click that collected nothing. The reveal
+        opening is the thing only a registered click produces.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            point = find.find_center(RECEIVE_TARGET, self.region)
+            if point is not None:
+                return point
+            if time.monotonic() >= deadline:
+                return None
+            time.sleep(RECEIVE_POLL)
+
     def _confirm_receive(self):
         """Confirm the scav case's LOOT FROM SCAVS reveal, which GET ITEMS opens for a scav case.
 
         A scav case collect is two steps, unlike every other craft: GET ITEMS opens a 'LOOT FROM
         SCAVS' reveal listing what the scavs brought, and the loot only lands in the stash once its
-        RECEIVE button is clicked. The list takes a moment to populate, so poll up to
-        RECEIVE_APPEAR_TIMEOUT for the button, then click its centre and break. Blind if it never
+        RECEIVE button is clicked. The list takes a moment to populate, so _receive_point polls up
+        to RECEIVE_APPEAR_TIMEOUT for the button, then this clicks its centre. Blind if it never
         appears: the loot is then stuck behind a modal that dims everything and wedges the next
         navigation (see _craft_mode_run_debugging), so guessing is worse than stopping.
+
+        Callers that have already waited for the reveal as their proof that the GET ITEMS click
+        landed find it up immediately, so the second look costs one match.
         """
-        deadline = time.monotonic() + RECEIVE_APPEAR_TIMEOUT
-        while True:
-            point = find.find_center(RECEIVE_TARGET, self.region)
-            if point is not None:
-                clicked = sell.jitter(point)
-                log(f'scav case loot reveal is up; clicking RECEIVE at {clicked}', 1)
-                pyautogui.click(*clicked)
-                self._park(clicked)
-                return
-            if time.monotonic() >= deadline:
-                raise craft.Blind(
-                    f'the scav case RECEIVE button never appeared within {RECEIVE_APPEAR_TIMEOUT:.0f}s '
-                    'of GET ITEMS, so the loot reveal is stuck open')
-            time.sleep(RECEIVE_POLL)
+        point = self._receive_point()
+        if point is None:
+            raise craft.Blind(
+                f'the scav case RECEIVE button never appeared within {RECEIVE_APPEAR_TIMEOUT:.0f}s '
+                'of GET ITEMS, so the loot reveal is stuck open')
+        clicked = sell.jitter(point)
+        log(f'scav case loot reveal is up; clicking RECEIVE at {clicked}', 1)
+        pyautogui.click(*clicked)
+        self._park(clicked)
+
+    def _click_until_taken(self, what, box, landed, settle=GET_ITEMS_SETTLE):
+        """Click `box` until `landed()` says the game took it. The point clicked, or None.
+
+        The click going out is never the success test, because a click Tarkov ignores leaves the
+        screen exactly as it was. Watched on 2026-09-17: a red gunpowder GET ITEMS click went
+        nowhere with the game frozen for a beat, and the pass carried on as though it had
+        collected, booking the profit for loot still sat on the row. Nothing downstream could have
+        noticed, which is why the proof has to be taken here. Same shape and same reason as
+        _confirm_handover, which learned this about START.
+
+        Every attempt clicks, parks the cursor off the button, waits `settle`, then asks `landed`.
+        The park is not cosmetic: the click's own hover highlight changes the very pixels the next
+        look matches against, which is why every clicked button in this file is parked off before
+        it is re-read. The point is re-jittered per attempt, so a click that missed by a hair is
+        not repeated identically. Bounded at GET_ITEMS_ATTEMPTS.
+
+        `landed` is the caller's proof, and the two callers need different ones:
+
+          collect_craft              the button itself goes away (craft.get_items_cleared). A
+                                     normal craft collects instantly, so a cleared button is the
+                                     whole of the evidence.
+          _collect_scav_case_rolls   the LOOT FROM SCAVS reveal opens (_receive_point). A scav
+                                     case click opens a modal that *covers* its button instead of
+                                     removing it, so a cleared button would read true for a click
+                                     that collected nothing.
+
+        `settle` exists for that second caller: _receive_point polls for up to ten seconds by
+        itself, so waiting the full GET_ITEMS_SETTLE first would only add dead time.
+        """
+        for attempt in range(1, GET_ITEMS_ATTEMPTS + 1):
+            point = sell.jitter(pyautogui.center(box))
+            log(f'clicking GET ITEMS for {what} at {point} '
+                f'(attempt {attempt}/{GET_ITEMS_ATTEMPTS})', 1)
+            pyautogui.click(*point)
+            self._park(point)  # off the button before the look; its hover changes those pixels
+            if settle:
+                time.sleep(settle)  # collecting sometimes hangs; wait it out before looking
+            if landed():
+                return point
+            log(f'the GET ITEMS click for {what} did not register', 2)
+        log(f'GET ITEMS for {what} would not take after {GET_ITEMS_ATTEMPTS} clicks', 1)
+        return None
 
     def collect_craft(self, job, read):
-        """Collect a finished craft: click the GET ITEMS the read already found.
+        """Collect a finished craft: click GET ITEMS until the button actually goes away.
 
-        Profit is booked here, not at Start: an estimate is only real once the craft is actually
-        collected. The button comes out of `read` for the reason start_craft gives, and this one
-        cost two searches rather than one, since craft_row_band went looking for the output all
-        over again to frame a row the read had already framed.
+        The clearing of the button is the proof, not the click going out; _click_until_taken holds
+        the why and the loop. This is the instant kind of collect, the one every craft but the scav
+        case has: no reveal, no second confirm, the loot simply lands.
+
+        Profit is booked only once the button has cleared, and that is the substance of this rather
+        than the retry: booking on the click counted loot that never arrived, and every total
+        downstream inherited it. Still lit after the last attempt is a lost pass rather than a
+        raise, exactly like the handover: the row is still 'done', so the next lap collects it.
+
+        Profit is booked here and not at Start for the same reason: an estimate is only real once
+        the craft is actually collected. The button comes out of `read` for the reason start_craft
+        gives, and this one cost two searches rather than one, since craft_row_band went looking
+        for the output all over again to frame a row the read had already framed.
+
+        Returns the point clicked, or None when the button never cleared.
         """
-        point = sell.jitter(pyautogui.center(read.get_items))
-        log(f'collecting the {job.craft.name} craft, clicking GET ITEMS at {point}', 1)
-        pyautogui.click(*point)
-        time.sleep(GET_ITEMS_SETTLE)  # collecting sometimes hangs; wait it out before moving on
-        self._park(point)
+        point = self._click_until_taken(
+            f'the {job.craft.name} craft', read.get_items,
+            lambda: craft.get_items_cleared(read.get_items, read.band))
+        if point is None:
+            log(f'nothing was collected for {job.craft.name} and no profit is booked; the row is '
+                'still done, so the next lap will try again', 1)
+            return None
         # Collected output has to land in the stash; a full one makes Tarkov refuse it with the
         # stash-full dialog. Nothing a craft run can do about that, so stop rather than book profit
         # for items that never arrived.
@@ -373,38 +459,112 @@ class HideoutCraft(GameRestarts):
         self._swap()
 
     def tend_scav_case(self, job):
-        """The scav case's pass: tend both rolls, in whatever order they sit in, then leave.
+        """The scav case's pass: start what can be started, then collect what has finished.
 
-        Both rolls live on the one panel and neither fits the normal ready/producing state
-        machine, for the same reason: every reward variant outputs the same '?' box, so a row is
-        named only by its input item and carries no per-input tick. Both are done before the
-        single swap away, so one visit works both rolls rather than one roll per visit.
+        Two phases with a panel reopen between them, because they want opposite things from the
+        panel and cannot share one sweep of its list:
 
-        Neither roll is assumed to be on screen. Each one looks for its own anchor and scrolls to
-        it only if it is not already drawn (craft.find_scav_case_row), so the list's scroll
-        position does not decide which rolls get tended and the order here does not matter. This
-        used to tend moonshine off 'the visible top row' and scroll only for the 95k roll below
-        it, which had the panel exactly backwards: the moonshine read found nothing, raised Blind
-        into the restart path, and took the 95k roll queued behind it down with it, so neither
-        roll was ever tended once. A roll that cannot be found is now skipped with a log line.
+          starts   a startable roll still draws its input icon, so it can be named: the moonshine
+                   bottle, or the 95k rouble count. Each roll is hunted by its own anchor
+                   (craft.find_scav_case_row), in whichever scroll direction it lies.
+          collect  a roll that is running or finished stops drawing its input icon, so a lit GET
+                   ITEMS cannot be attributed to a row at all. It does not need to be: every roll
+                   pays out the same '?' boxes, so every lit GET ITEMS is collected wherever it
+                   sits (craft.lit_get_items).
+
+        That second point is the bug this shape exists to fix. Collecting used to go through the
+        same anchor-then-band read a start does, so a finished roll whose input label had dimmed
+        was invisible to it and its loot was never taken. The screenshot of 2026-09-17 has a lit
+        GET ITEMS sat on a row with no input icon drawn on it at all.
+
+        Before that, this tended moonshine off 'the visible top row' and scrolled only for the 95k
+        roll below it, which had the panel exactly backwards: the moonshine read found nothing,
+        raised Blind into the restart path, and took the 95k roll queued behind it down with it, so
+        neither roll was ever tended once. A roll that cannot be found is skipped with a log line.
+
+        The reopen between the phases is what lets the collect sweep start from a known place: the
+        starts phase leaves the list wherever hunting its two anchors stopped.
         """
-        self._tend_scav_case_moonshine(job)
-        self._tend_scav_case_95k(job)
-        self._swap()  # leave the scav case; both rolls have been tended
+        self._start_scav_case_moonshine(job)
+        self._start_scav_case_95k(job)
+        self._reopen_scav_case(job)
+        self._collect_scav_case_rolls()
+        self._swap()  # leave the scav case; both phases are done
 
-    def _tend_scav_case_moonshine(self, job):
-        """Tend the moonshine roll on the visible (top) scav case row. Does not swap.
+    def _reopen_scav_case(self, job):
+        """Close the scav case panel and open it again, putting its list back at the top.
+
+        Reopening rather than scrolling back: the starts phase leaves the list wherever its anchor
+        hunt stopped, and 'wheel up until it stops moving' is more wheeling and more trust than
+        letting the panel redraw itself. get_to_station re-enters through the module carousel,
+        which does not touch the production list's own scroll at all.
+
+        A panel that will not close raises LookupError out of close_open_station_panel, which is in
+        this mode's restart tuple, and that is the right answer: the collect phase cannot read a
+        list it cannot see, and a wedged panel is the thing a restart fixes.
+        """
+        log('reopening the scav case panel to put its list back at the top', 1)
+        craft.close_open_station_panel(self.region)
+        craft.get_to_station(job.craft, self.region)
+
+    def _collect_scav_case_rolls(self):
+        """Click every lit GET ITEMS on the scav case panel, whichever row each one sits on.
+
+        Sweeps the whole list (craft.scav_case_scroll_positions), because a finished roll can sit
+        below the fold, and re-looks after every collect rather than walking a list of boxes taken
+        up front: the loot reveal and the row flipping back both redraw the panel, so a box found
+        before a click is stale after it.
+
+        Bounded by SCAV_CASE_MAX_COLLECTS, for the reason every loop in this file is bounded: a
+        button that will not clear has to end the pass rather than spin on it.
+        """
+        collected, stuck = 0, False
+        for _ in craft.scav_case_scroll_positions():
+            while not stuck and collected < SCAV_CASE_MAX_COLLECTS:
+                boxes = craft.lit_get_items(self.region)
+                if not boxes:
+                    break
+                # The same verified click every collect gets, with this panel's own proof: the
+                # LOOT FROM SCAVS reveal opening. A scav case collect is two steps, not one, and
+                # the click that opens the reveal is the one the game can swallow. settle=0 because
+                # _receive_point polls for the reveal by itself.
+                point = self._click_until_taken('a finished scav case roll', boxes[0],
+                                                lambda: self._receive_point() is not None,
+                                                settle=0)
+                if point is None:
+                    stuck = True
+                    break
+                self._confirm_receive()  # the loot only lands once RECEIVE is clicked
+                self._pause(COLLECT_SETTLE)
+                # The loot has to land. A full stash makes Tarkov refuse it, which is the user's to
+                # clear, so stop rather than keep clicking collects that cannot arrive.
+                craft.check_stash_full(self.region)
+                _book_profit(self.stats, craft.SCAV_CASE_NAME)  # 0 until scav_case has a figure
+                collected += 1
+            if stuck or collected >= SCAV_CASE_MAX_COLLECTS:
+                break
+        if stuck:
+            log(f'a finished scav case roll would not open its loot reveal after '
+                f'{GET_ITEMS_ATTEMPTS} clicks, so the rest of the sweep is left for the next lap', 1)
+        elif collected >= SCAV_CASE_MAX_COLLECTS:
+            log(f'stopped after {SCAV_CASE_MAX_COLLECTS} collects, which a five-row panel '
+                'should never reach', 1)
+        log(f'collected {collected} finished scav case roll(s)' if collected
+            else 'no finished scav case rolls to collect')
+
+    def _start_scav_case_moonshine(self, job):
+        """Start the moonshine roll if it is ready. Collecting is _collect_scav_case_rolls' job.
 
         The row is named only by its input, so read_craft anchors on the moonshine bottle rather
         than an output (see craft.SCAV_CASE), and there is no per-input tick, so 'ready' cannot be
         split into have-the-input and need-to-buy the way read_craft does for other crafts: the
-        bottle is always drawn on the row, ticked or not. So readiness is judged after the fact:
+        bottle is always drawn on a startable row, ticked or not. So readiness is judged after the
+        fact: click START, then read the row back. Producing now means it started (count it). Still
+        ready means the click did nothing, which for a scav case means the moonshine bottle was not
+        in the stash, so buy one and let the next lap start it.
 
-          producing -> nothing to do, leave it running
-          done      -> collect
-          ready     -> click START, read the row back. Producing now means it started (count it).
-                       Still ready means the click did nothing, which for a scav case means the
-                       moonshine bottle was not in the stash, so buy one and let the next lap start.
+        Every state but 'ready' is somebody else's business now, 'done' included: the collect phase
+        takes a finished roll, and it needs no anchor and no row to do it.
 
         START may or may not raise a handover dialog. The other crafts always get one and treat a
         missing one as Blind; this one was never confirmed to, so _confirm_handover(required=False)
@@ -422,32 +582,15 @@ class HideoutCraft(GameRestarts):
         # raises Blind when it is not drawn, and Blind restarts the game, so a roll sitting below
         # the panel's fold has to be brought into view before the read rather than after it.
         if craft.find_scav_case_row(craft.MOONSHINE_TARGET, self.region) is None:
-            log('the moonshine scav case roll never came into view, skipping it', 1)
+            log('the moonshine scav case roll is not startable right now, skipping its start', 1)
             return
 
         read = craft.read_craft(job.craft, self.region)
-
-        if read.state == 'producing':  # running; leave it, move on to the 95k roll
-            log('scav case moonshine roll is producing')
-            self._pause()
-            return
-        if read.state == 'done':
-            # A scav case collect is two steps, not one: GET ITEMS opens a LOOT FROM SCAVS reveal
-            # that only deposits the loot once its RECEIVE is clicked (collect_craft's single GET
-            # ITEMS is enough for every other craft but not here). Click GET ITEMS, then confirm
-            # the reveal, or the modal is left wedging the next navigation.
-            point = sell.jitter(pyautogui.center(read.get_items))
-            log(f'collecting the scav case moonshine roll, clicking GET ITEMS at {point}', 1)
-            pyautogui.click(*point)
-            self._park(point)
-            self._confirm_receive()
-            self._pause(COLLECT_SETTLE)
-            return
-        if read.state == 'not started':  # a greyed GET ITEMS; nothing this loop can do
-            log('scav case moonshine roll is not started')
+        if read.state != 'ready':
+            log(f'scav case moonshine roll is {read.state}, nothing to start')
+            self._pause()  # a Stop still lands here, as it did in the old producing branch
             return
 
-        # ready: START is on the row. Click it, let any handover confirm, then read the row back.
         point = sell.jitter(pyautogui.center(read.start))
         log(f'starting the scav case moonshine craft, clicking START at {point}', 1)
         pyautogui.click(*point)
@@ -477,35 +620,24 @@ class HideoutCraft(GameRestarts):
         except LookupError as e:
             log(f'{name}: {e}, moving on', 1)
 
-    def _tend_scav_case_95k(self, job):
-        """Tend the 95,000-rouble scav case roll, scrolled to below the moonshine roll. No swap.
+    def _start_scav_case_95k(self, job):
+        """Start the 95,000-rouble roll if it is ready. Collecting is the collect phase's job.
 
-        Same shape as the moonshine roll (no timer tick, state read off the row's buttons), read
-        through craft.read_scav_case_95k, which scrolls down to the roll and reads its buttons off
-        the 95k exception band. The one difference is the missing-input path: the roll's input is a
-        stack of roubles, which cannot be bought off the flea, so a START that does not take means
-        the stash is short of roubles (the user's to top up), not an ingredient to go and buy.
+        Same shape as the moonshine roll (no tick, state read off the row's buttons), read through
+        craft.read_scav_case_95k, which scrolls to the roll and reads its buttons off the 95k
+        exception band. The one difference is the missing-input path: this roll's input is a stack
+        of roubles, which cannot be bought off the flea, so a START that does not take means the
+        stash is short of roubles (the user's to top up), not an ingredient to go and buy.
         """
         read = craft.read_scav_case_95k(self.region)
         if read is None:
-            log('the 95k scav case roll never scrolled into view, skipping it', 1)
+            log('the 95k scav case roll is not startable right now, skipping its start', 1)
             return
-        if read.state == 'producing':
-            log('the 95k scav case roll is producing')
-            return
-        if read.state == 'done':
-            point = sell.jitter(pyautogui.center(read.get_items))
-            log(f'collecting the 95k scav case roll, clicking GET ITEMS at {point}', 1)
-            pyautogui.click(*point)
-            self._park(point)
-            self._confirm_receive()
-            self._pause(COLLECT_SETTLE)
-            return
-        if read.state == 'not started':
-            log('the 95k scav case roll is not started')
+        if read.state != 'ready':
+            log(f'the 95k scav case roll is {read.state}, nothing to start')
+            self._pause()
             return
 
-        # ready: click START, confirm any handover, read the row back to judge if it took.
         point = sell.jitter(pyautogui.center(read.start))
         log(f'starting the 95k scav case roll, clicking START at {point}', 1)
         pyautogui.click(*point)

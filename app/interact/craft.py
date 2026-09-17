@@ -118,7 +118,14 @@ STATION_ORDER = [
 STATION_INDEX = {name: i for i, name in enumerate(STATION_ORDER)}
 SWIPE_DISTANCE = 500  # px to drag the hideout view per swipe, 1080p, scaled at swipe time
 SWIPE_DURATION = 0.3  # seconds the drag itself takes
-SWIPE_SETTLE = 0.5  # seconds after a swipe for the view to stop moving before it is read
+SWIPE_SETTLE = 1.5  # seconds after a swipe for the view to stop moving before it is read.
+# Was 0.5, which was not enough and cost a run on 2026-09-17. The carousel glides to a stop rather
+# than stopping dead, and 0.5s left it still moving when the sweep matched a tab: at 14:59:20 the
+# medstation label matched at x=1641 and then, 167ms later, at x=1596, so the row was travelling
+# ~270 px/s a full 0.9s after the drag ended. _open_station clicked where the label had been, missed
+# the tab, and the panel never opened, which surfaced as a LookupError and a whole game restart.
+# 1.5 is a first estimate covering the ~1.2s the glide was still visibly running, not a measured
+# floor; tests/hideout_nav/test_scroll_progress.py is where to tighten it against a live hideout.
 MAX_SEARCH_SWIPES = 10  # swipes one way looking for a station before turning around
 SWIPE_STRIP_HEIGHT = 80  # px tall strip of the module row read to tell whether a swipe moved it
 SWIPE_STUCK_DIFF = 3.0  # mean grey change below this means the row did not move at all
@@ -512,6 +519,12 @@ def close_open_station_panel(region=None):
         if not box:
             return True
         log(f'the close button is still there at {tuple(box)}', 2)
+        if attempt == 1:
+            # The 'before' picture, pinned so it outlives the frame cap. Taken on the first missed
+            # click rather than before the first click, so the ~300 panel closes a soak that work
+            # first time cost nothing: by here the click has changed nothing, so the panel is still
+            # in the state it was in when we tried to leave it, which is the thing worth seeing.
+            frames.capture('panel-would-not-close-first-miss', pin=True)
     # Every click was aimed inside the button and none of them moved it, so this is not a miss and
     # not a bad crop: it is something modal on top eating the clicks, or input not reaching the
     # game at all. The button being found perfectly well is exactly what makes this look like a
@@ -735,6 +748,13 @@ def _open_station(craft, region=None):
     True/False, not the box. If a live run ever starts missing this click, the row was still gliding
     when the sweep matched it: raise SWIPE_SETTLE so the sweep's own settle absorbs the glide, do
     not reinstate a settle here.
+
+    That is exactly what happened on 2026-09-17, and it was answered the way this note says. The
+    two finds disagreed by 45px in 167ms (the medstation label at x=1641 then x=1596), so the click
+    went where the tab had been and no panel opened. SWIPE_SETTLE went 0.5 -> 1.5 rather than a
+    settle being added here. The re-find staying is what makes that work: it is the thing that
+    would hand a click the stale coordinate if the sweep's settle were ever too short again, so it
+    is also the thing whose disagreement with the sweep's own match names the cause in the log.
     """
     box = find.find(craft.module_target, region)
     if not box:
@@ -917,6 +937,36 @@ def _on_row(boxes, row_y):
     return min(on, key=lambda b: abs(_center(b)[1] - row_y)) if on else None
 
 
+def scav_case_scroll_positions():
+    """Walk the scav case production list under the mouse wheel, yielding at each position.
+
+    Yields False once for the position the list already sits in, so a caller whose target is
+    drawn costs one look and no wheeling at all, then True after each wheel step: down
+    SCAV_CASE_SCROLL_STEPS times, then back up twice that, so a list left scrolled past the target
+    is covered as well as one left above it. Same bounded sweep-and-come-back shape as
+    get_to_station's carousel, and bounded for the same reason: a wheel that is not reaching the
+    list at all must end, not spin.
+
+    Shared by the two passes that have to see the whole list: find_scav_case_row hunting one
+    roll's anchor, and craft_bot's collect pass hunting every lit GET ITEMS.
+
+    The dead-space click that takes the wheel's focus happens once, lazily, before the first
+    actual scroll, so a caller that finds what it wants straight away never clicks the panel.
+    """
+    yield False  # look where the list already sits, before touching the wheel
+    if SCAV_CASE_DEADSPACE_COORD is None:
+        raise ValueError('SCAV_CASE_DEADSPACE_COORD is not set; fill it from a live grab of the '
+                         'scav case panel before sweeping the list')
+    log('clicking the scav case panel dead space to take the scroll focus', 1)
+    pyautogui.click(*SCAV_CASE_DEADSPACE_COORD)
+    for notches, steps in ((-SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS),
+                           (SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS * 2)):
+        for _ in range(steps):
+            pyautogui.scroll(notches)  # negative wheels down
+            time.sleep(SCAV_CASE_SCROLL_SETTLE)
+            yield True
+
+
 def find_scav_case_row(target, region=None):
     """Bring one scav case roll's anchor on screen and hand back its match Box, or None.
 
@@ -925,38 +975,61 @@ def find_scav_case_row(target, region=None):
     at, so which rows are drawn when it opens is not something either caller may assume. See the
     note by SCAV_CASE_SCROLL_DOWN for what assuming it cost.
 
-    Look first and scroll only if the target is not already there, so a roll that is on screen
-    costs one match and no wheeling at all. Otherwise click a dead spot in the panel
-    (SCAV_CASE_DEADSPACE_COORD) to give the list the mouse wheel's focus, step down
-    SCAV_CASE_SCROLL_STEPS times looking after each step, then sweep back up twice that, so a list
-    left scrolled past the target is covered as well as one left above it. Same bounded
-    sweep-and-come-back shape as get_to_station's carousel, and bounded for the same reason: a
-    wheel that is not reaching the list at all must end, not spin.
+    Only useful for a roll that is *startable*. A roll that is running or finished stops drawing
+    its input icon altogether (see lit_get_items), so there is no anchor left to find and this
+    answers None for a row that is plainly on screen. Collecting therefore does not go through
+    here.
 
     Returns the Box (truthy) so the caller can build the row band from it; None (falsy) when the
     roll never showed. None is 'skip this roll', not an error: one roll missing says nothing about
     the other, and this panel is where a failed read used to end the entire run.
     """
-    if SCAV_CASE_DEADSPACE_COORD is None:
-        raise ValueError('SCAV_CASE_DEADSPACE_COORD is not set; fill it from a live grab of the '
-                         'scav case panel before calling find_scav_case_row')
-    box = find.find(target, region)
-    if box:
-        log(f'{target} is already on the visible scav case rows', 1)
-        return box
-    log(f'{target} is not on screen: clicking dead space for scroll focus, then hunting', 1)
-    pyautogui.click(*SCAV_CASE_DEADSPACE_COORD)
-    for notches, steps in ((-SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS),
-                           (SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS * 2)):
-        for _ in range(steps):
-            pyautogui.scroll(notches)  # negative wheels down
-            time.sleep(SCAV_CASE_SCROLL_SETTLE)
-            box = find.find(target, region)
-            if box:
-                log(f'{target} scrolled into view', 1)
-                return box
+    for scrolled in scav_case_scroll_positions():
+        box = find.find(target, region)
+        if box:
+            log(f'{target} {"scrolled into view" if scrolled else "is already on the visible scav case rows"}', 1)
+            return box
     log(f'{target} never came into view on the scav case panel', 1)
     return None
+
+
+def lit_get_items(region=None):
+    """Every lit GET ITEMS on screen now, top to bottom. [] when none are lit.
+
+    Deliberately roll-agnostic: no anchor, no row band, no idea which craft each button belongs
+    to. The scav case needs it that way, and this is the one read on the panel that cannot be done
+    the normal anchor-then-band way.
+
+    Why: every reward variant outputs the same '?' box, so a scav case row is named only by its
+    input icon, and that icon stops being drawn once the roll is running. The screenshot of
+    2026-09-17 shows a lit GET ITEMS on a row with no input icon on it at all, which is a finished
+    roll that the anchored read simply could not see, so its loot was never collected. There is
+    also nothing worth attributing: every roll pays out the same way, so a lit GET ITEMS is worth
+    clicking whoever owns it.
+
+    Greyed buttons are dropped (get_items_highlighted), which is the whole of what separates a
+    finished roll from one that was never started.
+    """
+    lit = [b for b in find.find_all(GET_ITEMS_TARGET, region) if get_items_highlighted(b)]
+    return sorted(lit, key=lambda b: _center(b)[1])
+
+
+def get_items_cleared(box, band):
+    """True when the lit GET ITEMS that was at `box` is no longer on its own row.
+
+    The success test for a collect click. The button going away is the only thing on screen that
+    says the click landed, which is the same lesson _confirm_handover learned about START: a click
+    Tarkov did not register leaves the button exactly where it was, still lit, and changes nothing
+    else on the row. Seen on 2026-09-17 on a red gunpowder collect, where the game froze for a
+    beat, the click went nowhere, and the pass moved on as though it had collected.
+
+    Scoped twice, and it needs both. `band` keeps the search on this craft instead of the whole
+    panel, and the row check keeps it off the *next* craft's row, which the band deliberately
+    overlaps because it is padded tall enough to frame a row in any state (see _on_row for the run
+    that cost). Without the row check a neighbouring lit GET ITEMS reads as this one never
+    clearing, and the collect would re-click a button that had already gone.
+    """
+    return _on_row(lit_get_items(band), _center(box)[1]) is None
 
 
 def scav_case_95k_row_band(box, region=None):
