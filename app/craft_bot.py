@@ -61,11 +61,13 @@ DEFAULT_SOURCE = 'Players'
 # almost none: moonshine ran 1.04x and ai2 0.73x, so their inputs (sugar, purified water, pile of
 # meds) are deliberately left where a rising market stops the buy rather than funding a loss.
 # ponytail: constants, and they drift. _price_scraper/item_price.py reprices them in ~2s.
-DEFAULT_MAX = {'crackers': 22000, 'alyonka': 37000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
+DEFAULT_MAX = {'crackers': 23000, 'alyonka': 37000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
                'power_cord': 79000, 'pile_of_meds': 16600, 'purified_water': 107000,
                'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 62000, 'matches': 26000,
                'water_filter': 70000, 'moonshine': 230000}
 # anything not listed defaults to players
+# crackers was 'traders' for part of 2026-09-17 and is back on players: a trader source caps volume
+# at the restock limit, and the overnight soak hit that cap 5 times in 4.5 hours. See the ledger.
 DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders', 'sling_bag': 'traders'}
 
 # Estimated net roubles one finished craft is worth: the output's flea value less its inputs' cost.
@@ -370,14 +372,20 @@ class HideoutCraft(GameRestarts):
         self._swap()
 
     def tend_scav_case(self, job):
-        """The scav case's pass: tend the moonshine roll, then the 95k roll, then leave.
+        """The scav case's pass: tend both rolls, in whatever order they sit in, then leave.
 
         Both rolls live on the one panel and neither fits the normal ready/producing state
         machine, for the same reason: every reward variant outputs the same '?' box, so a row is
-        named only by its input item and carries no per-input tick. The panel opens scrolled to
-        the moonshine roll at the top, so that one is tended first off the visible row; the 95k
-        roll sits below it and is scrolled to (see _tend_scav_case_95k). Both are done before the
+        named only by its input item and carries no per-input tick. Both are done before the
         single swap away, so one visit works both rolls rather than one roll per visit.
+
+        Neither roll is assumed to be on screen. Each one looks for its own anchor and scrolls to
+        it only if it is not already drawn (craft.find_scav_case_row), so the list's scroll
+        position does not decide which rolls get tended and the order here does not matter. This
+        used to tend moonshine off 'the visible top row' and scroll only for the 95k roll below
+        it, which had the panel exactly backwards: the moonshine read found nothing, raised Blind
+        into the restart path, and took the 95k roll queued behind it down with it, so neither
+        roll was ever tended once. A roll that cannot be found is now skipped with a log line.
         """
         self._tend_scav_case_moonshine(job)
         self._tend_scav_case_95k(job)
@@ -409,6 +417,13 @@ class HideoutCraft(GameRestarts):
         at all), and the fix if it ever does is a crop of the 'Collecting' state or the insert
         dialog to disambiguate, rather than trusting the bottle match alone.
         """
+        # Scroll to it first. read_craft searches for the bottle across the whole region and
+        # raises Blind when it is not drawn, and Blind restarts the game, so a roll sitting below
+        # the panel's fold has to be brought into view before the read rather than after it.
+        if craft.find_scav_case_row(craft.MOONSHINE_TARGET, self.region) is None:
+            log('the moonshine scav case roll never came into view, skipping it', 1)
+            return
+
         read = craft.read_craft(job.craft, self.region)
 
         if read.state == 'producing':  # running; leave it, move on to the 95k roll

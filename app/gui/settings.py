@@ -40,7 +40,7 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'hotkey': 'F4',
             # Crafts mode's two max buy prices, in roubles, typed into a digits-only field.
             # A blank or non-numeric value falls back to craft_bot's default at startup.
-            'crackers_max': '22000',
+            'crackers_max': '23000',
             'alyonka_max': '37000',
             # Who to buy each ingredient from: a craft_bot.SOURCES label ('Players'/'Traders').
             'crackers_source': 'Players',

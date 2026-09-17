@@ -233,13 +233,21 @@ WATER_FILTER_NAME = 'water filter'  # what to type into the flea search to find 
 # (crafting/moonshine, reused from the booze generator craft), the one thing unique to the row.
 SCAV_CASE_MODULE_TARGET = 'hideout/hideout_tabs/scav_case'
 SCAV_CASE_ACTIVE_TARGET = 'hideout/hideout_station_titles/scav_case'
-# The 95,000-rouble scav case roll runs alongside the moonshine roll, but sits below it in the
-# production list, off screen when the panel opens. find_scav_case_95k_craft scrolls down to it.
+# The two rolls we run, the moonshine one and the 95,000-rouble one, share one production list
+# that is taller than the panel, and neither is reliably the one on screen when it opens.
+# find_scav_case_row scrolls to whichever is asked for, in either direction.
+#
+# This block used to read "the 95k roll sits below the moonshine roll, off screen when the panel
+# opens", and only the 95k roll was ever scrolled to. The opposite was true: on 2026-09-17 the
+# panel opened on the 95k roll with the moonshine row below the fold, so the moonshine read found
+# nothing and raised Blind, which is in craft_bot's restart tuple, and the 95k roll sequenced
+# behind it was never reached at all. Neither roll had ever been tended.
 NINETY_FIVE_K_TARGET = 'crafting/95k_rubles'  # that roll's input (a 95k rouble stack), the row's anchor
 SCAV_CASE_DEADSPACE_COORD = (1374, 792)  # empty spot in the scav case panel, clicked to take wheel focus.
                                          # Raw screen coords, tuned live at 2560x1440.
-SCAV_CASE_SCROLL_DOWN = 3  # mouse-wheel notches down per step while hunting the 95k roll; tuned live
-FIND_95K_CRAFT_TIMEOUT = 10.0  # seconds to keep wheeling down before giving up on the 95k roll
+SCAV_CASE_SCROLL_DOWN = 3  # mouse-wheel notches per step while hunting a roll; tuned live
+SCAV_CASE_SCROLL_STEPS = 6  # steps down before sweeping back up, so a list left scrolled either way is covered
+SCAV_CASE_SCROLL_SETTLE = 0.3  # after each wheel step, for the list to redraw before the next look
 # The 95k input crop anchors on the '95000/95000' count text at the bottom of its row, not a
 # mid-row icon, so the generic _row_band sits too low and clips START/GET ITEMS off the top. These
 # offsets (tuned live at 2560x1440) build the band upward from the anchor instead; raw px, like
@@ -909,33 +917,45 @@ def _on_row(boxes, row_y):
     return min(on, key=lambda b: abs(_center(b)[1] - row_y)) if on else None
 
 
-def find_scav_case_95k_craft(region=None):
-    """Scroll the scav case list down to the 95,000-rouble roll. Returns its input match Box once
-    on screen, or None if it never appears within FIND_95K_CRAFT_TIMEOUT.
+def find_scav_case_row(target, region=None):
+    """Bring one scav case roll's anchor on screen and hand back its match Box, or None.
 
-    The 95k roll runs alongside the moonshine roll but sits below it in the list, so it is off
-    screen when the panel first opens. Click a dead spot in the panel (SCAV_CASE_DEADSPACE_COORD)
-    to give the list the mouse wheel's focus, then wheel down SCAV_CASE_SCROLL_DOWN a step at a
-    time, checking after each look for the 95k input (NINETY_FIVE_K_TARGET), until it shows or the
-    timeout elapses. The dead-spot coord and the scroll amount are tuned live against the game.
+    Takes the target rather than assuming one, because neither roll is reliably the visible one:
+    the production list is taller than the panel and keeps whatever scroll position it was left
+    at, so which rows are drawn when it opens is not something either caller may assume. See the
+    note by SCAV_CASE_SCROLL_DOWN for what assuming it cost.
 
-    Returns the Box (truthy) so the caller can build the row band from it with
-    scav_case_95k_row_band; None (falsy) when the roll never showed.
+    Look first and scroll only if the target is not already there, so a roll that is on screen
+    costs one match and no wheeling at all. Otherwise click a dead spot in the panel
+    (SCAV_CASE_DEADSPACE_COORD) to give the list the mouse wheel's focus, step down
+    SCAV_CASE_SCROLL_STEPS times looking after each step, then sweep back up twice that, so a list
+    left scrolled past the target is covered as well as one left above it. Same bounded
+    sweep-and-come-back shape as get_to_station's carousel, and bounded for the same reason: a
+    wheel that is not reaching the list at all must end, not spin.
+
+    Returns the Box (truthy) so the caller can build the row band from it; None (falsy) when the
+    roll never showed. None is 'skip this roll', not an error: one roll missing says nothing about
+    the other, and this panel is where a failed read used to end the entire run.
     """
     if SCAV_CASE_DEADSPACE_COORD is None:
         raise ValueError('SCAV_CASE_DEADSPACE_COORD is not set; fill it from a live grab of the '
-                         'scav case panel before calling find_scav_case_95k_craft')
-    log('hunting the 95k scav case roll: clicking dead space for scroll focus', 1)
+                         'scav case panel before calling find_scav_case_row')
+    box = find.find(target, region)
+    if box:
+        log(f'{target} is already on the visible scav case rows', 1)
+        return box
+    log(f'{target} is not on screen: clicking dead space for scroll focus, then hunting', 1)
     pyautogui.click(*SCAV_CASE_DEADSPACE_COORD)
-    deadline = time.time() + FIND_95K_CRAFT_TIMEOUT
-    while time.time() < deadline:
-        box = find.find(NINETY_FIVE_K_TARGET, region)
-        if box:
-            log('the 95k scav case roll is on screen', 1)
-            return box
-        pyautogui.scroll(-SCAV_CASE_SCROLL_DOWN)  # negative wheels down
-        time.sleep(0.3)
-    log('the 95k scav case roll never came into view before the timeout', 1)
+    for notches, steps in ((-SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS),
+                           (SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS * 2)):
+        for _ in range(steps):
+            pyautogui.scroll(notches)  # negative wheels down
+            time.sleep(SCAV_CASE_SCROLL_SETTLE)
+            box = find.find(target, region)
+            if box:
+                log(f'{target} scrolled into view', 1)
+                return box
+    log(f'{target} never came into view on the scav case panel', 1)
     return None
 
 
@@ -1034,12 +1054,12 @@ def read_scav_case_95k(region=None):
     """Scroll to the 95k scav case roll and read its state and buttons, like read_craft does.
 
     Returns a CraftRead (state, output, band, start, get_items, inputs) anchored on the 95k input
-    via find_scav_case_95k_craft and its upward exception band, since the roll has no
-    timer-anchored output row. inputs is always None: the roll's one input is a stack of roubles
-    from the stash, which cannot be bought off the flea, so there is no queue to build the way the
-    moonshine roll has. Returns None when the roll never scrolls into view.
+    via find_scav_case_row and its upward exception band, since the roll has no timer-anchored
+    output row. inputs is always None: the roll's one input is a stack of roubles from the stash,
+    which cannot be bought off the flea, so there is no queue to build the way the moonshine roll
+    has. Returns None when the roll never scrolls into view.
     """
-    anchor = find_scav_case_95k_craft(region)
+    anchor = find_scav_case_row(NINETY_FIVE_K_TARGET, region)
     if anchor is None:
         return None
     band = scav_case_95k_row_band(anchor, region)

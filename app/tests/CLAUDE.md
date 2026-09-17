@@ -124,6 +124,8 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_water_buy_race.py` — craft.buy_water_filter — a lost water-filter race is retried (no refresh), capped, then False — no-game
 - `test_craft_auto_restart.py` — craft_bot.HideoutCraft auto restart (restart_as, start()'s fatal handler, GameRestarts) — off changes nothing, a Blind/LookupError/RuntimeError relaunches once and steps on, a full stash (named or hidden behind another error) stops the run with no restart, a cold start boots once, a dead launcher ends the run — no-game
 - `test_craft_buy_retry.py` — craft.buy_craft_input_item — a lost-race refresh-in-place retry, capped at BUY_ATTEMPTS, with four distinct Unbuyable messages — no-game
+- `test_scav_case_rolls.py` — craft.find_scav_case_row + craft_bot.tend_scav_case — both scav case rolls are tended whatever the panel's list is scrolled to: a visible roll costs no scrolling, one below the fold is wheeled down to, one above it is found on the sweep back up, and a roll that is genuinely absent is skipped rather than raising Blind into a game restart — no-game
+- `test_scav_case_scroll.py` — craft.find_scav_case_row (SCAV_CASE_SCROLL_DOWN/STEPS/SETTLE) — scroll the live list to a named roll, report the steps it took and draw the anchor and row band; the tuning loop for the scroll amount. Was test_find_95k_scav.py, which only hunted the 95k roll — game
 
 ### `hideout_nav/` — hideout carousel navigation (`interact/craft.py`)
 - `test_get_to_nutrition_unit.py` — craft.get_to_nutrition_unit (get_to_station wrapper) — drive nutrition-unit navigation and report the outcome — game
