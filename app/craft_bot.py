@@ -34,6 +34,9 @@ from narrate import log
 from sell_bot import GameRestarts, Stopped, auto_restart_from  # shared runner plumbing, see _pause
 
 START_SETTLE = 3.0  # seconds after START for the row to flip to producing before the next look
+PANEL_LEAVE_SETTLE = 3.0  # seconds to let a station panel settle before navigating away from it.
+                          # Navigation's first act is clicking that panel's close X, and this used
+                          # to happen with no gap at all. See the 'producing' branch of step().
 HANDOVER_TARGET = 'hideout/handover_button'  # the confirm button the START click brings up
 HANDOVER_APPEAR_TIMEOUT = 10.0  # poll up to this long after START for the handover dialog to draw. It
                                 # stages the stash items it hands over, so it can be slow; a single
@@ -685,7 +688,14 @@ class HideoutCraft(GameRestarts):
 
         if read.state == 'producing':  # nothing to do here; go tend another craft
             log(f'{job.craft.name} is producing, swapping to the next craft')
-            self._pause()  # a Stop lands here; no wait, the swap's own navigation paces the loop
+            # A Stop lands here. This waited nothing, on the grounds that the swap's own navigation
+            # paces the loop. It does not: navigation's FIRST act is closing this station's panel,
+            # and there is no gap at all between confirming the row is producing and clicking that
+            # X. The 2026-09-17 soak had the workbench panel swallow its first close click 35 times
+            # in 57, nine of them all the way to ending the run, while the other six stations closed
+            # first time across ~400 attempts. Every one of those nine came through this branch.
+            # So give the panel a beat to settle before navigation starts clicking at it.
+            self._pause(PANEL_LEAVE_SETTLE)
             self._swap()
             return
         if read.state == 'done':

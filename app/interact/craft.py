@@ -148,7 +148,12 @@ TAB_TIMEOUT = 60.0  # seconds for the hideout tab to come back after clicking it
 PANEL_TIMEOUT = 15.0  # seconds to wait for a station panel after clicking its tab, see _open_station
 PANEL_POLL = 0.5  # seconds between looks while that panel is awaited
 PANEL_CLOSE_SETTLE = 1.0  # seconds after clicking the X for an open station panel to clear
-PANEL_CLOSE_ATTEMPTS = 3  # re-clicks of a close button before giving up, see close_open_station_panel
+# Re-clicks of a close button before giving up, see close_open_station_panel. Was 3, raised after
+# the 2026-09-17 soak: the workbench panel missed its FIRST close click 35 times in 57 and took a
+# second or third click in 26 of those, so the click does land, just not at once. The other nine
+# ran out of attempts and ended the run. Every other station closed first time, 400 attempts
+# between them, which is what says this is the workbench panel being slow rather than a bad crop.
+PANEL_CLOSE_ATTEMPTS = 5
 
 # An open station panel carries a close (X) button in its top-right corner. Seeing that button in
 # this region says a station panel is open whichever station it is, so it reads 'a panel is open'
