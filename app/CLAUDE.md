@@ -301,6 +301,23 @@ craft_bot.py         HideoutCraft: the fourth mode, keeping several hideout craf
                      looks the same), or six tries were all outbid. It was called PriceTooHigh
                      while it carried all three, so a run read back afterwards said "too
                      expensive" about an item whose price was never the problem.
+                     The bitcoin farm is the simplest station and gets four lines in step() rather
+                     than a tend_ of its own: the farm mines on its own, so there is nothing to
+                     start, nothing to buy and no row to read, and the whole pass is clicking a lit
+                     GET ITEMS and swapping. It cannot go down the state machine at all, because
+                     that begins with craft.read_craft finding the craft's output on screen and the
+                     farm has no output crop; routed there it would raise LookupError every lap,
+                     which is in the auto-restart tuple, so the farm would restart the game forever.
+                     _collect_if_lit is that click, shared with the collector, which had the same
+                     block inline: find GET ITEMS, click it only if it is lit, park, book the
+                     profit. Its 532,000 in PROFIT_PER_CRAFT is gross rather than net and rightly
+                     so, since the farm consumes nothing per collect. Collecting *removes* the
+                     farm's button rather than greying it (measured on 2026-09-21: the row went
+                     back to 'Farming (42:15:07)...' with 0/3 bitcoins and no button on the panel),
+                     so no button at all is the state nearly every pass sees, and both that and a
+                     greyed one have to click nothing or a profit is booked every pass for a
+                     bitcoin that never arrived: tests/hideout_craft_actions/test_bitcoin_farm.py
+                     for the three states, and test_bitcoin_farm_live.py against the real station.
                      tend_water_collector is its own pass, not the state machine: there is no START
                      and no ingredient row, the station produces the moment a filter is in its slot,
                      so the whole job is collecting what has finished and keeping a filter fitted,

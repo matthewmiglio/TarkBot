@@ -88,7 +88,10 @@ DEFAULT_SOURCE_BY = {'ux_pro_beanie': 'traders', 'sling_bag': 'traders'}
 # ponytail: constants, since input prices and output values drift; update them when they have, or
 # read them off the market if this ever needs to be exact. Fleece's is a placeholder until measured.
 PROFIT_PER_CRAFT = {'slickers': 12152, 'fleece': 24321, 'wires': 47235, 'ai2': 3521,
-                    'moonshine': 32111, 'cordura': 27984, 'red_gunpowder': 40250}
+                    'moonshine': 32111, 'cordura': 27984, 'red_gunpowder': 40250,
+                    # Gross rather than net, and correctly so: the farm consumes nothing per
+                    # collect, so one physical bitcoin's flea value is the whole of it.
+                    'bitcoin': 532000}
 # The water collector has no figure here on purpose: nothing was measured for it, and a
 # guess would inflate 'Est. profit' rather than leave a gap. Collecting it books 0 until
 # one is. Same as any craft the dict does not list, see collect_craft.
@@ -401,6 +404,32 @@ class HideoutCraft(GameRestarts):
         return craft.buy_craft_input_item(location, ceiling, self.region, source=source,
                                           craft=job.craft, checkpoint=self._pause, quantity=quantity)
 
+    def _collect_if_lit(self, job):
+        """Click the one GET ITEMS button on this station's panel if it is lit, and book the craft's
+        profit if it was. True if something was collected.
+
+        For the two stations that have no craft row to read: the water collector and the bitcoin
+        farm. Both have a single production on the panel and no START, so the button's own
+        brightness is the whole state read, which is why this does not go through read_craft or
+        collect_craft's _click_until_taken proof.
+
+        Nothing is clicked unless the button is both there and lit. The collector greys its button;
+        the bitcoin farm removes it entirely and puts a timer back on the row (measured on
+        2026-09-21, straight after a collect). Either way nothing has finished, and clicking would
+        book profit for a collection that did not happen.
+        """
+        box = find.find(craft.GET_ITEMS_TARGET, self.region)
+        if box is None or not craft.get_items_highlighted(box):
+            return False
+        point = sell.jitter(pyautogui.center(box))
+        log(f'collecting the {job.craft.station}, clicking GET ITEMS at {point}', 1)
+        pyautogui.click(*point)
+        self._pause(GET_ITEMS_SETTLE)
+        self._park(point)
+        craft.check_stash_full(self.region)  # the loot has to fit the stash; stop if it cannot
+        _book_profit(self.stats, job.craft.name)
+        return True
+
     def tend_water_collector(self, job):
         """The water collector's pass, which is not the state machine the other crafts use.
 
@@ -422,15 +451,7 @@ class HideoutCraft(GameRestarts):
         A greyed GET ITEMS is left alone, the same rule read_craft uses: greyed means nothing has
         finished, and clicking it would book profit for a collection that did not happen.
         """
-        box = find.find(craft.GET_ITEMS_TARGET, self.region)
-        if box is not None and craft.get_items_highlighted(box):
-            point = sell.jitter(pyautogui.center(box))
-            log(f'collecting the water collector, clicking GET ITEMS at {point}', 1)
-            pyautogui.click(*point)
-            self._pause(GET_ITEMS_SETTLE)
-            self._park(point)
-            craft.check_stash_full(self.region)  # collected water has to fit; stop if it cannot
-            _book_profit(self.stats, job.craft.name)
+        self._collect_if_lit(job)
 
         if craft.water_filter_state(self.region) == 'fitted':
             log('a water filter is in the collector, leaving it to produce', 1)
@@ -616,8 +637,13 @@ class HideoutCraft(GameRestarts):
         log(f'scav case did not start, so the {name} input is missing; buying one at up to '
             f'{ceiling} from {source}')
         try:
+            # filters=False: a moonshine bottle is always 100% condition and only ever sold by
+            # players, so every control in that window would be set to what the board already
+            # shows. Skipping it saves ~15s of clicks on every moonshine buy, and this roll is
+            # the most frequent buyer in the cycle (53 trips to this board in one 3h soak).
             craft.buy_craft_input_item(location, ceiling, self.region, source=source,
-                                       craft=job.craft, checkpoint=self._pause, quantity=1)
+                                       craft=job.craft, checkpoint=self._pause, quantity=1,
+                                       filters=False)
         except craft.Unbuyable as e:
             log(f'{name} {e}, moving on', 1)
         except LookupError as e:
@@ -682,6 +708,15 @@ class HideoutCraft(GameRestarts):
             return
         if job.craft.name == craft.SCAV_CASE_NAME:  # anchored on its input, no tick: its own pass
             self.tend_scav_case(job)
+            return
+        if job.craft.name == craft.BITCOIN_NAME:
+            # The whole pass. The farm mines on its own with nothing to start and nothing to buy,
+            # so a lit GET ITEMS is the only thing that can be acted on, and no button at all
+            # (the farm's resting state) means come back later. No swap-less branch and no
+            # settle: there is nothing to wait for.
+            if not self._collect_if_lit(job):
+                log('no bitcoin ready at the farm, swapping to the next craft')
+            self._swap()
             return
 
         read = craft.read_craft(job.craft, self.region)

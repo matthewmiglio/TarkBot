@@ -81,17 +81,21 @@ check('and that settle is a real wait, not zero', craft_bot.PANEL_LEAVE_SETTLE >
 
 # 2. close_open_station_panel: how many re-clicks a stubborn panel actually gets.
 class Close:
-    """close_open_station_panel with the matcher, mouse and clock stubbed.
+    """close_open_station_panel with the matcher, mouse, keyboard and clock stubbed.
 
     clears_on is the click count at which the X finally disappears; a number past
-    PANEL_CLOSE_ATTEMPTS means it never does, which is the case that ended 9 laps.
+    PANEL_CLOSE_ATTEMPTS means no click ever closes it, which is the case that ended 9 laps.
+    esc_clears says whether the fallback keypress closes a panel the clicks could not.
     """
 
-    def __init__(self, clears_on):
+    def __init__(self, clears_on, esc_clears=False):
         self.clears_on = clears_on
+        self.esc_clears = esc_clears
         self.clicks = 0
+        self.escs = 0
         craft.find.find = self._find
         craft.pyautogui.click = self._click
+        craft.pyautogui.press = self._press
         craft.time.sleep = lambda _s: None
         craft.frames.capture = lambda *a, **k: None
         craft.sell.jitter = lambda point: point
@@ -99,10 +103,15 @@ class Close:
         craft._screen_state = lambda region=None: 'stubbed'
 
     def _find(self, _target, _region=None):
+        if self.escs and self.esc_clears:
+            return None
         return None if self.clicks >= self.clears_on else Box(1865, 89, 21, 15)
 
     def _click(self, _x=None, _y=None, *_a, **_kw):
         self.clicks += 1
+
+    def _press(self, _key, *_a, **_kw):
+        self.escs += 1
 
     def run(self):
         return craft.close_open_station_panel(None)
@@ -131,6 +140,35 @@ check('and gives up after exactly PANEL_CLOSE_ATTEMPTS clicks',
       f'clicks={c.clicks} limit={craft.PANEL_CLOSE_ATTEMPTS}')
 check('and that limit is above the old 3, which the soak exhausted 9 times',
       craft.PANEL_CLOSE_ATTEMPTS > 3, f'PANEL_CLOSE_ATTEMPTS={craft.PANEL_CLOSE_ATTEMPTS}')
+
+
+# 3. The esc fallback. Added 2026-09-18, after v1.25.8's settle and extra clicks were measured and
+# changed nothing: the workbench leg still needed a retry on 53% of closes and still ran out on
+# 13%, and going 3 -> 5 clicks had rescued exactly one sequence in 118. The point of these checks
+# is that esc is a LAST resort and never a replacement for the click that works 103 times in 118.
+c = Close(clears_on=99, esc_clears=True)
+check('esc closes a panel no number of clicks would, instead of ending the run',
+      c.run() is True, f'clicks={c.clicks} escs={c.escs}')
+check('and it is pressed exactly once', c.escs == 1, f'escs={c.escs}')
+check('and only after every click has been spent',
+      c.clicks == craft.PANEL_CLOSE_ATTEMPTS, f'clicks={c.clicks}')
+
+# The load-bearing one: a fallback that fires on the ordinary path is not a fallback.
+c = Close(clears_on=1)
+c.run()
+check('a panel that closes on the first click never reaches the esc at all',
+      c.escs == 0, f'escs={c.escs}')
+
+c = Close(clears_on=99, esc_clears=False)
+try:
+    c.run()
+    raised = None
+except LookupError as e:
+    raised = e
+check('a panel that refuses esc too still raises', raised is not None, f'raised={raised!r}')
+check('and the error says esc was tried, so a log reader knows the fallback ran',
+      raised is not None and 'esc' in str(raised), f'raised={raised!r}')
+check('and esc was tried once before giving up', c.escs == 1, f'escs={c.escs}')
 
 print()
 if failures:

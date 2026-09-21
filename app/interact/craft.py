@@ -153,7 +153,15 @@ PANEL_CLOSE_SETTLE = 1.0  # seconds after clicking the X for an open station pan
 # second or third click in 26 of those, so the click does land, just not at once. The other nine
 # ran out of attempts and ended the run. Every other station closed first time, 400 attempts
 # between them, which is what says this is the workbench panel being slow rather than a bad crop.
+# 2026-09-18 says do not raise it again. On v1.25.8, across 118 closes, 103 took one click, 9 took
+# two, 3 took three and 3 reached five: no sequence ever needed exactly four, so going 3 -> 5
+# rescued exactly one. A panel that has not given way by the third click essentially never does,
+# which is what sent the fallback below towards a different kind of input instead.
 PANEL_CLOSE_ATTEMPTS = 5
+# Seconds after the fallback esc for the panel to clear, see close_open_station_panel. Longer than
+# PANEL_CLOSE_SETTLE on purpose: it only ever fires on a panel already proven slow, and the
+# alternative to waiting here is ending the run and restarting Tarkov, so a second costs nothing.
+PANEL_CLOSE_ESC_SETTLE = 2.0
 
 # An open station panel carries a close (X) button in its top-right corner. Seeing that button in
 # this region says a station panel is open whichever station it is, so it reads 'a panel is open'
@@ -266,6 +274,13 @@ SCAV_CASE_SCROLL_SETTLE = 0.3  # after each wheel step, for the list to redraw b
 # _row_band's own pads. See scav_case_95k_row_band.
 SCAV_CASE_95K_BAND_ABOVE = 146  # px above the anchor's top the band reaches (up over icon/START)
 SCAV_CASE_95K_BAND_BELOW = 20   # px below the anchor's bottom the band reaches
+# The bitcoin farm, the simplest station of the lot: no START, no inputs, no slot to keep filled.
+# Graphics cards sit in it permanently and it mines on its own, so the whole pass is "click GET
+# ITEMS if it is lit". Only the two navigation crops are needed, since nothing here is read off a
+# row: the state is the GET ITEMS button's own brightness and there is no second craft on the
+# panel for a band to be confused with.
+BITCOIN_MODULE_TARGET = 'hideout/hideout_tabs/bitcoin_farm'
+BITCOIN_ACTIVE_TARGET = 'hideout/hideout_station_titles/bitcoin_farm'
 WATER_DROPDOWN_DELAY = 1.0  # after opening the filter dropdown, for its list to draw
 WATER_FIT_SETTLE = 1.0  # after clicking a filter, before reading the slot back
 # A purchase that never took the money is an offer somebody else got to first, which on a busy
@@ -421,8 +436,15 @@ SCAV_CASE = Craft('scav_case', MOONSHINE_TARGET,
                   (Ingredient('moonshine', MOONSHINE_TARGET),),
                   SCAV_CASE_MODULE_TARGET, SCAV_CASE_ACTIVE_TARGET, 'scav case')
 SCAV_CASE_NAME = SCAV_CASE.name  # craft_bot tests against this to pick its own branch
+# The bitcoin farm. output_target is None and ingredients is empty, and both are honest rather
+# than placeholders: nothing here reads a craft row, so there is no output to anchor on, and the
+# farm buys nothing, so the GUI gives it no max-price field. craft_bot routes this name to a
+# collect-only pass, the same way it routes the collector and the scav case away from the
+# ready/producing state machine. Anything that iterates a craft's ingredients gets an empty loop.
+BITCOIN = Craft('bitcoin', None, (), BITCOIN_MODULE_TARGET, BITCOIN_ACTIVE_TARGET, 'bitcoin farm')
+BITCOIN_NAME = BITCOIN.name  # craft_bot tests against this to pick its own branch
 CRAFTS = {c.name: c for c in (SLICKERS, FLEECE, WIRES, AI2, MOONSHINE, CORDURA, RED_GUNPOWDER,
-                              WATER_COLLECTOR, SCAV_CASE)}
+                              WATER_COLLECTOR, SCAV_CASE, BITCOIN)}
 
 
 def hideout_tab_brightness(region=None):
@@ -508,6 +530,16 @@ def close_open_station_panel(region=None):
     _craft_mode_run_debugging). So re-check that the X is gone after clicking, re-click up to
     PANEL_CLOSE_ATTEMPTS times, and raise here - at the real failure - if it will not close, rather
     than letting a covered row fail navigation with the wrong error.
+
+    One esc is tried as a last resort once every click has failed, never before. That is not a
+    softening of the paragraph above: it is about *where* in this function the objection applies.
+    Before the first click the game may not be foreground, so esc may go nowhere; by the time
+    PANEL_CLOSE_ATTEMPTS clicks have landed inside the game window they have self-focused it, so a
+    keypress then does arrive. It stays a fallback because the click is the path that works -
+    103 of 118 closes in the 2026-09-18 soak took a single click - and this exists only for the
+    workbench leg that no number of clicks would fix. Every line it logs is prefixed
+    'PANEL CLOSE FALLBACK' at indent 0, so a later soak answers 'is this still happening, and is
+    the fallback saving it?' with one grep.
     """
     fractions = _region_from_fractions(CLOSE_BUTTON_REGION_FRACTIONS, region)
     box = find.find(CLOSE_BUTTON_TARGET, fractions)
@@ -537,10 +569,33 @@ def close_open_station_panel(region=None):
     # 2026-09-16: three runs died here, each with the X at the identical (1865, 89) and each within
     # a minute of a power cord buy that could not open its 'filter by item' menu. The logging on
     # both ends exists to show whether those two are the same event.
+    # The fallback, and the only thing standing between this and a full Tarkov restart. Loud on
+    # purpose and at indent 0: 'PANEL CLOSE FALLBACK' is meant to be grepped out of a later soak's
+    # log to answer two questions at once, how often the clicks are still failing and whether esc
+    # is actually rescuing them. If a soak shows this firing often AND working, the fallback has
+    # become the real path and the clicking above wants rethinking rather than celebrating.
+    log(f'PANEL CLOSE FALLBACK: {PANEL_CLOSE_ATTEMPTS} clicks all failed to close the station '
+        f'panel, so trying one esc as a last resort before ending the run')
+    frames.capture('panel-would-not-close-before-esc', pin=True)
+    pyautogui.press('esc')
+    time.sleep(PANEL_CLOSE_ESC_SETTLE)
+    box = find.find(CLOSE_BUTTON_TARGET, fractions)
+    if not box:
+        log('PANEL CLOSE FALLBACK: esc closed the panel where every click failed, so the run '
+            'carries on instead of restarting Tarkov. This is a rescue, not a fix: the clicks are '
+            'still not landing on this panel and that is still the bug worth solving')
+        return True
+    log('PANEL CLOSE FALLBACK: esc did not close it either, so the panel is refusing input '
+        'generally rather than refusing clicks specifically; ending the run')
+
+    # Every click was aimed inside the button and none of them moved it, and a keypress did not
+    # move it either, so this is not a miss, not a bad crop and not about which input is used. The
+    # button being found perfectly well is exactly what makes this look like a detection problem
+    # when it is not, so name the screen and keep a picture of it.
     state = _screen_state(region)
     frames.capture('panel-would-not-close')
     raise LookupError('a station panel is open but its close button is still on screen after '
-                      f'{PANEL_CLOSE_ATTEMPTS} clicks, so the panel would not close; '
+                      f'{PANEL_CLOSE_ATTEMPTS} clicks and one esc, so the panel would not close; '
                       f'on screen: {state}')
 
 
@@ -1407,7 +1462,7 @@ def _no_stop(seconds=0):
 
 
 def buy_craft_input_item(location, max_price, region=None, source='players', craft=SLICKERS,
-                         checkpoint=_no_stop, quantity=1):
+                         checkpoint=_no_stop, quantity=1, filters=True):
     """Buy up to `quantity` of a craft ingredient off the flea, each at or under max_price.
 
     quantity is how many to buy in this one flea trip, off the row's have/need fraction (see
@@ -1420,6 +1475,8 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     location is where the ingredient sits in the craft row (a point to right click). source is who
     to buy from, 'players' or 'traders', and only changes the offers-from filter. craft is which
     craft this input belongs to, so the flea can be escaped back to the right station afterwards.
+    filters False skips the filter window entirely, for an ingredient whose board is already the
+    board we want; source is then unused. Only the caller knows that, so it is never inferred.
     The flow is the flea sniper's, aimed from a right click rather than a typed search: filter the
     board to this one item through the inventory menu, put the filters on, read the top offer's
     price, and buy that row only when it is cheap enough.
@@ -1504,7 +1561,17 @@ def buy_craft_input_item(location, max_price, region=None, source='players', cra
     # read its own controls, which is a window it cannot see rather than a filter the game
     # refused, so it is Blind rather than something to shrug at.
     checkpoint()  # before the filter window, which is ~15s of clicks with no Stop check in it
-    if not sell.apply_flea_filters(region, source=source, set_condition=False):
+    if not filters:
+        # An ingredient whose board is already the board we want: every offer on it is the same
+        # condition and from the same source, so the filter window can only cost the ~15s it
+        # takes to set filters that change nothing. The currency filter goes with them, which is
+        # safe rather than merely acceptable: snipe.read_price refuses a dollar row outright, so
+        # a mixed board reads as unreadable and waits out the dear budget instead of buying a
+        # number off the wrong market. Set per call site, never guessed, see the scav case
+        # moonshine buy in craft_bot.
+        log('this input needs no filters (one condition, one source), reading the board as it is',
+            1)
+    elif not sell.apply_flea_filters(region, source=source, set_condition=False):
         # A full stash is the one thing that fails here for a nameable reason the runner should
         # act on rather than crash on: a purchase that could not fit leaves the game's stash-full
         # dialog over the flea, which blocks the filter window from opening. Check for it before
