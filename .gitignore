@@ -122,3 +122,6 @@ _*_mode_run_debugging/
 # key, and the glyph references built from them. Same rule as the benches above, the strips are
 # crops of a live inventory. build then harvest rebuilds the references from any names/ folder.
 _item_name_recognition/
+
+# Username enumeration scratch work, kept local.
+_username_enumeration/

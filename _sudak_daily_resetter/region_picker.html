@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WD-40 Region Picker</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 14px system-ui, sans-serif; }
+  #stage { position: relative; width: 100%; }
+  #stage img { width: 100%; display: block; }
+  #box { position: absolute; outline: 2px solid #ff0; background: rgba(255,255,0,.12); pointer-events: none; }
+  #controls { position: sticky; bottom: 0; background: #1b1b1b; padding: 10px 16px; display: grid;
+              grid-template-columns: 70px 1fr 60px; gap: 6px 10px; align-items: center; }
+  input[type=range] { width: 100%; }
+  #out { grid-column: 1 / -1; font: 16px monospace; color: #ff0; user-select: all; }
+</style>
+<div id="stage"><img src="fixtures/wd_40_100ml_example_offer_daily_frame.png"><div id="box"></div></div>
+<div id="controls"></div>
+<script>
+  // Prefilled with daily_resetter.OBJECTIVE_FRACTIONS, in percent of the screen
+  const v = { left: 25.1, top: 55.0, width: 74.5, height: 10.6 };
+  const controls = document.getElementById('controls'), box = document.getElementById('box');
+  const out = document.createElement('div'); out.id = 'out';
+  for (const k in v) {
+    const label = document.createElement('label'); label.textContent = k;
+    const range = document.createElement('input');
+    Object.assign(range, { type: 'range', min: 0, max: 100, step: 0.1, value: v[k] });
+    const num = document.createElement('span');
+    range.oninput = () => { v[k] = +range.value; draw(); };
+    range.num = num; controls.append(label, range, num); v['_' + k] = range;
+  }
+  controls.append(out);
+  function draw() {
+    for (const k of ['left', 'top', 'width', 'height']) v['_' + k].num.textContent = v[k].toFixed(1) + '%';
+    Object.assign(box.style, { left: v.left + '%', top: v.top + '%', width: v.width + '%', height: v.height + '%' });
+    const f = k => (v[k] / 100).toFixed(3);
+    out.textContent = `OBJECTIVE_FRACTIONS = (${f('left')}, ${f('top')}, ${f('width')}, ${f('height')})`;
+  }
+  draw();
+</script>

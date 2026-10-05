@@ -345,6 +345,21 @@ craft_bot.py         HideoutCraft: the fourth mode, keeping several hideout craf
                      check_stash_full before restarting, since 2026-09-02 saw one surface as a
                      Blind. start()'s totals line and find.VERBOSE restore are in a finally.
                      tests/hideout_craft_actions/test_craft_auto_restart.py.
+daily_bot.py         DailyReset: the fifth mode, the SUDAK tab. Rerolls Ragman's operational
+                     'Find and transfer' task with REPLACE until it asks for WD-40 (100ml), then
+                     stops on its own. Start it on TRADERS > TASKS with Ragman selected; accepting
+                     the task is left to the player. Loop: click the offer once, then check, and
+                     if it is not WD-40 press REPLACE, 'y', and click the offer again, since the
+                     panel keeps showing the old offer until it is reopened.
+                     The WD-40 check matches a crop of '(100ml)' alone at 0.95, inside
+                     OBJECTIVE_FRACTIONS. A crop of the whole objective line let other items
+                     through, because most of it is text every offer shares: 'Ripstop fabric'
+                     scored 0.836 and 'WD-40 (400ml)' 0.987. '(100ml)' alone reads 0.991 on
+                     100ml against 0.872 on 400ml. No center subcrops for that one: smaller is
+                     mostly the '00ml' 400ml shares. Measured in _sudak_daily_resetter/, which
+                     also holds the fixture frame and the region picker.
+                     The GUI's run timer stays frozen at the run's length once a run ends, so a
+                     mode that stops itself still shows how long it took.
 window.py            Locates windows via ctypes/user32. Load bearing: bot, gui and every test
                      import it. handle() -> hwnd, position() -> (x,y), size() -> (w,h),
                      bounds() -> (l,t,r,b). Raises WindowError if the window is missing or
@@ -460,7 +475,7 @@ scripts/setup_msi.py cx_Freeze build and MSI, see docs/build_and_release.md at t
 scripts/make_icon.py Renders gui/tarkbot.svg into gui/tarkbot.ico at 7 sizes. Only needed
                      after editing the svg; the ico is committed. Wants cairosvg.
 gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored state lamp, one
-                     tab per mode (FLEA SELL / FLEA SNIPE / HIDEOUT GYM / CRAFTS) and the pickers each
+                     tab per mode (SELL / SNIPE / GYM / CRAFT / SUDAK) and the pickers each
                      mode needs. FLEA SNIPE's MARGIN and TRADER dropdowns sit in the same two
                      header slots as FLEA SELL's UNDERCUT and SOURCE: a tab's dropdowns are never
                      on screen with another tab's, so they share the positions rather than each
@@ -516,7 +531,7 @@ gui/app.py           The control panel. Start/Stop, a 3s countdown, a colored st
                      left was running and waits for it, rather than refusing the switch: the
                      window must never show one mode while another is still clicking. Tabs in
                      DISABLED_TABS are drawn greyed and cannot be switched to at all. It is
-                     empty today, so all four modes are selectable; put a key back in it to
+                     empty today, so all five modes are selectable; put a key back in it to
                      grey one out.
                      Everything is drawn as canvas items over one pre-composited backdrop,
                      because tk widgets cannot be translucent and would punch opaque holes in

@@ -19,6 +19,7 @@ from tkinter import font as tkfont
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import crash_report  # noqa: E402
 import craft_bot  # noqa: E402
+import daily_bot  # noqa: E402
 import frames  # noqa: E402
 import gym_bot  # noqa: E402
 import screen  # noqa: E402
@@ -42,17 +43,19 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 #   STAT_LABELS  the rows to draw, (key, label)
 #   TINT_STAT    the row that goes green once it is non-zero, or None
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
-TABS = (('flea', 'FLEA SELL', sell_bot), ('snipe', 'FLEA SNIPE', snipe_bot),
-        ('gym', 'HIDEOUT GYM', gym_bot), ('crafts', 'CRAFTS', craft_bot))
+TABS = (('flea', 'SELL', sell_bot), ('snipe', 'SNIPE', snipe_bot), ('gym', 'GYM', gym_bot),
+        ('crafts', 'CRAFT', craft_bot), ('dailies', 'SUDAK', daily_bot))
 DEFAULT_TAB = 'flea'
 # Tabs drawn but not selectable, greyed rather than deleted so a mode being built can still be
-# seen. Empty today: all three modes are selectable. Put a key back in here to grey one out.
+# seen. Empty today: all five modes are selectable. Put a key back in here to grey one out.
 DISABLED_TABS = set()
 
 DROP_ROW = (29, 63)  # centre lines of the header's two dropdown rows
 TAB_ROW = 138  # the tab strip's centre line, inside the status panel
-TAB_WIDTH = 98  # four tabs across the status panel: 4*98 + 3*8 lands exactly on the right rule
 TAB_GAP = 8
+# However many tabs there are, across the status panel's 416px between its PAD insets: five
+# land at 76 each. A label wider than that runs past its tab, so keep them to one short word.
+TAB_WIDTH = (464 - 2 * 24 - (len(TABS) - 1) * TAB_GAP) // len(TABS)
 ROW_TOP = 222  # first stat row's baseline, below the tab strip
 ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
 PAD = 24  # panel inset used for every label and value
@@ -346,6 +349,7 @@ class App:
         self.thread = None
         self.error = None
         self.started_at = None
+        self.ran_for = None  # (tab, seconds) of the last run, held on screen once it ends
         self.pending = None  # the after() id of a running countdown, so Stop can cancel it
         self.prefs = settings.load()
         self.modules = {key: module for key, _, module in TABS}
@@ -789,8 +793,8 @@ class App:
         for key, label, _ in TABS:
             self.tabs[key] = Tab(self.canvas, (x, TAB_ROW - 13, x + TAB_WIDTH, TAB_ROW + 13),
                                  label, lambda k=key: self._show_tab(k), self.fonts['plate'])
-            # Unspaced, overriding Plate's letter-spacing: four spaced labels do not fit the
-            # panel width, and 'HIDEOUT GYM' spaced alone is wider than a quarter of it.
+            # Unspaced, overriding Plate's letter-spacing: five spaced labels do not fit the
+            # panel width.
             self.canvas.itemconfig(self.tabs[key].label, text=label)
             if key in DISABLED_TABS:
                 self.tabs[key].config(False)  # greyed and unclickable, see DISABLED_TABS
@@ -1120,6 +1124,7 @@ class App:
             self.pending = self.root.after(1000, self._countdown, left - 1)
             return
         self.started_at = time.monotonic()  # after the countdown, uptime is running time
+        self.ran_for = None
         # daemon so a wedged bot can never outlive the window, on top of the join in close()
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
@@ -1218,9 +1223,15 @@ class App:
             if tint:
                 self.canvas.itemconfig(items[tint],
                                        fill=theme.RUNNING if stats[tint] else theme.INK)
-            self.canvas.itemconfig(items['runtime'],
-                                   text=clock(time.monotonic() - self.started_at)
-                                   if self.started_at and tab == self.tab else '-')
+            if tab != self.tab:
+                runtime = '-'
+            elif self.started_at:
+                runtime = clock(time.monotonic() - self.started_at)
+            elif self.ran_for and self.ran_for[0] == tab:  # frozen once the run ends, so a mode
+                runtime = clock(self.ran_for[1])           # that stops itself shows its time
+            else:
+                runtime = '-'
+            self.canvas.itemconfig(items['runtime'], text=runtime)
         # Trimmed to the inside of the box, not to the window, or a long line runs through its
         # right edge instead of stopping at it.
         self.canvas.itemconfig(self.activity,
@@ -1228,6 +1239,7 @@ class App:
                                              theme.WINDOW[0] - 2 * PAD - LOG_BOX))
         if self.thread and not self.thread.is_alive():  # stopped, or died on a wrong screen
             self.thread = None
+            self.ran_for = (self.tab, time.monotonic() - self.started_at)
             self.started_at = None
             self._set_run('start')
             if self.error:
