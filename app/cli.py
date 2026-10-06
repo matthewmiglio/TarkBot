@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))  # top-level module; imports need app/ on the path
 
 import craft_bot
+import daily_bot
 import frames
 import gym_bot
 import screen  # noqa: F401  (imported for parity; build() calls screen.use itself)
@@ -32,7 +33,7 @@ from gui import settings
 # Friendly CLI mode name -> (settings tab key, mode module). The tab key is what the GUI stores
 # in last_run_mode, so the frame-wipe rule below lines up with a GUI run of the same mode.
 MODES = {'flea-sell': ('flea', sell_bot), 'flea-snipe': ('snipe', snipe_bot),
-         'gym': ('gym', gym_bot), 'craft': ('crafts', craft_bot)}
+         'gym': ('gym', gym_bot), 'craft': ('crafts', craft_bot), 'sudak': ('dailies', daily_bot)}
 
 # Bookkeeping keys the CLI sets itself; not offered as user overrides.
 INTERNAL_KEYS = {'tab', 'last_run_mode'}
