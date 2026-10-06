@@ -28,7 +28,12 @@ OBJECTIVE_FRACTIONS = (0.251, 0.550, 0.745, 0.106)
 WD_40_CONFIDENCE = 0.95
 
 SETTLE = 0.5  # after clicking the offer, before reading its objective. ponytail: a guess, worked
+# After clicking REPLACE, before 'y'. The confirmation fades in with YES greyed, and a 'y' sent then
+# is dropped: 2026-10-06 on the laptop, replace 50 left the dialog up, the offer click landed on it,
+# and REPLACE (dimmed behind it) read as gone.
+CONFIRM_SETTLE = 0.3
 REPLACE_SETTLE = 1.0  # after confirming REPLACE with 'y'
+RESELECT_SETTLE = 0.2  # before clicking the offer again after a replace
 
 STAT_LABELS = (('replaced', 'Quests replaced'),)
 TINT_STAT = 'replaced'
@@ -66,8 +71,9 @@ class DailyReset:
     def replace_daily_task(self):
         """Replace the task, then reopen it: the panel keeps showing the old offer until clicked."""
         pyautogui.click(*self._find_or_raise(REPLACE))
+        self._pause(CONFIRM_SETTLE)
         pyautogui.press('y')
-        self._pause(REPLACE_SETTLE)
+        self._pause(REPLACE_SETTLE + RESELECT_SETTLE)
         self.click_daily_offer()
 
     def start(self):
