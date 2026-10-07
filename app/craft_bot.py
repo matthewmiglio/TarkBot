@@ -69,14 +69,15 @@ DEFAULT_SOURCE = 'Players'
 
 # Per-ingredient defaults, used when the GUI has no saved value (or a junk one). The max is the most
 # roubles to pay on the flea; the source is who to buy from. These match settings.DEFAULTS.
-# Set 2026-09-16 off tarkov-market 24h averages, each ~10% under its craft's break-even, so a buy
-# at the ceiling still profits. Break-even is revenue / input cost, and the tightest crafts have
-# almost none: moonshine ran 1.04x and ai2 0.73x, so their inputs (sugar, purified water, pile of
-# meds) are deliberately left where a rising market stops the buy rather than funding a loss.
-# ponytail: constants, and they drift. _price_scraper/item_price.py reprices them in ~2s.
-DEFAULT_MAX = {'crackers': 23000, 'alyonka': 37000, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
-               'power_cord': 79000, 'pile_of_meds': 16600, 'purified_water': 107000,
-               'sugar': 48900, 'sling_bag': 11000, 'green_gunpowder': 62000, 'matches': 26000,
+# Set 2026-10-07 off tarkov-market 24h averages by /scrape-craft-prices: each is the price at which
+# its craft makes exactly 7%, a craft's inputs scaled together. Exactly, not under: a ceiling below
+# the market never buys. Moonshine (0% today) and ai2 (-17%) have 7% ceilings under the market, so
+# their inputs (sugar, purified water, pile of meds) buy only when prices fall that far.
+# sewing_kit, ux_pro_beanie, sling_bag, water_filter and moonshine are not priced by that skill.
+# ponytail: constants, and they drift. Rerun /scrape-craft-prices to reprice them.
+DEFAULT_MAX = {'crackers': 29700, 'alyonka': 38290, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
+               'power_cord': 84291, 'pile_of_meds': 19208, 'purified_water': 73390,
+               'sugar': 66941, 'sling_bag': 11000, 'green_gunpowder': 75400, 'matches': 31186,
                'water_filter': 70000, 'moonshine': 230000}
 # anything not listed defaults to players
 # crackers was 'traders' for part of 2026-09-17 and is back on players: a trader source caps volume
