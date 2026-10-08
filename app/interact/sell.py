@@ -1824,7 +1824,18 @@ def apply_flea_filters(region=None, reset=False, source='players', set_condition
     box empty again every time: the setting does not survive the OK. Clicking a control the
     game throws away bought a click, two reads and a failure path that could abort the whole
     filter step, in exchange for nothing.
+
+    One debug frame before the pass and one after it, none in between (frames.held): a frame
+    per input made this pass 13s on a three-monitor PC. Lazy import, like find.py's, so the
+    geometry self-checks import this file without the frames stack.
     """
+    import frames
+    with frames.held('flea-filters'):
+        return _apply_flea_filters(region, reset, source, set_condition)
+
+
+def _apply_flea_filters(region, reset, source, set_condition):
+    """apply_flea_filters' body, run inside frames.held."""
     if not open_filters(region):
         return False
 

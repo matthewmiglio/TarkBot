@@ -31,6 +31,7 @@ import queue
 import threading
 import time
 from collections import deque
+from contextlib import contextmanager
 from pathlib import Path
 
 import pyautogui
@@ -62,6 +63,9 @@ _kept = deque()  # frame paths, oldest first, so pruning is a popleft rather tha
 # the typewrite. Only the outermost call takes frames now.
 # ponytail: one flag, not threading.local, because only ever one bot thread clicks at a time.
 _busy = False
+# True inside held(): every capture is skipped, the per-input pairs and find.py's detection frames
+# alike, so a burst of inputs costs no grabs between its one frame before and its one after.
+_held = False
 # Work for the saver thread, in the order it was asked for: (path, image) writes that image,
 # (path, None) deletes that file. Both go through the one queue so a frame is always written
 # before the prune that drops it, whatever the timing.
@@ -165,7 +169,7 @@ def capture(label='', image=None, pin=False):
     against `_keep`, and neither start() nor clear() reaches them, because both glob the top level
     only.
     """
-    if _dir is None:
+    if _dir is None or _held:
         return None
     stamp = int(time.time() * 1000)
     # No collision guard: a grab takes tens of milliseconds, so two frames cannot share a
@@ -185,6 +189,29 @@ def capture(label='', image=None, pin=False):
     _kept.append(path)
     _prune()
     return path
+
+
+@contextmanager
+def held(label):
+    """One frame before the block and one after it, and none at all inside it.
+
+    For a burst of inputs whose in-between frames cost more than they show. A grab photographs
+    the whole virtual desktop, ~0.65s on a three-monitor PC, and the flea filter pass took a pair
+    around each of its ~10 inputs plus a detection frame per find in craft mode: about 13s a pass
+    on that PC against 5s on a one-screen laptop running the same code. The end frame still shows
+    what the block left behind, a dropdown left open on a failure included.
+    """
+    global _held, _busy
+    before = capture(f'{label}-pre')
+    _held, busy = True, _busy
+    _busy = True  # the input wrappers pass straight through, rather than logging two Nones
+    try:
+        yield
+    finally:
+        _held, _busy = False, busy
+        after = capture(f'{label}-post')
+        if before and after:
+            log(f'frames {before.name} / {after.name} around {label}', 2)
 
 
 def _wrap(func, name):
@@ -298,6 +325,20 @@ if __name__ == '__main__':
         before = len(_kept)
         nested.press('f5')
         assert len(_kept) - before == 2, 'the guard lifted again'
+
+        # held(): one frame either side of the whole block, none for the inputs or captures inside.
+        before = len(_kept)
+        with held('filters'):
+            fake.click(3, 4)
+            nested.typewrite('100')
+            assert capture('find-x') is None, 'a detection frame inside held() is skipped'
+        assert calls[-1] == '0', 'inputs inside held() still went through'
+        names = [p.name for p in list(_kept)[before:]]
+        assert len(names) == 2 and names[0].endswith('-filters-pre.png') \
+            and names[1].endswith('-filters-post.png'), names
+        before = len(_kept)
+        fake.click(5, 6)
+        assert len(_kept) - before == 2, 'pairs come back after held()'
 
         # clear() empties the folder for a fresh mode, and leaves the cap counting from zero.
         capture('keep-me', blank)
