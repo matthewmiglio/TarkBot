@@ -95,6 +95,11 @@ check('_play_point swallows the needle-too-big ValueError', tarkov._play_point(1
 #    "Tarkov would not start", a RuntimeError, and the restart loop this exists to prevent.
 tarkov.is_running = lambda: False
 tarkov._launcher_window = lambda: 4321
+# start_tarkov now closes any open launcher and starts a fresh one before looking for Play. Left
+# real, that would kill this machine's launcher and start another, so the process side is stubbed.
+tarkov.find_launcher = lambda: Path(r'D:\Battlestate Games\BsgLauncher\BsgLauncher.exe')
+tarkov.close_launcher = lambda: True
+tarkov.subprocess = type('FakeSubprocess', (), {'Popen': staticmethod(lambda *a, **k: None)})
 tarkov.find.find = lambda target, region=None: 'a box' if target == tarkov.LOGIN_TARGET else None
 tarkov.find.find_center = lambda target, region=None: None
 raised = None

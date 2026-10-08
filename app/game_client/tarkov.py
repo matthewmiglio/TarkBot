@@ -164,6 +164,30 @@ def _launcher_window():
         return None
 
 
+def _launcher_running():
+    """True while any BsgLauncher.exe process exists, window or not (it hides to the tray)."""
+    out = subprocess.run(['tasklist', '/FI', f'IMAGENAME eq {LAUNCHER}', '/NH'],
+                         capture_output=True, text=True).stdout
+    return LAUNCHER.lower() in out.lower()
+
+
+def close_launcher(timeout=CLOSE_TIMEOUT):
+    """Force every launcher process shut and wait for them to go. True once they have.
+
+    Waits on the process, not the window: a launcher hidden in the tray has no window to watch,
+    and starting a new one before the old has died only pokes the old one, which stays hidden.
+    """
+    if not _launcher_running():
+        return True
+    subprocess.run(['taskkill', '/F', '/T', '/IM', LAUNCHER], capture_output=True)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not _launcher_running():
+            return True
+        time.sleep(CLOSE_POLL)
+    return not _launcher_running()
+
+
 def _play_point(hwnd):
     """Where the launcher's Play button is on screen, or None if it cannot be found.
 
@@ -282,7 +306,7 @@ def start_tarkov(character=Character.PVE):
     launcher), the launcher opens and then just sits there, and the profile screen waits for a
     card to be picked. Measured on 2026-08-30.
 
-      1. start BsgLauncher.exe, unless its window is already up   (LAUNCHER_TIMEOUT)
+      1. close any running BsgLauncher.exe and start a fresh one  (LAUNCHER_TIMEOUT)
       2. wait for its Play button and click it                    (PLAY_TIMEOUT)
       3. wait for the three SELECT buttons and click this one     (PROFILE_TIMEOUT)
       4. wait for the lobby, both tabs                            (LOBBY_TIMEOUT)
@@ -300,18 +324,24 @@ def start_tarkov(character=Character.PVE):
     if is_running():
         return True
 
-    hwnd = _launcher_window()
+    # Always a fresh launcher, even when one is already open. Play is found on screen pixels, so
+    # an open launcher behind another window reads as "no Play button" (VS Code over it, main PC,
+    # 2026-10-08), and one that hid to the tray after an earlier Play click draws no window at all,
+    # while starting the exe again only pokes that hidden one (the laptop, 2026-10-07). A launcher
+    # started from nothing opens in front.
+    try:
+        launcher = find_launcher()
+    except FileNotFoundError as e:
+        print(e)
+        return False
+    if not close_launcher():
+        print(f"the running launcher would not close in {CLOSE_TIMEOUT}s")
+        return False
+    subprocess.Popen([str(launcher)], cwd=str(launcher.parent))
+    hwnd = _wait(_launcher_window, LAUNCHER_TIMEOUT)
     if hwnd is None:
-        try:
-            launcher = find_launcher()
-        except FileNotFoundError as e:
-            print(e)
-            return False
-        subprocess.Popen([str(launcher)], cwd=str(launcher.parent))
-        hwnd = _wait(_launcher_window, LAUNCHER_TIMEOUT)
-        if hwnd is None:
-            print(f"the launcher window never appeared in {LAUNCHER_TIMEOUT}s")
-            return False
+        print(f"the launcher window never appeared in {LAUNCHER_TIMEOUT}s")
+        return False
 
     point = _wait(lambda: _play_or_login(hwnd), PLAY_TIMEOUT)
     if point is None:

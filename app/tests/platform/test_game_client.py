@@ -54,11 +54,26 @@ def no_launcher_installed():
     raise FileNotFoundError('No BsgLauncher.exe found, tried: nothing')
 
 
+def fake_processes(kills, launcher_up):
+    """subprocess.run answering tasklist with a launcher process while launcher_up[0] is True,
+    and taskkill by recording the command and taking that process away."""
+    def run(cmd, **k):
+        if cmd[0] == 'taskkill':
+            kills.append(cmd)
+            launcher_up[0] = False
+        return types.SimpleNamespace(stdout=tarkov.LAUNCHER if launcher_up[0] else 'INFO: none')
+    return run
+
+
 def start_with(character=None, running=(False,), play=PLAY, region=REGION,
-               buttons=None, lobby=True, launcher=object(),
+               buttons=None, lobby=True, launcher=object(), launcher_up=False, kills=None,
                find_launcher=lambda: Path(r'D:\Battlestate Games\BsgLauncher\BsgLauncher.exe')):
-    """Run start_tarkov against stubbed answers. Returns (result, clicks, launches)."""
+    """Run start_tarkov against stubbed answers. Returns (result, clicks, launches).
+
+    launcher_up says whether a launcher process is already running before the boot; any
+    taskkill it draws lands in `kills` when one is passed."""
     clicks, launches = [], []
+    kills = [] if kills is None else kills
     names = ('is_running', '_launcher_window', '_play_point', '_game_region', '_profile_buttons',
              'in_lobby', 'pyautogui', 'time', 'find_launcher', 'subprocess')
     saved = {n: getattr(tarkov, n) for n in names}
@@ -72,7 +87,8 @@ def start_with(character=None, running=(False,), play=PLAY, region=REGION,
     tarkov.pyautogui = types.SimpleNamespace(click=lambda x, y: clicks.append((x, y)))
     tarkov.time = ticking_clock()
     tarkov.find_launcher = find_launcher
-    tarkov.subprocess = types.SimpleNamespace(Popen=lambda *a, **k: launches.append(a))
+    tarkov.subprocess = types.SimpleNamespace(Popen=lambda *a, **k: launches.append(a),
+                                              run=fake_processes(kills, [launcher_up]))
     try:
         return tarkov.start_tarkov(character or tarkov.Character.PVE), clicks, launches
     finally:
@@ -133,9 +149,26 @@ if __name__ == '__main__':
         assert result is True, f'{character.name} should have booted, got {result}'
         assert clicks == [PLAY, centre], f'{character.name} clicked {clicks}, wanted {centre}'
 
-    # A game already up is left alone: no second Play press into a live session.
-    result, clicks, _ = start_with(running=(True,))
+    # A game already up is left alone: no second Play press into a live session, and its
+    # launcher is not touched either.
+    kills = []
+    result, clicks, _ = start_with(running=(True,), launcher_up=True, kills=kills)
     assert result is True and clicks == [], f'clicked at a running game: {clicks}'
+    assert kills == [], f'killed the launcher of a running game: {kills}'
+
+    # A launcher already open is closed and started fresh, never reused: one behind another
+    # window reads as no Play button (main PC, 2026-10-08), one hidden in the tray draws no window
+    # at all (laptop, 2026-10-07), and a fresh one opens in front.
+    kills = []
+    result, clicks, launches = start_with(launcher_up=True, kills=kills)
+    assert result is True, f'a boot over an open launcher should succeed, got {result}'
+    assert kills == [['taskkill', '/F', '/T', '/IM', tarkov.LAUNCHER]], f'not closed: {kills}'
+    assert len(launches) == 1, f'a fresh launcher should be started once, got {launches}'
+
+    # And with no launcher running there is nothing to kill, only the one start.
+    kills = []
+    result, clicks, launches = start_with(launcher_up=False, kills=kills)
+    assert kills == [] and len(launches) == 1, f'killed nothing running: {kills} {launches}'
 
     # No launcher installed anywhere is a False, not a raise out of the run, and nothing is
     # launched or clicked.
