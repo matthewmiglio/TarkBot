@@ -34,7 +34,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 echo "== syncing $APP -> $HOST:$REMOTE"
 tar -czf "$TMP/app.tgz" --exclude='__pycache__' --exclude='*.pyc' -C "$APP" \
-    $(cd "$APP" && ls *.py) requirements.txt interact gui game_client "$TEST"
+    $(cd "$APP" && ls *.py) requirements.txt snipe_targets.csv interact gui game_client "$TEST"
 ssh "$HOST" "if not exist $REMOTE_WIN mkdir $REMOTE_WIN" >/dev/null
 scp -q "$TMP/app.tgz" "$HOST:$REMOTE/app.tgz"
 scp -q "$APP/scripts/run_live.cmd" "$HOST:$REMOTE/run_live.cmd"

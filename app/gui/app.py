@@ -22,6 +22,7 @@ import craft_bot  # noqa: E402
 import daily_bot  # noqa: E402
 import frames  # noqa: E402
 import gym_bot  # noqa: E402
+import overlay  # noqa: E402
 import screen  # noqa: E402
 import sell_bot  # noqa: E402
 import session_log  # noqa: E402
@@ -403,6 +404,8 @@ class App:
         # before Start is ever pressed (frame capture, the tests) already has the right one.
         screen.use(self.prefs['monitor'])
         settings.save(self.prefs)
+        if self.prefs['show_clicks']:  # after screen.use, so it opens over the right monitor
+            overlay.Overlay(root)
 
         self._set_status('Stopped', theme.STOPPED)
         self.tick()

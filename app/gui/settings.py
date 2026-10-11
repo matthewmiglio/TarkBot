@@ -38,6 +38,9 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # The key that starts and stops the bot from inside the game. A name from
             # gui.app.HOTKEYS; anything else falls back to the default at startup.
             'hotkey': 'F4',
+            # Mark every click the bot makes on a see-through window over the game. It lets
+            # clicks through and stays out of screenshots, so it cannot disturb a run. See overlay.py.
+            'show_clicks': True,
             # Crafts mode's two max buy prices, in roubles, typed into a digits-only field.
             # A blank or non-numeric value falls back to craft_bot's default at startup.
             'crackers_max': '29700',

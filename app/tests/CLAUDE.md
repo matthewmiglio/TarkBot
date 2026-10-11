@@ -96,6 +96,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_snipe_watchlist.py` — snipe_bot.targets/TARGETS_PATH — the watchlist csv loads, TRADER dropdown has traders, frozen build looks in lib/ — no-game
 - `test_remove_item_filter.py` — snipe.remove_filter_by_item_filter — what the filter-by-item chip clear sees, and with --click what it clicks — game or with a frame
 - `test_ruble_region.py` — snipe.ruble_region — where the purchase-confirm balance box lands, drawn on the frame it was cut from — game or with a frame
+- `test_snipe_one_item_live.py` — snipe.open_clean_board + apply_flea_filters + snipe_bot.check_one — N loops, each a random watchlist item: open, search, click, read, buy if margin under trader price. **Spends roubles** — game
 - `test_top_offer_price.py` — snipe.read_price/price_region — read the topmost offer's price and draw the price/currency/gutter boxes — game
 - `test_dear_board.py` — craft.buy_craft_input_item reading snipe.read_price — dear/unreadable offers waited out then Unbuyable, cheap bought, retry counters stay separate — no-game
 - `test_price_gutter.py` — snipe.first_lit_column/_clipped — a six-figure price reads, a clipped one (leading digit outside the box) is refused — no-game
@@ -152,6 +153,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 
 ### `platform/` — the OS/screen/window/launcher layer
 - `test_monitors.py` — screen.py grab (use/rect/grab) — a colour put on each monitor reads back through the picked one — no-game
+- `test_overlay_poc.py` — overlay.py click marker — clicks pass through it, screen.grab/fast_grab/pyautogui.screenshot all ignore it, and overlay.Overlay marks where a click landed — no-game (moves the real mouse; refuses to click if another window is on top)
 - `test_window_overlap.py` — window.state()/overlap_state() — tell the three panel-vs-game overlap cases apart — no-game *(one pre-existing FAIL, see below)*
 - `test_game_client.py` — game_client launcher start_tarkov/close_game — pin the boot/close step order, which profile card is clicked, that an already-open launcher is force-closed and started fresh (never reused, and never touched when the game is already up), and find_launcher finding BsgLauncher.exe from its registry entry or inside/beside the game folder — no-game
 - `test_launcher_login.py` — game_client tarkov.login_page_up/_play_or_login/_play_point/start_tarkov + craft_bot.start — a launcher sat on its sign-in page raises NeedsLogin out of the boot and craft mode ends the run with an explanation, never a restart; NeedsLogin is asserted *not* to be a RuntimeError, since the restart tuple would otherwise relaunch into the same dialog forever, and a window smaller than the Play crop reads as "not found yet" rather than a matcher ValueError — no-game

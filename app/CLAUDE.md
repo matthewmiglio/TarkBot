@@ -385,6 +385,12 @@ session_log.py       One log file per session in %APPDATA%/tarkbot/logs/, where 
                      stderr, so running from source still narrates to the console. Keeps the
                      10 newest and deletes the rest as each session opens.
                      Self-check: python -m session_log
+overlay.py           See-through window over the working monitor that marks each bot click: a
+                     dashed arrow from the last click, closing brackets, screen coordinates.
+                     Click-through and kept out of every screenshot, so it cannot disturb a run.
+                     The GUI opens it at boot when settings show_clicks is true (the default).
+                     Wraps pyautogui's button calls like frames.py does. GUI only, no CLI.
+                     Self-check: python -m overlay. Live: tests/platform/test_overlay_poc.py
 frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, sister of logs/.
                      start() wraps pyautogui's input calls in place, so every click, drag and
                      keypress leaves a full screen png before it and another after it, named
