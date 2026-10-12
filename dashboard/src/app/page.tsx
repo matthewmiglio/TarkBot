@@ -1,9 +1,10 @@
-import { getAnalytics, getFeedback, getSnipes } from "@/lib/data";
+import { getAnalytics, getCaptchas, getFeedback, getSnipes } from "@/lib/data";
 import {
   ActivityFeed, BuysOverTime, DownloadSources, DownloadsOverTime, ItemsByMargin, PagePopularity,
   SnipeTiles, SummaryTiles, TopItems, TrafficSources, ViewsByCountry, ViewsOverTime,
 } from "@/components/figures";
 import { FeedbackList } from "@/components/feedback";
+import { CaptchaPanel } from "@/components/captchas";
 
 // Every figure reads from one server-side fetch, so the page is always fresh
 // and the browser makes no data requests of its own.
@@ -14,15 +15,17 @@ const SECTIONS = [
   { id: "traffic", label: "Traffic" },
   { id: "downloads", label: "Downloads" },
   { id: "snipes", label: "Snipe Data" },
+  { id: "captchas", label: "Captchas" },
   { id: "activity", label: "Activity" },
   { id: "feedback", label: "Feedback" },
 ];
 
 export default async function Page() {
-  const [{ views, downloads, configured }, feedback, snipes] = await Promise.all([
+  const [{ views, downloads, configured }, feedback, snipes, captchas] = await Promise.all([
     getAnalytics(),
     getFeedback(),
     getSnipes(),
+    getCaptchas(),
   ]);
 
   return (
@@ -101,6 +104,13 @@ export default async function Page() {
           </div>
         </section>
 
+        <section id="captchas" className="mb-12 scroll-mt-14">
+          <h2 className="text-sm font-bold uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">
+            Captchas
+          </h2>
+          <CaptchaPanel rows={captchas.rows} recent={captchas.recent} />
+        </section>
+
         <section id="activity" className="mb-12 scroll-mt-14">
           <h2 className="text-sm font-bold uppercase tracking-widest mb-6 pb-2 border-b border-gray-200">
             Live Activity
@@ -117,8 +127,8 @@ export default async function Page() {
       </div>
 
       <footer className="px-6 py-6 border-t border-gray-200 text-xs text-gray-400">
-        Reading Tarkbot_analytics_events, Tarkbot_downloads, Tarkbot_feedback and
-        Tarkbot_snipes.
+        Reading Tarkbot_analytics_events, Tarkbot_downloads, Tarkbot_feedback, Tarkbot_snipes and
+        Tarkbot_captchas. Captcha image links are signed for an hour; reload for fresh ones.
       </footer>
     </div>
   );

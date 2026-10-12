@@ -111,6 +111,61 @@ export async function getSnipes(): Promise<SnipeRow[]> {
   );
 }
 
+export type CaptchaRow = { ts: string; machine_id: string; image_id: string };
+export type RecentCaptcha = CaptchaRow & { url: string | null };
+
+const CAPTCHA_BUCKET = "Tarkbot_captchas";
+const RECENT_CAPTCHAS = 10;
+const SIGNED_FOR = 60 * 60; // seconds, long enough for a dashboard left open
+
+/**
+ * Every captcha row (for the chart and the reporter tally) plus the newest ten with a signed url.
+ *
+ * The bucket is private, so the browser cannot fetch an image without a signed url, and the
+ * service key must never reach it. /pull-captcha-images empties the bucket, so an older row's
+ * image is often gone: it signs as an error and comes back with url null.
+ */
+export async function getCaptchas(): Promise<{ rows: CaptchaRow[]; recent: RecentCaptcha[] }> {
+  const rows = await table<CaptchaRow>("Tarkbot_captchas", "ts,machine_id,image_id");
+  const newest = rows.slice(0, RECENT_CAPTCHAS); // table() orders by ts desc
+  const urls = new Map<string, string>();
+  if (newest.length && SUPABASE_URL && SERVICE_KEY) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${CAPTCHA_BUCKET}`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          expiresIn: SIGNED_FOR,
+          paths: newest.map((r) => `${r.image_id}.png`),
+        }),
+        cache: "no-store",
+      });
+      if (res.ok) {
+        for (const s of (await res.json()) as { path: string; signedURL: string | null }[]) {
+          if (s.signedURL) {
+            urls.set(
+              s.path,
+              s.signedURL.startsWith("http") ? s.signedURL : `${SUPABASE_URL}/storage/v1${s.signedURL}`,
+            );
+          }
+        }
+      } else {
+        console.error("sign captchas failed", res.status, await res.text());
+      }
+    } catch (e) {
+      console.error("sign captchas threw", e);
+    }
+  }
+  return {
+    rows,
+    recent: newest.map((r) => ({ ...r, url: urls.get(`${r.image_id}.png`) ?? null })),
+  };
+}
+
 export async function getAnalytics() {
   const [views, downloads] = await Promise.all([
     table<ViewEvent>(

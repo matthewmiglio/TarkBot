@@ -47,6 +47,30 @@ export function perDay<T extends { ts: string }>(
   return Array.from(counts, ([day, count]) => ({ day, count }));
 }
 
+/**
+ * Running total per UTC day, from the first row's day through today. Every day is present, so a
+ * quiet day is a flat stretch rather than a missing point.
+ */
+export function cumulativePerDay<T extends { ts: string }>(
+  rows: T[],
+  now: number = Date.now(),
+): { day: string; count: number }[] {
+  if (rows.length === 0) return [];
+  const perDayCounts = tally(rows, (r) => r.ts.slice(0, 10));
+  const counts = new Map(perDayCounts.map((r) => [r.label, r.count]));
+  const first = [...counts.keys()].sort()[0];
+  const out: { day: string; count: number }[] = [];
+  let total = 0;
+  const today = new Date(now).toISOString().slice(0, 10);
+  for (let t = Date.parse(`${first}T00:00:00Z`); ; t += 24 * 60 * 60 * 1000) {
+    const day = new Date(t).toISOString().slice(0, 10);
+    total += counts.get(day) ?? 0;
+    out.push({ day, count: total });
+    if (day >= today) break;
+  }
+  return out;
+}
+
 /** Distinct non-null values of one field. */
 export function distinct<T>(rows: T[], field: keyof T): number {
   const seen = new Set<unknown>();

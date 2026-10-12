@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import {
   withinPeriod, perDay, distinct, tally, sumBy, roubles, categorizeSource, normalizePath,
+  cumulativePerDay,
 } from "./derive.ts";
 
 const NOW = Date.parse("2026-07-27T12:00:00Z");
@@ -21,6 +22,14 @@ assert.equal(withinPeriod(rows, "all", NOW).length, 5);
 assert.equal(withinPeriod(rows, "1d", NOW).length, 2);
 assert.equal(withinPeriod(rows, "10d", NOW).length, 3);
 assert.equal(withinPeriod(rows, "60d", NOW).length, 4);
+
+// cumulativePerDay: first row's day through today, never going down, ending at the row count
+const running = cumulativePerDay(rows, NOW);
+assert.equal(running.length, 91, "90 days ago through today inclusive");
+assert.equal(running[0].count, 1);
+assert.equal(running.at(-1)!.count, 5);
+assert.ok(running.every((d, i) => i === 0 || d.count >= running[i - 1].count));
+assert.deepEqual(cumulativePerDay([], NOW), []);
 
 // perDay: zero-filled, and the 90-day-old row falls outside the window
 const week = perDay(rows, 7, NOW);
