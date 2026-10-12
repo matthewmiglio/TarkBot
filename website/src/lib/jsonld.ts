@@ -4,6 +4,8 @@ import {
   DEMO_VIDEO,
   DESCRIPTION,
   DISCORD_URL,
+  HOME_TITLE,
+  LOGO,
   OG_IMAGE,
   REPO_URL,
   SAME_AS,
@@ -35,8 +37,12 @@ export function homeGraph() {
         description: DESCRIPTION,
         sameAs: SAME_AS,
         image: { "@id": IMAGE },
-        // No logo: there is no square brand mark on disk, and Google would
-        // rather have the field absent than the OG card cropped into one.
+        logo: {
+          "@type": "ImageObject",
+          url: absolute(LOGO.path),
+          width: LOGO.width,
+          height: LOGO.height,
+        },
         contactPoint: {
           "@type": "ContactPoint",
           contactType: "customer support",
@@ -70,7 +76,7 @@ export function homeGraph() {
         "@type": "WebPage",
         "@id": WEBPAGE,
         url: SITE_URL,
-        name: `${SITE_NAME} — ${TAGLINE}`,
+        name: HOME_TITLE,
         description: DESCRIPTION,
         isPartOf: { "@id": WEBSITE },
         about: { "@id": APP },

@@ -4,11 +4,21 @@
 export const SITE_URL = "https://tarkbot.org";
 export const SITE_NAME = "Tarkbot";
 
-// Lower-case "free" on purpose: `${SITE_NAME} — ${TAGLINE}` has to reproduce the
-// existing <title> character for character. Retitling the page is a copy change.
+// The OG card's alt text and the caption on its JSON-LD image node.
 export const TAGLINE = "free flea market and hideout bot for Escape From Tarkov";
+
+// The home <title>. Leads with "tarkov flea market bot", the phrasing Google
+// autocomplete offers for this kind of tool (checked 2026-10-12; "tarkbot" itself
+// has no suggestions yet), brand last. 55 chars, inside the ~60 Google shows.
+export const HOME_TITLE = "Tarkov Flea Market Bot & Hideout Crafting Bot | Tarkbot";
+
+// 160 chars, the phrase once. Also the JSON-LD and llms.txt description.
 export const DESCRIPTION =
-  "Tarkbot reads your screen and does Tarkov's busywork: selling and sniping on the flea market, the hideout gym skill-check, and hideout crafting. Free, open, no account.";
+  "Tarkbot is a free Tarkov flea market bot for Windows. It sells and snipes on the flea, times the hideout gym skill check, and keeps your hideout crafts running.";
+
+// The app's own icon (app/gui/tarkbot.ico, its 256px frame), for the
+// Organization logo. Google wants a square raster of at least 112px.
+export const LOGO = { path: "/logo.png", width: 256, height: 256 };
 
 // The generated card from app/opengraph-image.tsx. Next serves it with a
 // cache-busting query on the meta tag, but the bare route is a stable 200, so

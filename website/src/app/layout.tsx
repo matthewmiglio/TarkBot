@@ -3,7 +3,7 @@ import { Barlow_Semi_Condensed, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker } from "./analytics-tracker";
 import { homeGraph, serialize } from "@/lib/jsonld";
-import { DESCRIPTION, SITE_NAME, SITE_URL, TAGLINE } from "@/lib/site";
+import { DESCRIPTION, HOME_TITLE, SITE_NAME, SITE_URL } from "@/lib/site";
 
 // Bahnschrift SemiCondensed is what the app uses and Windows ships it, but it is
 // not a web font. Barlow Semi Condensed is the same DIN-condensed register.
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   // Makes every relative OG/canonical URL below resolve absolutely.
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — ${TAGLINE}`,
+    default: HOME_TITLE,
     template: `%s | ${SITE_NAME}`,
   },
   description: DESCRIPTION,
@@ -47,12 +47,12 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     locale: "en_US",
     url: "/",
-    title: `${SITE_NAME} — ${TAGLINE}`,
+    title: HOME_TITLE,
     description: DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: `${SITE_NAME} — ${TAGLINE}`,
+    title: HOME_TITLE,
     description: DESCRIPTION,
   },
   robots: {

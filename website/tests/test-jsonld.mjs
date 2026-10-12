@@ -85,6 +85,13 @@ for (const type of ["Organization", "WebSite", "WebPage", "SoftwareApplication"]
   );
 }
 
+// The logo is nested rather than its own node, so the url loop above never sees it.
+{
+  const logo = nodes.find((n) => n["@type"] === "Organization").logo;
+  assert.ok(logo?.url?.startsWith("https://"), "Organization logo url is not absolute https");
+  assert.ok(logo.width >= 112 && logo.height >= 112, "Organization logo is under Google's 112px minimum");
+}
+
 console.log(
   `ok — ${nodes.length} nodes, ${referenced.length} @id references all resolve`,
 );
