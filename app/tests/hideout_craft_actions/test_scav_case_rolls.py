@@ -267,6 +267,37 @@ bot.tend_scav_case(job)
 check('a greyed GET ITEMS is not collected', panel.collected == [],
       f'collected={panel.collected}')
 
+# 10. A roll whose input is not in the stash: START does nothing, so it buys one and starts the roll
+#     in the same visit rather than a lap later. The row reads ready until the buy lands.
+panel = install(FakeList({MOON: 0}, offset=0, length=2))
+bot = bot_for(panel)
+bot.stats['started:scav_case'] = 0
+bot._confirm_handover = lambda *a, **k: None
+state = {'bought': False, 'starts': 0}
+
+
+def read_until_bought(_craft, region=None):
+    return craft.CraftRead('producing' if state['starts'] and state['bought'] else 'ready',
+                           None, None, Box(0, 0, 40, 20), None, [('moonshine', False, (5, 5))])
+
+
+def click_start(*a, **k):
+    state['starts'] += 1
+
+
+def buy(*a, **k):
+    state['bought'] = True
+    return True
+
+
+craft.read_craft = read_until_bought
+craft.buy_craft_input_item = buy
+craft_bot.pyautogui.click = click_start
+bot._start_scav_case_roll(job)
+check('a missing input is bought', state['bought'])
+check('and the roll is started in the same visit', bot.stats['started:scav_case'] == 1,
+      f'starts={state["starts"]} stats={bot.stats}')
+
 print()
 if failures:
     sys.exit(f'{len(failures)} check(s) failed: {", ".join(failures)}')

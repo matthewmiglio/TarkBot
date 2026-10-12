@@ -80,7 +80,7 @@ DEFAULT_MAX = {'crackers': 29700, 'alyonka': 38290, 'sewing_kit': 38500, 'ux_pro
                'power_cord': 84291, 'pile_of_meds': 19208, 'purified_water': 73390,
                'sugar': 66941, 'sling_bag': 11000, 'green_gunpowder': 75400, 'matches': 31186,
                'water_filter': 70000, 'moonshine': 230000,
-               'intelligence': 200000}  # ponytail: a guess, never priced; set it in the GUI
+               'intelligence': 400000}
 # anything not listed defaults to players
 # crackers was 'traders' for part of 2026-09-17 and is back on players: a trader source caps volume
 # at the restock limit, and the overnight soak hit that cap 5 times in 4.5 hours. See the ledger.
@@ -595,7 +595,7 @@ class HideoutCraft(GameRestarts):
         read_craft does for other crafts: the input is always drawn on a startable row, ticked or
         not. So readiness is judged after the fact: click START, then read the row back. Producing
         now means it started (count it). Still ready means the click did nothing, which for a scav
-        case means the input was not in the stash, so buy one and let the next lap start it.
+        case means the input was not in the stash, so buy one and start it then.
 
         Every state but 'ready' is somebody else's business now, 'done' included: the collect phase
         takes a finished roll, and it needs no anchor and no row to do it.
@@ -626,22 +626,12 @@ class HideoutCraft(GameRestarts):
             self._pause()  # a Stop still lands here, as it did in the old producing branch
             return
 
-        point = sell.jitter(pyautogui.center(read.start))
-        log(f'starting the scav case {roll} roll, clicking START at {point}', 1)
-        pyautogui.click(*point)
-        self._confirm_handover(required=False)  # confirm one if it shows; fine if it does not
-        self._park(point)
-        self._pause(START_SETTLE)  # give the click time to flip the row to producing
-
-        if craft.read_craft(job.craft, self.region).state == 'producing':
-            log(f'scav case {roll} roll started')
-            self.stats[f'started:{job.craft.name}'] += 1
-            self.stats['total_started'] += 1
+        if self._click_scav_start(job, read):
             return
 
         # Still ready: the START did nothing, so the input is not in the stash. Buy one (the row's
-        # sole input) at its ceiling and let the next lap start the craft. location is the input
-        # on the row, from read.inputs; quantity 1, since a scav case takes one.
+        # sole input) at its ceiling, then start the roll straight away rather than a lap later.
+        # location is the input on the row, from read.inputs; quantity 1, since a scav case takes one.
         name, _, location = read.inputs[0]
         ceiling = job.max_prices[name]  # build() guarantees it
         source = job.sources.get(name, 'players')
@@ -659,8 +649,36 @@ class HideoutCraft(GameRestarts):
                                        filters=name != 'moonshine')
         except craft.Unbuyable as e:
             log(f'{name} {e}, moving on', 1)
+            return
         except LookupError as e:
             log(f'{name}: {e}, moving on', 1)
+            return
+
+        # The buy escapes the flea back to this panel (return_to_station), so the roll is one
+        # find and one START away. A miss here is left for the next lap, which tries again anyway.
+        if craft.find_scav_case_row(job.craft.output_target, self.region) is None:
+            log(f'bought the {name}, but the {roll} roll is out of sight; the next lap starts it', 1)
+            return
+        read = craft.read_craft(job.craft, self.region)
+        if read.state != 'ready' or not self._click_scav_start(job, read):
+            log(f'bought the {name}, but the {roll} roll did not start ({read.state}); '
+                'the next lap tries again', 1)
+
+    def _click_scav_start(self, job, read):
+        """Click this roll's START and read the row back. True (and counted) if it is producing."""
+        roll = job.craft.ingredients[0].name
+        point = sell.jitter(pyautogui.center(read.start))
+        log(f'starting the scav case {roll} roll, clicking START at {point}', 1)
+        pyautogui.click(*point)
+        self._confirm_handover(required=False)  # confirm one if it shows; fine if it does not
+        self._park(point)
+        self._pause(START_SETTLE)  # give the click time to flip the row to producing
+        if craft.read_craft(job.craft, self.region).state != 'producing':
+            return False
+        log(f'scav case {roll} roll started')
+        self.stats[f'started:{job.craft.name}'] += 1
+        self.stats['total_started'] += 1
+        return True
 
     def step(self):
         """One pass of the state machine over the craft currently in front of us.

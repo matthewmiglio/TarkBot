@@ -79,7 +79,7 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'moonshine_max': '300000',
             'moonshine_source': 'Players',
             # The scav case intelligence variant's one input, an intelligence folder. Same shape.
-            'intelligence_max': '200000',
+            'intelligence_max': '400000',
             'intelligence_source': 'Players',
             # Which crafts the runner actually runs, one <name>_enabled per craft. All on by
             # default; the GUI refuses to start with none ticked.
