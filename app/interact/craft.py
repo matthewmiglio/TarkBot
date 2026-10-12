@@ -253,27 +253,15 @@ WATER_FILTER_NAME = 'water filter'  # what to type into the flea search to find 
 # (crafting/moonshine, reused from the booze generator craft), the one thing unique to the row.
 SCAV_CASE_MODULE_TARGET = 'hideout/hideout_tabs/scav_case'
 SCAV_CASE_ACTIVE_TARGET = 'hideout/hideout_station_titles/scav_case'
-# The two rolls we run, the moonshine one and the 95,000-rouble one, share one production list
-# that is taller than the panel, and neither is reliably the one on screen when it opens.
-# find_scav_case_row scrolls to whichever is asked for, in either direction.
-#
-# This block used to read "the 95k roll sits below the moonshine roll, off screen when the panel
-# opens", and only the 95k roll was ever scrolled to. The opposite was true: on 2026-09-17 the
-# panel opened on the 95k roll with the moonshine row below the fold, so the moonshine read found
-# nothing and raised Blind, which is in craft_bot's restart tuple, and the 95k roll sequenced
-# behind it was never reached at all. Neither roll had ever been tended.
-NINETY_FIVE_K_TARGET = 'crafting/95k_rubles'  # that roll's input (a 95k rouble stack), the row's anchor
+# The moonshine roll sits in a production list that is taller than the panel, and is not reliably
+# on screen when it opens: on 2026-09-17 the panel opened with the moonshine row below the fold, so
+# the read found nothing and raised Blind, which is in craft_bot's restart tuple.
+# find_scav_case_row scrolls to it, in either direction.
 SCAV_CASE_DEADSPACE_COORD = (1374, 792)  # empty spot in the scav case panel, clicked to take wheel focus.
                                          # Raw screen coords, tuned live at 2560x1440.
 SCAV_CASE_SCROLL_DOWN = 3  # mouse-wheel notches per step while hunting a roll; tuned live
 SCAV_CASE_SCROLL_STEPS = 6  # steps down before sweeping back up, so a list left scrolled either way is covered
 SCAV_CASE_SCROLL_SETTLE = 0.3  # after each wheel step, for the list to redraw before the next look
-# The 95k input crop anchors on the '95000/95000' count text at the bottom of its row, not a
-# mid-row icon, so the generic _row_band sits too low and clips START/GET ITEMS off the top. These
-# offsets (tuned live at 2560x1440) build the band upward from the anchor instead; raw px, like
-# _row_band's own pads. See scav_case_95k_row_band.
-SCAV_CASE_95K_BAND_ABOVE = 146  # px above the anchor's top the band reaches (up over icon/START)
-SCAV_CASE_95K_BAND_BELOW = 20   # px below the anchor's bottom the band reaches
 # The bitcoin farm, the simplest station of the lot: no START, no inputs, no slot to keep filled.
 # Graphics cards sit in it permanently and it mines on its own, so the whole pass is "click GET
 # ITEMS if it is lit". Only the two navigation crops are needed, since nothing here is read off a
@@ -436,6 +424,14 @@ SCAV_CASE = Craft('scav_case', MOONSHINE_TARGET,
                   (Ingredient('moonshine', MOONSHINE_TARGET),),
                   SCAV_CASE_MODULE_TARGET, SCAV_CASE_ACTIVE_TARGET, 'scav case')
 SCAV_CASE_NAME = SCAV_CASE.name  # craft_bot tests against this to pick its own branch
+# The intelligence-folder variant of the same station, built exactly like the moonshine one: the
+# folder is both the row's anchor and its one input. A Craft of its own so the GUI gives it its own
+# enable box and ceiling; craft_bot tends every SCAV_CASE_NAMES job in one panel visit.
+INTELLIGENCE_TARGET = 'crafting/intelligence'
+SCAV_CASE_INTEL = Craft('scav_case_intel', INTELLIGENCE_TARGET,
+                        (Ingredient('intelligence', INTELLIGENCE_TARGET),),
+                        SCAV_CASE_MODULE_TARGET, SCAV_CASE_ACTIVE_TARGET, 'scav case')
+SCAV_CASE_NAMES = (SCAV_CASE.name, SCAV_CASE_INTEL.name)
 # The bitcoin farm. output_target is None and ingredients is empty, and both are honest rather
 # than placeholders: nothing here reads a craft row, so there is no output to anchor on, and the
 # farm buys nothing, so the GUI gives it no max-price field. craft_bot routes this name to a
@@ -444,7 +440,7 @@ SCAV_CASE_NAME = SCAV_CASE.name  # craft_bot tests against this to pick its own 
 BITCOIN = Craft('bitcoin', None, (), BITCOIN_MODULE_TARGET, BITCOIN_ACTIVE_TARGET, 'bitcoin farm')
 BITCOIN_NAME = BITCOIN.name  # craft_bot tests against this to pick its own branch
 CRAFTS = {c.name: c for c in (SLICKERS, FLEECE, WIRES, AI2, MOONSHINE, CORDURA, RED_GUNPOWDER,
-                              WATER_COLLECTOR, SCAV_CASE, BITCOIN)}
+                              WATER_COLLECTOR, SCAV_CASE, SCAV_CASE_INTEL, BITCOIN)}
 
 
 def hideout_tab_brightness(region=None):
@@ -1030,10 +1026,10 @@ def scav_case_scroll_positions():
 def find_scav_case_row(target, region=None):
     """Bring one scav case roll's anchor on screen and hand back its match Box, or None.
 
-    Takes the target rather than assuming one, because neither roll is reliably the visible one:
-    the production list is taller than the panel and keeps whatever scroll position it was left
-    at, so which rows are drawn when it opens is not something either caller may assume. See the
-    note by SCAV_CASE_SCROLL_DOWN for what assuming it cost.
+    The roll is not reliably the visible one: the production list is taller than the panel and
+    keeps whatever scroll position it was left at, so which rows are drawn when it opens is not
+    something a caller may assume. See the note by SCAV_CASE_DEADSPACE_COORD for what assuming it
+    cost.
 
     Only useful for a roll that is *startable*. A roll that is running or finished stops drawing
     its input icon altogether (see lit_get_items), so there is no anchor left to find and this
@@ -1041,8 +1037,8 @@ def find_scav_case_row(target, region=None):
     here.
 
     Returns the Box (truthy) so the caller can build the row band from it; None (falsy) when the
-    roll never showed. None is 'skip this roll', not an error: one roll missing says nothing about
-    the other, and this panel is where a failed read used to end the entire run.
+    roll never showed. None is 'skip this roll', not an error: this panel is where a failed read
+    used to end the entire run.
     """
     for scrolled in scav_case_scroll_positions():
         box = find.find(target, region)
@@ -1090,20 +1086,6 @@ def get_items_cleared(box, band):
     clearing, and the collect would re-click a button that had already gone.
     """
     return _on_row(lit_get_items(band), _center(box)[1]) is None
-
-
-def scav_case_95k_row_band(box, region=None):
-    """The 95k roll's full-width row band, built upward from its input match `box`.
-
-    The 95k anchor is the '95000/95000' count text at the bottom of the row, so this reaches
-    SCAV_CASE_95K_BAND_ABOVE px above it (up over the icon, timer and START) and
-    SCAV_CASE_95K_BAND_BELOW px below, rather than the centred pad _row_band uses for a mid-row
-    icon anchor. Same (left, top, width, height) shape and raw-pixel convention as _row_band.
-    """
-    left, _, width, _ = region if region else screen.rect()
-    top = box.top - SCAV_CASE_95K_BAND_ABOVE
-    bottom = box.top + box.height + SCAV_CASE_95K_BAND_BELOW
-    return (left, top, width, bottom - top)
 
 
 # One look at a craft's row. state is the same four strings get_craft_state answers with;
@@ -1165,46 +1147,6 @@ def read_craft(craft, region=None):
             log(f'{ing.name}: {"ready" if ready else "not ready"}', 1)
             inputs.append((ing.name, ready, _center(icon)))
     return CraftRead(state, output, band, start, get_items, inputs)
-
-
-def _nearest_in_band(boxes, band):
-    """The match nearest the band's vertical centre, or None.
-
-    The plain nearest pick read_craft's _on_row cannot use: _on_row gates on ROW_TOL around the
-    anchor's own y to keep off the next row, because _row_band's pad makes the band overlap it.
-    The 95k band (scav_case_95k_row_band) is one row tall by construction and does not overlap,
-    and its anchor sits at the row's bottom while the buttons sit ~130px up, so a ROW_TOL gate
-    around the anchor would reject the very START it is looking for. Nearest-to-centre is enough.
-    """
-    if not boxes:
-        return None
-    _, top, _, height = band
-    cy = top + height / 2
-    return min(boxes, key=lambda b: abs(_center(b)[1] - cy))
-
-
-def read_scav_case_95k(region=None):
-    """Scroll to the 95k scav case roll and read its state and buttons, like read_craft does.
-
-    Returns a CraftRead (state, output, band, start, get_items, inputs) anchored on the 95k input
-    via find_scav_case_row and its upward exception band, since the roll has no timer-anchored
-    output row. inputs is always None: the roll's one input is a stack of roubles from the stash,
-    which cannot be bought off the flea, so there is no queue to build the way the moonshine roll
-    has. Returns None when the roll never scrolls into view.
-    """
-    anchor = find_scav_case_row(NINETY_FIVE_K_TARGET, region)
-    if anchor is None:
-        return None
-    band = scav_case_95k_row_band(anchor, region)
-    start = None
-    get_items = _nearest_in_band(find.find_all(GET_ITEMS_TARGET, band), band)
-    if get_items:
-        state = 'done' if get_items_highlighted(get_items) else 'not started'
-    else:
-        start = _nearest_in_band(find.find_all(START_TARGET, band), band)
-        state = 'ready' if start else 'producing'
-    log(f'95k scav case roll state: {state}', 1)
-    return CraftRead(state, anchor, band, start, get_items, None)
 
 
 def get_craft_state(craft, region=None):

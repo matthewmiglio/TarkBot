@@ -29,7 +29,8 @@ from interact import craft
 
 # Every craft is present and the cycle order is stable.
 assert list(craft.CRAFTS) == ['slickers', 'fleece', 'wires', 'ai2', 'moonshine', 'cordura',
-                              'red_gunpowder', 'water_collector', 'scav_case'], list(craft.CRAFTS)
+                              'red_gunpowder', 'water_collector', 'scav_case', 'scav_case_intel',
+                              'bitcoin'], list(craft.CRAFTS)
 
 moonshine = craft.CRAFTS['moonshine']
 assert [i.name for i in moonshine.ingredients] == ['purified_water', 'sugar'], moonshine.ingredients

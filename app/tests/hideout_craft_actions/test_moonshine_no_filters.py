@@ -3,7 +3,7 @@
 Run:  python tests/hideout_craft_actions/test_moonshine_no_filters.py
 
 App layer: interact/craft.py's buy_craft_input_item (the new `filters` argument) and the one
-call site that passes it False, craft_bot.HideoutCraft._start_scav_case_moonshine. The mouse,
+call site that passes it False, craft_bot.HideoutCraft._start_scav_case_roll. The mouse,
 the clock, the matcher and the flea are all stubbed, so this is about which steps run and in
 what order, not about pixels. No game needed.
 
@@ -97,7 +97,7 @@ def scav_case_moonshine_buy():
     bot._confirm_handover = lambda required=True: True
     job = craft_bot.CraftJob(craft.SCAV_CASE, {'moonshine': CEILING}, {'moonshine': 'players'})
     try:
-        bot._start_scav_case_moonshine(job)
+        bot._start_scav_case_roll(job)
         return sent or None
     finally:
         for name, value in saved.items():

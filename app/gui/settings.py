@@ -78,6 +78,9 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # <stem>_max / _source shape; bought off a right click on the row like the others.
             'moonshine_max': '300000',
             'moonshine_source': 'Players',
+            # The scav case intelligence variant's one input, an intelligence folder. Same shape.
+            'intelligence_max': '200000',
+            'intelligence_source': 'Players',
             # Which crafts the runner actually runs, one <name>_enabled per craft. All on by
             # default; the GUI refuses to start with none ticked.
             'slickers_enabled': True,
@@ -89,6 +92,7 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             'red_gunpowder_enabled': True,
             'water_collector_enabled': True,
             'scav_case_enabled': True,
+            'scav_case_intel_enabled': True,
             'bitcoin_enabled': True,
             # The last mode (tab key) a run was actually started in. When the next run is a
             # different mode, the GUI wipes the logs and frames first so a mode's debug artifacts

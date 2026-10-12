@@ -73,12 +73,14 @@ DEFAULT_SOURCE = 'Players'
 # its craft makes exactly 7%, a craft's inputs scaled together. Exactly, not under: a ceiling below
 # the market never buys. Moonshine (0% today) and ai2 (-17%) have 7% ceilings under the market, so
 # their inputs (sugar, purified water, pile of meds) buy only when prices fall that far.
-# sewing_kit, ux_pro_beanie, sling_bag, water_filter and moonshine are not priced by that skill.
+# sewing_kit, ux_pro_beanie, sling_bag, water_filter, moonshine and intelligence are not priced
+# by that skill.
 # ponytail: constants, and they drift. Rerun /scrape-craft-prices to reprice them.
 DEFAULT_MAX = {'crackers': 29700, 'alyonka': 38290, 'sewing_kit': 38500, 'ux_pro_beanie': 3500,
                'power_cord': 84291, 'pile_of_meds': 19208, 'purified_water': 73390,
                'sugar': 66941, 'sling_bag': 11000, 'green_gunpowder': 75400, 'matches': 31186,
-               'water_filter': 70000, 'moonshine': 230000}
+               'water_filter': 70000, 'moonshine': 230000,
+               'intelligence': 200000}  # ponytail: a guess, never priced; set it in the GUI
 # anything not listed defaults to players
 # crackers was 'traders' for part of 2026-09-17 and is back on players: a trader source caps volume
 # at the restock limit, and the overnight soak hit that cap 5 times in 4.5 hours. See the ledger.
@@ -490,8 +492,8 @@ class HideoutCraft(GameRestarts):
         panel and cannot share one sweep of its list:
 
           starts   a startable roll still draws its input icon, so it can be named: the moonshine
-                   bottle, or the 95k rouble count. Each roll is hunted by its own anchor
-                   (craft.find_scav_case_row), in whichever scroll direction it lies.
+                   bottle or the intelligence folder. Each enabled roll is hunted by its own
+                   anchor (craft.find_scav_case_row), in whichever scroll direction it lies.
           collect  a roll that is running or finished stops drawing its input icon, so a lit GET
                    ITEMS cannot be attributed to a row at all. It does not need to be: every roll
                    pays out the same '?' boxes, so every lit GET ITEMS is collected wherever it
@@ -502,19 +504,25 @@ class HideoutCraft(GameRestarts):
         was invisible to it and its loot was never taken. The screenshot of 2026-09-17 has a lit
         GET ITEMS sat on a row with no input icon drawn on it at all.
 
-        Before that, this tended moonshine off 'the visible top row' and scrolled only for the 95k
-        roll below it, which had the panel exactly backwards: the moonshine read found nothing,
-        raised Blind into the restart path, and took the 95k roll queued behind it down with it, so
-        neither roll was ever tended once. A roll that cannot be found is skipped with a log line.
+        Before that, this tended moonshine off 'the visible top row', which was not always where it
+        sat: the moonshine read found nothing and raised Blind into the restart path. A roll that
+        cannot be found is skipped with a log line.
 
         The reopen between the phases is what lets the collect sweep start from a known place: the
-        starts phase leaves the list wherever hunting its two anchors stopped.
+        starts phase leaves the list wherever hunting its anchors stopped.
+
+        Every scav case job (craft.SCAV_CASE_NAMES) is tended in this one visit, not one visit per
+        job: the collect sweep takes every roll's loot anyway, so a second visit would only wheel
+        the whole list again to find nothing. build() keeps the jobs of one station adjacent, so
+        jumping the index to the last of them before the swap skips exactly the ones just done.
         """
-        self._start_scav_case_moonshine(job)
-        self._start_scav_case_95k(job)
+        rolls = [j for j in self.jobs if j.craft.name in craft.SCAV_CASE_NAMES]
+        for roll in rolls:
+            self._start_scav_case_roll(roll)
         self._reopen_scav_case(job)
         self._collect_scav_case_rolls()
-        self._swap()  # leave the scav case; both phases are done
+        self.index = max(self.jobs.index(r) for r in rolls)
+        self._swap()  # leave the scav case; both phases (start, collect) are done
 
     def _reopen_scav_case(self, job):
         """Close the scav case panel and open it again, putting its list back at the top.
@@ -577,16 +585,17 @@ class HideoutCraft(GameRestarts):
         log(f'collected {collected} finished scav case roll(s)' if collected
             else 'no finished scav case rolls to collect')
 
-    def _start_scav_case_moonshine(self, job):
-        """Start the moonshine roll if it is ready. Collecting is _collect_scav_case_rolls' job.
+    def _start_scav_case_roll(self, job):
+        """Start this scav case roll (moonshine or intelligence) if it is ready. Collecting is
+        _collect_scav_case_rolls' job.
 
-        The row is named only by its input, so read_craft anchors on the moonshine bottle rather
-        than an output (see craft.SCAV_CASE), and there is no per-input tick, so 'ready' cannot be
-        split into have-the-input and need-to-buy the way read_craft does for other crafts: the
-        bottle is always drawn on a startable row, ticked or not. So readiness is judged after the
-        fact: click START, then read the row back. Producing now means it started (count it). Still
-        ready means the click did nothing, which for a scav case means the moonshine bottle was not
-        in the stash, so buy one and let the next lap start it.
+        The row is named only by its input, so read_craft anchors on that input (the moonshine
+        bottle, the intelligence folder) rather than an output (see craft.SCAV_CASE), and there is
+        no per-input tick, so 'ready' cannot be split into have-the-input and need-to-buy the way
+        read_craft does for other crafts: the input is always drawn on a startable row, ticked or
+        not. So readiness is judged after the fact: click START, then read the row back. Producing
+        now means it started (count it). Still ready means the click did nothing, which for a scav
+        case means the input was not in the stash, so buy one and let the next lap start it.
 
         Every state but 'ready' is somebody else's business now, 'done' included: the collect phase
         takes a finished roll, and it needs no anchor and no row to do it.
@@ -603,90 +612,55 @@ class HideoutCraft(GameRestarts):
         at all), and the fix if it ever does is a crop of the 'Collecting' state or the insert
         dialog to disambiguate, rather than trusting the bottle match alone.
         """
-        # Scroll to it first. read_craft searches for the bottle across the whole region and
+        # Scroll to it first. read_craft searches for the input across the whole region and
         # raises Blind when it is not drawn, and Blind restarts the game, so a roll sitting below
         # the panel's fold has to be brought into view before the read rather than after it.
-        if craft.find_scav_case_row(craft.MOONSHINE_TARGET, self.region) is None:
-            log('the moonshine scav case roll is not startable right now, skipping its start', 1)
+        roll = job.craft.ingredients[0].name  # 'moonshine' / 'intelligence', for the log
+        if craft.find_scav_case_row(job.craft.output_target, self.region) is None:
+            log(f'the {roll} scav case roll is not startable right now, skipping its start', 1)
             return
 
         read = craft.read_craft(job.craft, self.region)
         if read.state != 'ready':
-            log(f'scav case moonshine roll is {read.state}, nothing to start')
+            log(f'scav case {roll} roll is {read.state}, nothing to start')
             self._pause()  # a Stop still lands here, as it did in the old producing branch
             return
 
         point = sell.jitter(pyautogui.center(read.start))
-        log(f'starting the scav case moonshine craft, clicking START at {point}', 1)
+        log(f'starting the scav case {roll} roll, clicking START at {point}', 1)
         pyautogui.click(*point)
         self._confirm_handover(required=False)  # confirm one if it shows; fine if it does not
         self._park(point)
         self._pause(START_SETTLE)  # give the click time to flip the row to producing
 
         if craft.read_craft(job.craft, self.region).state == 'producing':
-            log('scav case moonshine roll started')
-            self.stats['started:scav_case'] += 1
+            log(f'scav case {roll} roll started')
+            self.stats[f'started:{job.craft.name}'] += 1
             self.stats['total_started'] += 1
             return
 
-        # Still ready: the START did nothing, so the moonshine bottle is not in the stash. Buy one
-        # (the row's sole input) at its ceiling and let the next lap start the craft. location is
-        # the bottle on the row, from read.inputs; quantity 1, since a scav case takes one.
+        # Still ready: the START did nothing, so the input is not in the stash. Buy one (the row's
+        # sole input) at its ceiling and let the next lap start the craft. location is the input
+        # on the row, from read.inputs; quantity 1, since a scav case takes one.
         name, _, location = read.inputs[0]
         ceiling = job.max_prices[name]  # build() guarantees it
         source = job.sources.get(name, 'players')
         log(f'scav case did not start, so the {name} input is missing; buying one at up to '
             f'{ceiling} from {source}')
         try:
-            # filters=False: a moonshine bottle is always 100% condition and only ever sold by
-            # players, so every control in that window would be set to what the board already
-            # shows. Skipping it saves ~15s of clicks on every moonshine buy, and this roll is
-            # the most frequent buyer in the cycle (53 trips to this board in one 3h soak).
+            # Filters off for moonshine only: a bottle is always 100% condition and only ever
+            # sold by players, so every control in that window would be set to what the board
+            # already shows. Skipping it saves ~15s of clicks on every moonshine buy, and that
+            # roll is the most frequent buyer in the cycle (53 trips to this board in one 3h
+            # soak). The intelligence folder keeps them: nobody has checked its board for trader
+            # barter offers, which the roubles and source filters are what keep out.
             craft.buy_craft_input_item(location, ceiling, self.region, source=source,
                                        craft=job.craft, checkpoint=self._pause, quantity=1,
-                                       filters=False)
+                                       filters=name != 'moonshine')
         except craft.Unbuyable as e:
             log(f'{name} {e}, moving on', 1)
         except LookupError as e:
             log(f'{name}: {e}, moving on', 1)
-
-    def _start_scav_case_95k(self, job):
-        """Start the 95,000-rouble roll if it is ready. Collecting is the collect phase's job.
-
-        Same shape as the moonshine roll (no tick, state read off the row's buttons), read through
-        craft.read_scav_case_95k, which scrolls to the roll and reads its buttons off the 95k
-        exception band. The one difference is the missing-input path: this roll's input is a stack
-        of roubles, which cannot be bought off the flea, so a START that does not take means the
-        stash is short of roubles (the user's to top up), not an ingredient to go and buy.
-        """
-        read = craft.read_scav_case_95k(self.region)
-        if read is None:
-            log('the 95k scav case roll is not startable right now, skipping its start', 1)
-            return
-        if read.state != 'ready':
-            log(f'the 95k scav case roll is {read.state}, nothing to start')
-            self._pause()
-            return
-
-        point = sell.jitter(pyautogui.center(read.start))
-        log(f'starting the 95k scav case roll, clicking START at {point}', 1)
-        pyautogui.click(*point)
-        self._confirm_handover(required=False)
-        self._park(point)
-        self._pause(START_SETTLE)
-
-        # Judge it off the START button in the row we already found, not a re-read. read_scav_case_95k
-        # re-anchors on the '95000/95000' count text, and a roll that started has *consumed* those
-        # roubles, so the anchor is gone and a genuine start read back as 'did not start'. START
-        # disappearing from the stored band is the roll producing; START still there is the handover
-        # that could not complete, i.e. the stash short of roubles (the user's to top up).
-        if find.find_all(craft.START_TARGET, read.band):
-            log('the 95k scav case roll did not start, so the stash is short of roubles; '
-                'moving on', 1)
-        else:
-            log('the 95k scav case roll started')
-            self.stats['started:scav_case'] += 1
-            self.stats['total_started'] += 1
 
     def step(self):
         """One pass of the state machine over the craft currently in front of us.
@@ -707,7 +681,7 @@ class HideoutCraft(GameRestarts):
         if job.craft.name == craft.WATER_COLLECTOR_NAME:  # no START, no ingredient row: its own pass
             self.tend_water_collector(job)
             return
-        if job.craft.name == craft.SCAV_CASE_NAME:  # anchored on its input, no tick: its own pass
+        if job.craft.name in craft.SCAV_CASE_NAMES:  # anchored on its input, no tick: its own pass
             self.tend_scav_case(job)
             return
         if job.craft.name == craft.BITCOIN_NAME:

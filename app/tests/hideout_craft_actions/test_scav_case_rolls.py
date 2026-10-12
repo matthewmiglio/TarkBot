@@ -1,4 +1,4 @@
-"""Both scav case rolls get started, and every finished roll gets collected, whatever the scroll.
+"""The moonshine scav case roll gets started, and every finished roll gets collected, whatever the scroll.
 
 App layer: craft.scav_case_scroll_positions, craft.find_scav_case_row, craft.lit_get_items and
 craft_bot.HideoutCraft.tend_scav_case. No game: the matcher, the mouse, the clock and the screen
@@ -8,10 +8,10 @@ than about pixels.
 Two failures are behind it, both 2026-09-17, and they are opposite halves of the same panel.
 
   Starting. tend_scav_case assumed the moonshine roll was the visible one at the top of the list
-  and only ever scrolled for the 95k roll below it. The panel actually opened on the 95k roll with
-  the moonshine row below the fold, so the moonshine read found nothing and raised Blind, which is
-  in craft_bot's restart tuple, and the 95k roll sequenced behind it was never reached. Neither
-  roll was tended once, all night, and the station kept restarting the game. Checks 5 and 6.
+  and never scrolled for it. The panel actually opened on another roll with the moonshine row below
+  the fold, so the moonshine read found nothing and raised Blind, which is in craft_bot's restart
+  tuple. The roll was not tended once, all night, and the station kept restarting the game.
+  Checks 5 and 6.
 
   Collecting. A scav case row is named only by its input icon, because every reward variant outputs
   the same '?' box, and that icon stops being drawn once the roll is running. So a finished roll's
@@ -19,7 +19,7 @@ Two failures are behind it, both 2026-09-17, and they are opposite halves of the
   the screenshot from that day shows a lit GET ITEMS on a row with no input icon on it at all.
   Collecting is now roll-agnostic, and check 8 is the one that fails against the anchored version.
 
-The load-bearing cases are 5 (the panel opens on the 95k roll) and 8 (the finished roll is below
+The load-bearing cases are 5 (the panel opens on another roll) and 8 (the finished roll is below
 the fold and unnamed). Revert either half and the matching check goes red.
 
 Run:  python tests/hideout_craft_actions/test_scav_case_rolls.py
@@ -35,7 +35,7 @@ from interact import craft  # noqa: E402
 Box = namedtuple('Box', 'left top width height')
 
 MOON = craft.MOONSHINE_TARGET
-K95 = craft.NINETY_FIVE_K_TARGET
+OTHER = 'crafting/other_roll'  # some other roll's input; the matcher is stubbed, so no crop needed
 GET_ITEMS = craft.GET_ITEMS_TARGET
 
 ROW_PITCH = 100  # px between row tops in the fake list, so row i sits at y = 100i
@@ -109,7 +109,7 @@ def install(panel):
     craft.pyautogui.click = panel.click
     craft.SCAV_CASE_SCROLL_SETTLE = 0  # do not really sleep between steps
     craft.get_items_highlighted = lambda box, *a, **k: panel.is_lit(box)
-    craft.screen.rect = lambda: (0, 0, 1920, 1080)  # so the 95k band needs no real display
+    craft.screen.rect = lambda: (0, 0, 1920, 1080)  # so a row band needs no real display
     craft.check_stash_full = lambda region=None: False
     panel.reopens = 0
 
@@ -136,20 +136,20 @@ def check(name, condition, detail=''):
 
 
 # 1. Already drawn: one look, no wheel touched at all, and no dead-space click either.
-panel = install(FakeList({MOON: 0, K95: 1}, offset=0))
+panel = install(FakeList({MOON: 0, OTHER: 1}, offset=0))
 box = craft.find_scav_case_row(MOON)
 check('a visible roll is found without scrolling', box is not None and panel.scrolls == 0,
       f'scrolls={panel.scrolls}')
 check('a visible roll does not click the panel', panel.clicks == 0, f'clicks={panel.clicks}')
 
 # 2. Below the fold: the 2026-09-17 shape. Wheels down and finds it.
-panel = install(FakeList({K95: 0, MOON: 3}, offset=0))
+panel = install(FakeList({OTHER: 0, MOON: 3}, offset=0))
 box = craft.find_scav_case_row(MOON)
 check('a roll below the fold is scrolled down to', box is not None, f'scrolls={panel.scrolls}')
 check('scrolling takes the wheel focus first', panel.clicks == 1, f'clicks={panel.clicks}')
 
 # 3. Above the current position: the down sweep cannot reach it, the sweep back up must.
-panel = install(FakeList({MOON: 0, K95: 3}, offset=2))
+panel = install(FakeList({MOON: 0, OTHER: 3}, offset=2))
 box = craft.find_scav_case_row(MOON)
 check('a roll above the fold is found on the sweep back up', box is not None,
       f'scrolls={panel.scrolls}')
@@ -157,7 +157,7 @@ check('it really needed the up sweep', panel.scrolls > craft.SCAV_CASE_SCROLL_ST
       f'scrolls={panel.scrolls} > steps={craft.SCAV_CASE_SCROLL_STEPS}')
 
 # 4. Not on the panel at all: None rather than a raise, and bounded rather than spinning.
-panel = install(FakeList({K95: 0}, offset=0))
+panel = install(FakeList({OTHER: 0}, offset=0))
 box = craft.find_scav_case_row(MOON)
 check('a roll that is never there comes back None', box is None)
 check('and the hunt is bounded', panel.scrolls == craft.SCAV_CASE_SCROLL_STEPS * 3,
@@ -169,6 +169,8 @@ def bot_for(panel):
     window and a monitor, and neither is what any of this turns on."""
     b = object.__new__(craft_bot.HideoutCraft)
     b.region = None
+    b.jobs = [job]  # the module-level job below; tend_scav_case walks self.jobs for its rolls
+    b.index = 0
     b.stats = {'started:scav_case': 0, 'total_started': 0, 'profit:scav_case': 0,
                'total_profit': 0}
     b._pause = lambda *a, **k: None
@@ -200,16 +202,16 @@ craft.read_craft = read_craft_stub
 Job = namedtuple('Job', 'craft max_prices sources')
 job = Job(craft.SCAV_CASE, {'moonshine': 230000}, {})
 
-# 5. The starts regression: the panel opens on the 95k roll, moonshine below the fold.
-panel = install(FakeList({K95: 0, MOON: 3}, offset=0))
+# 5. The starts regression: the panel opens on another roll, moonshine below the fold.
+panel = install(FakeList({OTHER: 0, MOON: 3}, offset=0))
 bot = bot_for(panel)
 try:
     bot.tend_scav_case(job)
     raised = None
 except Exception as e:  # noqa: BLE001 - any raise at all is the failure being guarded
     raised = e
-check('a panel opened on the 95k roll does not raise', raised is None, f'raised={raised!r}')
-check('both rolls were looked for', MOON in panel.looks and K95 in panel.looks)
+check('a panel opened on another roll does not raise', raised is None, f'raised={raised!r}')
+check('the moonshine roll was looked for', MOON in panel.looks)
 check('the station is left exactly once', bot.swaps == 1, f'swaps={bot.swaps}')
 check('the panel is reopened once, between the two phases', panel.reopens == 1,
       f'reopens={panel.reopens}')
@@ -217,7 +219,7 @@ check('nothing is collected when no GET ITEMS is lit', panel.collected == [],
       f'collected={panel.collected}')
 
 # 6. The mirror of it, which is what the old code assumed was the only case.
-panel = install(FakeList({MOON: 0, K95: 3}, offset=0))
+panel = install(FakeList({MOON: 0, OTHER: 3}, offset=0))
 bot = bot_for(panel)
 try:
     bot.tend_scav_case(job)
@@ -226,10 +228,10 @@ except Exception as e:  # noqa: BLE001
     raised = e
 check('a panel opened on the moonshine roll does not raise either', raised is None,
       f'raised={raised!r}')
-check('both rolls were looked for there too', MOON in panel.looks and K95 in panel.looks)
+check('the moonshine roll was looked for there too', MOON in panel.looks)
 
 # 7. A roll genuinely absent is skipped, not fatal: the other roll and the swap still happen.
-panel = install(FakeList({K95: 0}, offset=0, length=2))
+panel = install(FakeList({OTHER: 0}, offset=0, length=2))
 bot = bot_for(panel)
 try:
     bot.tend_scav_case(job)
@@ -242,7 +244,7 @@ check('and the pass still leaves the station', bot.swaps == 1, f'swaps={bot.swap
 # 8. The collect regression, and the reason this file was rewritten. Row 4 has a lit GET ITEMS and
 #    NO input icon, which is what a running-or-finished scav case row actually looks like, and it
 #    sits below the fold. The anchored read could not name that row, so its loot was never taken.
-panel = install(FakeList({K95: 0, MOON: 1}, offset=0, length=5, lit={4}))
+panel = install(FakeList({OTHER: 0, MOON: 1}, offset=0, length=5, lit={4}))
 bot = bot_for(panel)
 try:
     bot.tend_scav_case(job)
@@ -259,7 +261,7 @@ check('and a collect is not counted as a start', bot.stats['total_started'] == 0
       f'stats={bot.stats}')
 
 # 9. A greyed GET ITEMS is a roll that was never started, not a finished one. Left alone.
-panel = install(FakeList({K95: 0, MOON: 1}, offset=0, length=5, greyed={4}))
+panel = install(FakeList({OTHER: 0, MOON: 1}, offset=0, length=5, greyed={4}))
 bot = bot_for(panel)
 bot.tend_scav_case(job)
 check('a greyed GET ITEMS is not collected', panel.collected == [],
@@ -268,4 +270,4 @@ check('a greyed GET ITEMS is not collected', panel.collected == [],
 print()
 if failures:
     sys.exit(f'{len(failures)} check(s) failed: {", ".join(failures)}')
-print('ok: both rolls are started and every finished roll is collected, whatever the scroll')
+print('ok: the moonshine roll is started and every finished roll is collected, whatever the scroll')

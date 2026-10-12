@@ -66,7 +66,8 @@ PAD = 24  # panel inset used for every label and value
 # the tab has two states, flipped by _show_craft_view: the list, and one craft's settings panel.
 CRAFT_ICONS_DIR = Path(__file__).resolve().parent / 'craft_icons'
 CRAFT_ICON = 44  # input/output icon square, px, in a craft's settings view
-CRAFT_LIST_ICON = 24  # smaller square for the list rows, which are pitched tighter
+CRAFT_LIST_ICON = 22  # smaller square for the list rows, which are pitched tighter. Was 24, which
+# touched its neighbours once the pitch went to 24 for the eleventh craft
 RUBLE_ICON = 'ruble.png'  # the rouble glyph shown right of each max field
 RUBLE_ICON_H = 15  # its height, px; width follows the glyph's aspect
 RUBLE_GOLD = (206, 168, 64)  # the goldish colour the (black) glyph is tinted to
@@ -74,7 +75,8 @@ RUBLE_GAP = 5  # px between the max field's right edge and the rouble glyph
 # List view: one row per craft. Icons left-pack from a fixed column and the arrow and output sit
 # at fixed columns, so one-input and two-input crafts line up down the list.
 CRAFT_LIST_TOP = 200  # first row's centre, under the tab rule (TAB_ROW + 32 = 170)
-CRAFT_LIST_STEP = 26  # row pitch; ten crafts fit above the stats at this and CRAFT_LIST_ICON
+CRAFT_LIST_STEP = 24  # row pitch. Was 26, which fit ten crafts; the eleventh (the scav case
+# intelligence roll) puts the last row at y 440, its icon down to 451, clear of the Total rule at 457
 CRAFT_CHECK_DX = 8  # enable box centre, right of the panel inset
 CRAFT_GEAR_DX = 32  # settings gear centre
 CRAFT_CTRL_SIZE = 16  # px square for both the enable box and the gear, so the pair match
@@ -99,7 +101,8 @@ CRAFTS_ROW_TOP = 470  # first stat row baseline, clear of the ten craft rows. Wa
 # bitcoin farm's row (the tenth, whose icon reaches down to y 446) reached down into: its Total
 # rule sat at 417. 460 would clear it by a single pixel, so this is 470, putting the rule at 457
 # and leaving 11px of gap. The panel runs to y 534 and the RUN TIME line lands at 496, so the
-# band below had the room. An eleventh craft needs a tighter CRAFT_LIST_STEP, not more of this.
+# band below had the room. The eleventh craft took CRAFT_LIST_STEP to 24 rather than more of this;
+# a twelfth has no pitch left to give and needs the list laid out another way.
 CRAFTS_ROW_STEP = 26  # tighter than ROW_STEP: the crafts leave less room for the stat rows
 # Each craft is (name, output icon file, inputs); each input is (label, settings key stem, icon
 # file). The max field stores <stem>_max, the source picker <stem>_source, and the enable box
@@ -121,6 +124,8 @@ CRAFTS = (('slickers', 'slickers.png', (('CRACKERS', 'crackers', 'crackers.png')
           ('water_collector', 'purified_water.png', (('WATER FILTER', 'water_filter',
                                                       'water_filter.png'),)),
           ('scav_case', 'scav_case_output.png', (('MOONSHINE', 'moonshine', 'moonshine.png'),)),
+          ('scav_case_intel', 'scav_case_output.png', (('INTELLIGENCE', 'intelligence',
+                                                       'intelligence.png'),)),
           # The bitcoin farm buys nothing, so it is the one row with no inputs: an empty tuple
           # draws no icons and leaves its settings view holding only SAVE. The enable box is the
           # whole point of the row being here, since build() runs any craft without one.

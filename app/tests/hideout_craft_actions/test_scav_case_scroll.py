@@ -5,16 +5,12 @@ SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS, SCAV_CASE_SCROLL_SETTLE) over fin
 live tuning loop for the scroll amount: too few notches per step overshoots the row, too many is
 slow, and too few steps gives up before a list left scrolled the wrong way can be swept back.
 
-Was test_find_95k_scav.py, which only ever hunted the 95k roll, because the shipping code only ever
-scrolled for that one. Either roll can be the one below the fold, so this takes the roll as an
-argument and defaults to running both.
+The moonshine roll is the only one the bot runs, so it is the only one this hunts.
 
 **This drives the real game.** Tarkov has to be running with the Scav Case panel open. It clicks
 the panel dead spot and scrolls the list for real; it buys and starts nothing.
 
-Run:  python tests/hideout_craft_actions/test_scav_case_scroll.py            # both rolls
-      python tests/hideout_craft_actions/test_scav_case_scroll.py moonshine  # just the one
-      python tests/hideout_craft_actions/test_scav_case_scroll.py 95k
+Run:  python tests/hideout_craft_actions/test_scav_case_scroll.py
 """
 import sys
 from pathlib import Path
@@ -26,7 +22,7 @@ from gui import settings  # noqa: E402
 from interact import craft, find  # noqa: E402
 from PIL import ImageDraw  # noqa: E402
 
-ROLLS = {'moonshine': craft.MOONSHINE_TARGET, '95k': craft.NINETY_FIVE_K_TARGET}
+ROLLS = {'moonshine': craft.MOONSHINE_TARGET}
 
 wanted = sys.argv[1:] or list(ROLLS)
 unknown = [r for r in wanted if r not in ROLLS]
@@ -66,8 +62,7 @@ for roll in wanted:
     # Write the frame it was found on: the row band (yellow) a caller would read START / GET ITEMS
     # off, plus the anchor match itself (green), so a band that frames the wrong row is visible
     # rather than showing up later as a state read that makes no sense.
-    band = (craft.scav_case_95k_row_band(box, region) if roll == '95k'
-            else craft.craft_row_band(craft.SCAV_CASE, region))
+    band = craft.craft_row_band(craft.SCAV_CASE, region)
     print(f'row band {tuple(band) if band else None}')
     shot = screen.grab(region).convert('RGB')
     d = ImageDraw.Draw(shot)
