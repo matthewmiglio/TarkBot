@@ -93,7 +93,7 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      asking price is far enough under what a trader pays. Selling to the trader
                      afterwards is done by hand; nothing here goes near a trader screen.
                      check_one is one item: find the search box, hand it to snipe.search_for
-                     (which types the name, waits SEARCH_DELAY for the suggestion list, gives up
+                     (which types the name, polls the suggestion row until it lights up (up to 10s), gives up
                      on a padlock, otherwise clicks the suggestion and empties the box), wait
                      BOARD_DELAY for the board, read the price on the topmost offer row, and buy
                      that row if it is far enough under trader value.

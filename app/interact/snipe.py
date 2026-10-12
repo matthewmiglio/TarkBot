@@ -118,10 +118,22 @@ PRICE_LIT = 140      # brightest channel that counts as text rather than backgro
 # euro balance sits past it, which a rouble purchase never moves.
 RUBLE_ROI_FRACTIONS = (0.75, 0.055, 0.87, 0.10)
 
-# Seconds between the last keystroke and the click at the suggestion. The list is not drawn the
-# moment typing stops: the flea goes away and looks the name up, and clicking into the gap lands
-# on whatever was underneath, which is the board rather than a suggestion.
-SEARCH_DELAY = 3.0
+# The suggestion list is not drawn the moment typing stops: the flea goes away and looks the name
+# up, and clicking into the gap lands on whatever was underneath, which is the board rather than a
+# suggestion. So after typing, SUGGESTION_ROW_FRACTIONS is polled every SUGGESTION_POLL seconds
+# and the suggestion is clicked the moment it lights up, giving up after SUGGESTION_TIMEOUT.
+# That replaced a flat 3 second wait, which was most of the time an item took.
+#
+# The row is (left, top, right, bottom) as fractions of the window, picked in
+# _flea_snipe_item_select_patch/region_picker.html. Brightest channel of any pixel in it: 231
+# with a suggestion drawn (2560x1440), 18 at most on three frames without one (both monitors),
+# so SUGGESTION_BRIGHT at 100 sits in the middle of the gap.
+# ponytail: one 1440p positive behind it; grab a 1080p one before trusting the gap there.
+SUGGESTION_ROW_FRACTIONS = (0.038, 0.145, 0.183, 0.158)
+SUGGESTION_BRIGHT = 100
+SUGGESTION_POLL = 0.05
+SUGGESTION_TIMEOUT = 10.0
+SEARCH_DELAY = 3.0  # the old flat wait, still used when there is no window region to poll
 BOARD_DELAY = 3.0    # seconds for the board to repopulate after a suggestion is clicked
 FILTER_SETTLE = 1.0  # seconds for the reopened flea's header to draw its filter chips
 BUY_CONFIRM_DELAY = 0.1  # seconds between the purchase click and the key that confirms it
@@ -384,7 +396,10 @@ def search_for(name, box, region=None):
     time.sleep(sell.MENU_DELAY)
     pyautogui.hotkey('ctrl', 'a')
     pyautogui.typewrite(name)
-    time.sleep(SEARCH_DELAY)
+    if region is None:
+        time.sleep(SEARCH_DELAY)
+    else:
+        wait_for_suggestion(region)
 
     if region is not None and is_locked(region):
         clear_search(box)  # still emptied, or the next name goes in on top of this one
@@ -398,6 +413,39 @@ def search_for(name, box, region=None):
 
     clear_search(box)
     return point
+
+
+def suggestion_row(region):
+    """The screen rect the first suggestion is drawn in, see SUGGESTION_ROW_FRACTIONS."""
+    left, top, width, height = region
+    l, t, r, b = SUGGESTION_ROW_FRACTIONS
+    return (left + round(width * l), top + round(height * t),
+            round(width * (r - l)), round(height * (b - t)))
+
+
+def suggestion_lit(image):
+    """True if anything in a grab of suggestion_row is bright enough to be suggestion text."""
+    return int(np.asarray(image.convert('RGB')).max()) >= SUGGESTION_BRIGHT
+
+
+def wait_for_suggestion(region, timeout=SUGGESTION_TIMEOUT, poll=SUGGESTION_POLL):
+    """Poll the suggestion row until it lights up. Returns the seconds waited, or None on timeout.
+
+    A timeout is logged and otherwise ignored: search_for clicks where the suggestion would be
+    anyway, which is what the flat wait this replaced always did, and an empty board after it is
+    already handled downstream.
+    """
+    rect = suggestion_row(region)
+    started = time.perf_counter()
+    while True:
+        waited = time.perf_counter() - started
+        if suggestion_lit(screen.grab(rect)):
+            log(f'suggestion showed after {waited:.2f}s', 1)
+            return waited
+        if waited >= timeout:
+            log(f'no suggestion within {timeout}s at {rect}, clicking where it would be', 1)
+            return None
+        time.sleep(poll)
 
 
 def clear_search(box):
@@ -665,6 +713,15 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     # A 150x20 box at (400, 300) has its bottom at 320, and 1.5 heights under that is 350.
     assert suggestion_point(Box(400, 300, 150, 20)) == (475, 350)
     assert suggestion_point(Box(400, 300, 150, 40)) == (475, 400), 'a taller box drops further'
+
+    # The suggestion row: where it lands on a 1440p window at a negative origin, and the
+    # brightness test on the two readings it was measured against (231 lit, 18 empty).
+    from PIL import Image
+    assert suggestion_row((-2560, 0, 2560, 1440)) == (-2463, 209, 371, 19)
+    assert not suggestion_lit(Image.new('RGB', (371, 19), (18, 10, 5)))
+    lit = Image.new('RGB', (371, 19), (18, 10, 5))
+    lit.putpixel((100, 9), (231, 220, 200))
+    assert suggestion_lit(lit), 'one bright pixel of text is enough'
 
     # The price box, off the button that was actually measured. At 1080p the offsets are used
     # as written; find.scale() is what a real screen multiplies them by.
