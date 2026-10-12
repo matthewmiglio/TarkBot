@@ -94,6 +94,8 @@ STAT_LABELS = (('checked', 'Offers checked'),
 # here the "it is actually working" signal is the same one selling uses, roubles made, which
 # for a buyer is what the traders will pay for the pile less what it cost to buy it.
 TINT_STAT = 'profit'
+# The GUI adds an "Estimated profit per hour" row under the counters: this stat over run time.
+RATE_STAT = 'profit'
 
 
 def targets(path=TARGETS_PATH):

@@ -112,7 +112,11 @@ PRICE_LIT = 140      # brightest channel that counts as text rather than backgro
 # Measured off a 2560x1440 flea: the balance occupies x 1943-2112, y 93-131, which is
 # 0.759-0.825 across and 0.065-0.091 down. Padded a little each way, so a longer or shorter
 # number still lands inside rather than growing out of the box.
-RUBLE_ROI_FRACTIONS = (0.75, 0.055, 0.84, 0.10)
+# The right edge was 0.84 until 2026-10-12. On a 1920x1080 laptop an 8 digit balance
+# (10 519 044) runs to 0.857, so the last three digits were outside the box and any purchase
+# that left the top five alone was invisible. 0.87 holds it with room to grow, and only the
+# euro balance sits past it, which a rouble purchase never moves.
+RUBLE_ROI_FRACTIONS = (0.75, 0.055, 0.87, 0.10)
 
 # Seconds between the last keystroke and the click at the suggestion. The list is not drawn the
 # moment typing stops: the flea goes away and looks the name up, and clicking into the gap lands
@@ -130,9 +134,12 @@ PURCHASE_DIALOG_TRIES = 5  # times confirm_purchase_dialog re-presses when Tarko
 # Both numbers come from real captures and both are needed, because either one alone gets it
 # wrong.
 #
-# BALANCE_MOVED: the fraction of pixels that have to differ by more than 20 on a channel. A real
-# purchase moved 13.6% of them; two grabs of an unchanged balance move 0.000%. 2% sits in the
-# middle of a gap that wide with room to spare either side.
+# BALANCE_MOVED: the fraction of pixels that have to differ by more than 20 on a channel. Two
+# grabs of an unchanged balance move 0.000%. A purchase usually changes several digits and
+# moves 7-16%, but a round price can change just one: a 30,000 Golden egg on 2026-10-12 took
+# 11 493 467 to 11 463 467, a 9 turning into a 6, moved 0.9% and was missed at the old 2%.
+# One digit swapped for another measured 0.6-1.2% of the 1080p box (0 and 9 the closest pair),
+# so 0.2% is the floor: well above unchanged, well under the subtlest single digit.
 #
 # BALANCE_DIM: how much darker the second grab may be before it is read as a dialog still
 # covering the screen rather than a balance that changed. Tarkov dims everything behind the
@@ -142,7 +149,7 @@ PURCHASE_DIALOG_TRIES = 5  # times confirm_purchase_dialog re-presses when Tarko
 # whole check exists to catch: the run of 2026-08-17 counted 55,000 roubles of purchases whose
 # dialogs were still sat on screen. Brightness separates them cleanly. Measured: a real purchase
 # left the box at 0.95 of its old mean, a stuck dialog at 0.50.
-BALANCE_MOVED = 0.02
+BALANCE_MOVED = 0.002
 BALANCE_DIM = 0.75
 
 
@@ -549,7 +556,7 @@ def purchase_landed(before, after):
         return False
 
     moved = (np.abs(a - b).max(axis=2) > 20).mean()
-    log(f'{moved:.1%} of the balance box moved (needs {BALANCE_MOVED:.0%}), brightness ratio '
+    log(f'{moved:.1%} of the balance box moved (needs {BALANCE_MOVED:.1%}), brightness ratio '
         f'{ratio:.2f}', 1)
     return moved >= BALANCE_MOVED
 
@@ -705,7 +712,13 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     plain = box()
     assert not purchase_landed(plain, box()), 'an unchanged balance is not a purchase'
     assert purchase_landed(plain, box(digits_at=8)), 'a balance that changed is a purchase'
-    assert not purchase_landed(plain, box(width=16)), 'a hair of noise is not a purchase'
+    speck = np.asarray(plain).copy()
+    speck[0, 0] = 200  # one pixel of 2000, 0.05%
+    assert not purchase_landed(plain, Image.fromarray(speck)), 'a speck of noise is not a purchase'
+    # One digit swapped for its nearest look-alike, 0.6% of the box (the 9 to 6 Golden egg).
+    one_digit = np.asarray(plain).copy()
+    one_digit[:12, 50] = 200
+    assert purchase_landed(plain, Image.fromarray(one_digit)), 'one changed digit is a purchase'
     # The two that matter. A confirmation dialog left on screen moves as many of these pixels as
     # a real purchase does, so only the brightness tells them apart, and both must read False.
     assert not purchase_landed(plain, box(digits_at=8, dim=0.5)), 'dimmed means a live dialog'

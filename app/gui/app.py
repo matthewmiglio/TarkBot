@@ -43,6 +43,7 @@ COUNTDOWN = 3  # seconds to alt-tab into Tarkov before the clicking starts
 # third mode is a row here plus a module, not a new branch through the drawing code:
 #   STAT_LABELS  the rows to draw, (key, label)
 #   TINT_STAT    the row that goes green once it is non-zero, or None
+#   RATE_STAT    optional: a stat to show per hour of run time, as an extra row
 #   build(prefs, stats)  a runner with .start(), .stop() and .stats
 TABS = (('flea', 'SELL', sell_bot), ('snipe', 'SNIPE', snipe_bot), ('gym', 'GYM', gym_bot),
         ('crafts', 'CRAFT', craft_bot), ('dailies', 'SUDAK', daily_bot))
@@ -59,6 +60,7 @@ TAB_GAP = 8
 TAB_WIDTH = (464 - 2 * 24 - (len(TABS) - 1) * TAB_GAP) // len(TABS)
 ROW_TOP = 222  # first stat row's baseline, below the tab strip
 ROW_STEP = 32  # tuned to the row count: ten rows have to fit between ROW_TOP and the panel foot
+ROW_BOTTOM_GAP = 22  # last row's baseline to the panel foot; ten rows at ROW_STEP land exactly here
 PAD = 24  # panel inset used for every label and value
 # Crafts mode lists one compact row per craft (enable box, a settings gear, the input icons, an
 # arrow, the output icon); the per-input buy settings live behind the gear on their own view. So
@@ -874,10 +876,13 @@ class App:
         """
         left, top, right, _ = theme.STATUS_PANEL
         self.values[tab] = {}
-        rows = [*module.STAT_LABELS, ('runtime', 'Run time')]
+        rate = [('rate', 'Est. profit per hour')] if getattr(module, 'RATE_STAT', None) else []
+        rows = [*module.STAT_LABELS, *rate, ('runtime', 'Run time')]
         # Crafts starts its rows lower and tighter, since its ingredient cards sit in the panel
         # above and leave less room beneath them.
         row_top, row_step = (CRAFTS_ROW_TOP, CRAFTS_ROW_STEP) if tab == 'crafts' else (ROW_TOP, ROW_STEP)
+        # More than ten rows would run off the panel foot at ROW_STEP; squeeze to fit instead.
+        row_step = min(row_step, (theme.STATUS_PANEL[3] - ROW_BOTTOM_GAP - row_top) // (len(rows) - 1))
         # On crafts, the stats belong to the list view, so they hide behind a settings panel too.
         group = (f'tab:{tab}', 'craft:list') if tab == 'crafts' else (f'tab:{tab}',)
         for index, (key, label) in enumerate(rows):
@@ -1227,14 +1232,18 @@ class App:
                 self.canvas.itemconfig(items[tint],
                                        fill=theme.RUNNING if stats[tint] else theme.INK)
             if tab != self.tab:
-                runtime = '-'
+                secs = None
             elif self.started_at:
-                runtime = clock(time.monotonic() - self.started_at)
+                secs = time.monotonic() - self.started_at
             elif self.ran_for and self.ran_for[0] == tab:  # frozen once the run ends, so a mode
-                runtime = clock(self.ran_for[1])           # that stops itself shows its time
+                secs = self.ran_for[1]                     # that stops itself shows its time
             else:
-                runtime = '-'
-            self.canvas.itemconfig(items['runtime'], text=runtime)
+                secs = None
+            self.canvas.itemconfig(items['runtime'], text='-' if secs is None else clock(secs))
+            if 'rate' in items:  # under a minute of run time the rate is noise, so it waits
+                rate = getattr(self.modules[tab], 'RATE_STAT')
+                self.canvas.itemconfig(items['rate'], text='-' if not secs or secs < 60
+                                       else f'{round(stats[rate] * 3600 / secs):,}')
         # Trimmed to the inside of the box, not to the window, or a long line runs through its
         # right edge instead of stopping at it.
         self.canvas.itemconfig(self.activity,
