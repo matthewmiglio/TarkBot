@@ -2,6 +2,7 @@ import Image from "next/image";
 import { DownloadButton, DISCORD_URL, RELEASES_URL } from "./download-button";
 import { ContactForm } from "./contact-form";
 import appGui from "./app_gui.png";
+import { AUTHOR } from "@/lib/site";
 
 const MODES = [
   ["Flea selling", "Picks an item out of your stash or a scav case, reads Tarkov's own suggested price, undercuts it and lists it on the flea. Cancels stale offers when the board stays full."],
@@ -76,13 +77,15 @@ export default function Page() {
             Free · Escape From Tarkov · Windows
           </p>
           <h1 className="mt-6 text-5xl sm:text-7xl font-light leading-[0.95] tracking-tight">
-            It grinds the busywork
+            The Tarkov flea market bot that grinds the busywork
             <br />
             <span className="text-ink-dim">while you do something else.</span>
           </h1>
           <p className="mt-8 max-w-2xl text-lg text-ink-dim leading-relaxed">
-            Tarkbot watches the Tarkov window and does the repetitive parts for
-            you: selling loot on the flea, sniping underpriced offers to flip to
+            Tarkbot is a free Tarkov flea market and hideout bot for Windows that
+            sells, snipes and crafts for you while you do something else. It
+            watches the Tarkov window and does the repetitive parts: selling loot
+            on the flea, sniping underpriced offers to flip to
             traders, running the hideout gym skill-check, and keeping your hideout
             crafts stocked and going. It reads pixels and moves your mouse, nothing
             else.
@@ -258,6 +261,10 @@ export default function Page() {
             quoting back as the page's answer. Invisible attribute, no styling. */}
         <span data-nosnippet>Tarkbot — free software, use at your own risk.</span>
         <span className="flex gap-5">
+          <span>
+            Made by{" "}
+            <a href={AUTHOR.url} target="_blank" rel="noopener" className="hover:text-ink-dim">{AUTHOR.name}</a>
+          </span>
           <a href={RELEASES_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink-dim">Releases</a>
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink-dim">Discord</a>
         </span>

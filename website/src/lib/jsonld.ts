@@ -1,6 +1,8 @@
 import { HOME_MODIFIED, HOME_PUBLISHED } from "./last-changed";
 import {
   absolute,
+  AUTHOR,
+  CONTACT_URL,
   DEMO_VIDEO,
   DESCRIPTION,
   DISCORD_URL,
@@ -19,6 +21,7 @@ import {
 // described once and pointed at from everywhere else.
 
 const ORGANIZATION = absolute("/#organization");
+const FOUNDER = absolute("/#founder");
 const WEBSITE = absolute("/#website");
 const WEBPAGE = absolute("/#webpage");
 const APP = absolute("/#software");
@@ -43,12 +46,30 @@ export function homeGraph() {
           width: LOGO.width,
           height: LOGO.height,
         },
-        contactPoint: {
-          "@type": "ContactPoint",
-          contactType: "customer support",
-          url: DISCORD_URL,
-          availableLanguage: "English",
-        },
+        founder: { "@id": FOUNDER },
+        // No email or phone exists to list, so the two ways in are the
+        // contact form on the page and the Discord.
+        contactPoint: [
+          {
+            "@type": "ContactPoint",
+            contactType: "customer support",
+            url: CONTACT_URL,
+            availableLanguage: "English",
+          },
+          {
+            "@type": "ContactPoint",
+            contactType: "technical support",
+            url: DISCORD_URL,
+            availableLanguage: "English",
+          },
+        ],
+      },
+      {
+        "@type": "Person",
+        "@id": FOUNDER,
+        name: AUTHOR.name,
+        url: AUTHOR.url,
+        sameAs: [...AUTHOR.sameAs],
       },
       {
         // The node the WebPage's primaryImageOfPage points at. Without this the
@@ -99,7 +120,7 @@ export function homeGraph() {
         downloadUrl: `${REPO_URL}/releases`,
         codeRepository: REPO_URL,
         programmingLanguage: "Python",
-        author: { "@id": ORGANIZATION },
+        author: { "@id": FOUNDER },
         publisher: { "@id": ORGANIZATION },
         // Free, and Google wants the price stated rather than implied.
         offers: {

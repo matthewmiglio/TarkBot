@@ -1,4 +1,5 @@
 import {
+  AUTHOR,
   DEMO_VIDEO,
   DESCRIPTION,
   DISCORD_URL,
@@ -38,6 +39,8 @@ It works by reading pixels and moving the mouse. There is no memory reading, no
 injection, no packet manipulation, no raid automation, no account, and no external
 price API.
 
+Made by ${AUTHOR.name}. Questions go through the contact form on the page or the Discord.
+
 ## Pages
 
 - [${SITE_NAME}](${SITE_URL}): what it does, how it works, and the download link.
@@ -48,6 +51,7 @@ price API.
 - [Downloads](${RELEASES_URL}): Windows installers, one per release.
 - [Discord](${DISCORD_URL}): support and questions.
 - [Demo video](${DEMO_VIDEO.contentUrl}): an unedited selling run.
+- [${AUTHOR.name}](${AUTHOR.url}): who made it.
 `;
 
 export function GET() {

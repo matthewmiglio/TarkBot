@@ -29,6 +29,15 @@ export const REPO_URL = "https://github.com/matthewmiglio/TarkBot";
 export const RELEASES_URL = `${REPO_URL}/releases`;
 export const DISCORD_URL = "https://discord.gg/Vx4tdR3N8A";
 
+// The person behind the site, for the footer credit and the JSON-LD founder.
+// No email or phone on purpose; the contact form on the page is the way in.
+export const AUTHOR = {
+  name: "Matthew Miglio",
+  url: "https://matthewmiglio.dev",
+  sameAs: ["https://github.com/matthewmiglio"],
+} as const;
+export const CONTACT_URL = `${SITE_URL}/#contact`;
+
 // Knowledge-panel signals. Only profiles that actually exist and actually point
 // back here — an invented sameAs is worse than a short list.
 export const SAME_AS = [REPO_URL, DISCORD_URL];
