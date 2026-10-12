@@ -25,10 +25,11 @@ from narrate import log
 SEARCH_BOX_TARGET = 'flea/enter_item_name_input'  # the flea's own item name field
 PURCHASE_TARGET = 'flea/purchase_button'  # one per offer row, so there are many on a full board
 PURCHASE_DIALOG_TARGET = 'flea/purchase_confirmation'  # the 'Item purchase / are you sure' modal
-# The padlock beside a suggestion the account cannot buy. Looked for over the window's top left
-# quarter, which is where the suggestion list drops (see reference_image.png in
-# _item_search_testing): searching the whole window would find a padlock anywhere in the UI,
-# and searching a box around one row would have to know how many rows there are first.
+# The padlock beside a suggestion the account cannot buy. Looked for over the search panel, the
+# top half of the window's left column, which is where the suggestion list drops (see
+# reference_image.png in _item_search_testing): searching the whole window would find a padlock
+# anywhere in the UI, and searching a box around one row would have to know how many rows there
+# are first.
 LOCKED_TARGET = 'flea/item_locked_icon'
 # The chips the flea shows above the board when it is filtered to one item, and the little x
 # that clears a chip. There is an x per chip, so they are found together and the leftmost one is
@@ -304,27 +305,34 @@ def grab_player_ruble_image(region):
     return screen.grab(ruble_region(region))
 
 
-def top_left_quadrant(region):
-    """The top left quarter of `region`, as (left, top, width, height) in the same coords.
+# How much of the window's width the flea's left column takes. Measured on a 2560 wide frame:
+# the suggestion row ends at x=802 and the offer board starts at 820, so 8/25 (819) holds the
+# whole row and none of the board. It was half the width until 2026-10-11, which reached into
+# the board, and the dark padding beside the top offer's item picture scored 0.835 against the
+# padlock's 0.83: every item on the watchlist read as locked and none was ever searched.
+SEARCH_PANEL_WIDTH = 8 / 25
 
-    Halves rounded down, so the four quadrants of an odd sized window do not overlap. The
-    region comes in as screen coordinates and goes out as screen coordinates: nothing here may
-    assume a window starts at (0, 0), since Tarkov on a monitor left of the primary has a
-    negative left edge.
+
+def search_panel(region):
+    """The flea's search panel within `region`: the left SEARCH_PANEL_WIDTH of it, top half.
+
+    Sizes rounded down. The region comes in as screen coordinates and goes out as screen
+    coordinates: nothing here may assume a window starts at (0, 0), since Tarkov on a monitor
+    left of the primary has a negative left edge.
     """
     left, top, width, height = region
-    return (left, top, width // 2, height // 2)
+    return (left, top, int(width * SEARCH_PANEL_WIDTH), height // 2)
 
 
 def is_locked(region):
-    """True if a padlock is showing in the window's top left quarter.
+    """True if a padlock is showing in the flea's search panel, see search_panel.
 
-    That quarter is where the suggestion list drops, and a padlock in it means the item cannot
+    That panel is where the suggestion list drops, and a padlock in it means the item cannot
     be bought by this account: too low a level, or an offer the flea will not sell us. Buying is
     skipped rather than attempted, because the click would either do nothing or open something
     we then have to escape out of.
 
-    Looking over the whole quarter rather than at one row is only safe because the list has
+    Looking over the whole panel rather than at one row is only safe because the list has
     exactly one row in it. Every name on the watchlist was typed into a real flea and
     photographed (see _item_search_testing/), and the fourteen that brought back several rows or
     none were dropped from snipe_targets.csv. One row means one padlock to find and no question
@@ -336,7 +344,7 @@ def is_locked(region):
     is the check that stands between the sniper and clicking purchase on an item it cannot buy,
     so it failing quietly is worse than the run stopping and saying which folder is empty.
     """
-    box = find.find(LOCKED_TARGET, top_left_quadrant(region))
+    box = find.find(LOCKED_TARGET, search_panel(region))
     if box:
         log(f'a locked padlock is showing at {tuple(box)}, so this one cannot be bought', 1)
     return box is not None
@@ -669,12 +677,13 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert top + height >= glyph[1] + glyph[3], 'including its extra height'
     find.scale = scale
 
-    # The quarter the padlock is looked for in. Screen coords in, screen coords out, and the
-    # halves round down so the four quadrants of an odd sized window cannot overlap.
-    assert top_left_quadrant((0, 0, 1920, 1080)) == (0, 0, 960, 540)
-    assert top_left_quadrant((1920, 0, 2560, 1440)) == (1920, 0, 1280, 720), 'second monitor'
-    assert top_left_quadrant((-1920, 0, 1920, 1080)) == (-1920, 0, 960, 540), 'left of primary'
-    assert top_left_quadrant((0, 0, 1921, 1081)) == (0, 0, 960, 540), 'odd sizes round down'
+    # The panel the padlock is looked for in. Screen coords in, screen coords out, sizes rounded
+    # down. 819 at 2560 wide holds the suggestion row (ends at 802) and stops short of the board
+    # (starts at 820), where the false padlock of 2026-10-11 was, at x=1207.
+    assert search_panel((0, 0, 2560, 1440)) == (0, 0, 819, 720)
+    assert search_panel((0, 0, 1920, 1080)) == (0, 0, 614, 540)
+    assert search_panel((1920, 0, 2560, 1440)) == (1920, 0, 819, 720), 'second monitor'
+    assert search_panel((-1920, 0, 1920, 1080)) == (-1920, 0, 614, 540), 'left of primary'
 
     # The purchase check, which is the one piece of arithmetic here that spends money by being
     # wrong. Numbers are the measured ones: a real purchase moved 13.6% of the box's pixels at
