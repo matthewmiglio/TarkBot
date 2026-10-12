@@ -125,3 +125,6 @@ _item_name_recognition/
 
 # Username enumeration scratch work, kept local.
 _username_enumeration/
+
+# Snipe search-wait frames and region picker, kept local for now.
+_flea_snipe_item_select_patch/
