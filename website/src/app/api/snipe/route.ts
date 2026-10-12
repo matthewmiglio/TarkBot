@@ -2,11 +2,11 @@ import type { NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 
 // One row per item the flea sniper buys, so the dashboard can answer what people actually snipe.
-// Same shape as the crash report route next door: service key server side, RLS on with no
-// policies, and an app that ships no key at all.
+// Same shape as the captcha route next door: service key server side, RLS on with no policies,
+// and an app that ships no key at all.
 //
 // The body is tiny and there is nothing to hand back, which is the whole difference from
-// /api/error. No screenshots, no signed urls, no upload dance: a purchase is six small fields
+// /api/captcha. No screenshot, no signed url, no upload dance: a purchase is six small fields
 // and a 200.
 // ponytail: raw fetch instead of @supabase/supabase-js, one insert.
 
@@ -18,7 +18,7 @@ const TABLE = "Tarkbot_snipes";
 const MAX_BODY = 4 * 1024; // six fields and an item name; anything larger is not from the app
 const NAME_LIMIT = 120; // the longest real Tarkov item name is about 60
 const MAX_ROUBLES = 1_000_000_000; // the flea caps offers far below this; it is a sanity bound
-// Purchases per ip per hour. Thirty times the crash route's, because buying is the normal case
+// Purchases per ip per hour. Far above the captcha route's, because buying is the normal case
 // rather than the failure case: the run of 19 Aug bought 21 items in 12 minutes, so anything
 // under about 100 would throttle a real night of sniping. 300 still bounds a flood.
 const RATE_LIMIT = 300;
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
 
   const ipHash = callerHash(req);
 
-  // Rate limit in Postgres rather than in memory, the same reasoning as the crash route: this
+  // Rate limit in Postgres rather than in memory, the same reasoning as the captcha route: this
   // runs on serverless instances that come and go, so an in-process counter protects nothing.
   // Limiting on machine_id would be theatre, since the client picks that value.
   const since = new Date(Date.now() - WINDOW_MS).toISOString();

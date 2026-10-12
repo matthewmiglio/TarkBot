@@ -2,7 +2,7 @@
 
 App layer: snipe_report.py (snipe_report.report_buy) to the website's /api/snipe route and
 Supabase, plus snipe_bot.build's mapping of the send_telemetry preference onto the sniper's
-report argument. crash_report.machine_id is borrowed only to stamp the test machine.
+report argument. snipe_report.machine_id is stubbed to stamp the test machine.
 
 WANTS THE WEBSITE running (not a no-game stub, but it needs no Tarkov client):
 
@@ -10,7 +10,7 @@ Run:  python tests/telemetry/test_snipe_report.py        (against a local site)
       TARKBOT_SNIPE_URL=https://www.tarkbot.org/api/snipe python tests/telemetry/test_snipe_report.py
 
 Needs the site running and the service key, which it reads out of website/.env.local the same
-way tests/telemetry/test_error_report.py does. There is only one Supabase project, so this writes
+out of the same file the site runs on. There is only one Supabase project, so this writes
 a real row and deletes it again on the way out; TEST_MACHINE exists to be recognisable and cleanable.
 
 Two things are worth proving here and neither is provable from the endpoint's side. First that
@@ -26,7 +26,6 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-import crash_report  # noqa: E402
 import snipe_bot  # noqa: E402
 import snipe_report  # noqa: E402
 
@@ -72,7 +71,7 @@ def sweep():
 
 
 if __name__ == '__main__':
-    crash_report.machine_id = lambda: TEST_MACHINE  # not this machine's real id, a reserved one
+    snipe_report.machine_id = lambda: TEST_MACHINE  # not this machine's real id, a reserved one
     sweep()
 
     print(f'posting one buy to {ENDPOINT}')

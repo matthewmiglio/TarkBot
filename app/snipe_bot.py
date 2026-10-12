@@ -371,6 +371,12 @@ class FleaSniper(GameRestarts):
                             f'run rather than restarting into it') from e
                     self._restart_game(f'the run hit {type(e).__name__}: {e}')
                 self._pause(SWEEP_PAUSE)
+        except snipe.Captcha:
+            # Every captcha ends the run through here, whichever of the three places named it,
+            # so this is the one place that photographs it. The modal is still up at this point.
+            if self.report:
+                snipe_report.report_captcha_later()
+            raise
         except Stopped:
             log('stopped part way through a sweep')
         finally:
@@ -399,8 +405,7 @@ def build(prefs, stats):
     watchlist = for_trader(targets(), trader)
     if trader != ALL_TRADERS:
         log(f'watching only what {trader} buys back: {len(watchlist)} of {len(targets())} items')
-    # The same preference that gates crash reports, so there is one switch and one meaning:
-    # a user who opted out of telling us about a crash has opted out of this too.
+    # send_telemetry gates both purchase reports and captcha screenshots: one switch, one meaning.
     return FleaSniper(margin=margin, watchlist=watchlist, stats=stats,
                       restart_as=auto_restart_from(prefs),
                       report=bool(prefs.get('send_telemetry')))

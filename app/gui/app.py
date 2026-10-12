@@ -17,7 +17,6 @@ from pathlib import Path
 from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import crash_report  # noqa: E402
 import craft_bot  # noqa: E402
 import daily_bot  # noqa: E402
 import frames  # noqa: E402
@@ -1090,11 +1089,6 @@ class App:
                         + (f', screen at {shot.name}' if shot else ''))
             narrate.log(traceback.format_exc().rstrip(), 1)
             self.error = e
-            # Off to the website too, on its own thread, so a crash on someone else's setup can
-            # be looked at here. Opt out by setting send_telemetry false in settings.json,
-            # which also stops snipe mode reporting what it buys. See gui/settings.py.
-            if self.prefs.get('send_telemetry'):
-                crash_report.report_later(e)
 
     def start(self):
         # ponytail: the start lock is "is it running, or about to be?"

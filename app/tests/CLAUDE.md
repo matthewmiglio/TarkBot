@@ -166,8 +166,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_hotkey_bind.py` — gui hotkey RegisterHotKey rebind (HOTKEYS) — a rebind claims the new key and hands the old one back — no-game
 - `test_totals_line.py` — mode runners' start() totals logging — the totals line survives a pass that raises, for both bots — no-game
 
-### `telemetry/` — crash and purchase reporting (`crash_report.py`, `snipe_report.py`)
-- `test_error_report.py` — crash_report + gui App._run → /api/error — crash reporting end to end plus the opt-out gate — no-game, **needs the website running**
+### `telemetry/` — purchase and captcha reporting (`snipe_report.py`)
 - `test_snipe_report.py` — snipe_report + snipe_bot.build gate → /api/snipe — a buy reaches the site, and the opt-out sends nothing — no-game, **needs the website running**
 
 ## Known pre-existing failures (predate the reorg, not path bugs)

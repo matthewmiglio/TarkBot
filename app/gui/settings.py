@@ -14,12 +14,11 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # (\\.\DISPLAY1). 'auto' until the user picks, which resolves to the monitor Tarkov
             # is on, or the primary. See screen.py.
             'monitor': 'auto',
-            # The one telemetry switch, over both things the app sends. A crash goes to
-            # tarkbot.org with two screenshots, so it can be diagnosed and cropped into the
-            # reference image that would have matched (crash_report.py). Snipe mode reports
-            # each item it buys, with the price and what a trader pays for it
-            # (snipe_report.py). Was send_error_reports, which stopped being true the moment
-            # the second one was added; see RENAMED for what happens to a file still using it.
+            # The one telemetry switch, over everything the app sends, all of it from snipe
+            # mode (snipe_report.py): each item it buys, with the price and what a trader pays
+            # for it, and a screenshot of every flea captcha it runs into. Was
+            # send_error_reports, back when crash reports were sent; see RENAMED for what
+            # happens to a file still using that name.
             'send_telemetry': True,
             'undercut': '2k rubles | 90%',  # how far under the suggested price, see sell_bot.UNDERCUTS
             # Whether to leave the offer window's autoselect similar checkbox ticked, which

@@ -410,37 +410,27 @@ frames.py            The picture half of that log: %APPDATA%/tarkbot/frames/, si
                      frames survived long enough to be looked at. Pin sparingly, and never on a
                      path that runs every pass, or it is an unbounded folder.
                      Self-check: python -m frames
-crash_report.py      Sends a crash to tarkbot.org: the traceback, plus the frame from before the
-                     last click and the screen as it is now. Was report.py, which read like a
-                     run report sitting beside session_log.py and frames.py; crashes are all it
-                     has ever sent. Hooked into the one catch in
-                     gui/app.py's _run, on a daemon thread, so a slow or dead site cannot hold
-                     up the red lamp or raise on top of the error it is reporting. Off with
-                     send_telemetry false in settings.json, one switch over both kinds of
-                     telemetry: this and snipe_report.py. That key was send_error_reports until
-                     the second kind arrived; gui/settings.RENAMED carries an older file's
-                     value across, or the rename would silently opt a user back in.
-                     Ships no key: it posts to a route on our own site, which holds the Supabase
-                     service key server side, the same way the download counter does. The
-                     screenshots do not go through that route. A lossless png of a 1440p screen
-                     is 4.5MB and Vercel rejects bodies at 4.5MB before route code runs, so the
-                     endpoint answers with two single-use upload urls and the bytes go straight
-                     to storage, where the bucket's own 25MB limit caps them.
-                     Png, never lossy: these exist to be cropped into reference images, and
-                     while find() survives even JPEG q10, ocr.py's digit templates and sell.py's
-                     dead pixel colors (±5 a channel) do not.
-                     machine_id() is a uuid5 of the Windows build, the account name and the
-                     monitor size, so it is stable without anything being stored.
-snipe_report.py      Sends one row per item the flea sniper buys: the item, what it cost, what a
-                     trader pays for it, and the same machine_id crash_report derives, so a
-                     machine's purchases and its crashes read side by side. Margin is not sent;
+snipe_report.py      All the telemetry the app sends, and all of it from snipe mode. Crash
+                     reporting (crash_report.py, /api/error, Tarkbot_errors) was removed.
+                     report_buy: one row per item the flea sniper buys: the item, what it cost,
+                     what a trader pays for it, and machine_id. Margin is not sent;
                      Postgres computes it as trader_value - price in a generated column, so the
                      dashboard's figure cannot disagree with the two numbers under it.
-                     Its own module rather than more of crash_report.py, which shares only
-                     machine_id (imported, not copied) and the daemon-thread send. That one
-                     carries a traceback, two screenshots and two signed uploads; this is six
-                     fields and a 200.
-                     Called from snipe_bot.check_one, after the counters and only on a purchase
+                     report_captcha: a screenshot of every flea SECURITY CHECK captcha, posted
+                     to /api/captcha, which writes a Tarkbot_captchas row and answers with one
+                     single-use upload url; the png goes straight to the Tarkbot_captchas
+                     bucket (private, 25MB, png only), since a 1440p png is past Vercel's 4.5MB
+                     body limit. Png, never lossy: these are for cutting reference crops.
+                     Fired from snipe_bot.FleaSniper.start's except snipe.Captcha, the one
+                     place every captcha leaves the run through; the screen is grabbed on the
+                     bot thread so the picture is the modal, and only the encode and upload go
+                     to a daemon thread.
+                     machine_id() is a uuid5 of the Windows build, the account name and the
+                     monitor size, so it is stable without anything being stored.
+                     Off with send_telemetry false in settings.json, one switch over both.
+                     That key was send_error_reports once; gui/settings.RENAMED carries an older
+                     file's value across, or the rename would silently opt a user back in.
+                     report_buy is called from snipe_bot.check_one, after the counters and only on a purchase
                      the rouble balance confirmed. Gated on the same send_telemetry
                      preference, threaded in as FleaSniper(report=...) by build(), and off by
                      default so a sniper built in a shell or a test posts nothing.
@@ -1146,20 +1136,12 @@ test_find_first_offer_dollar.py
                              hand it a frame path instead and it needs nothing, and the frame
                              recorder's folder is full of them.
 test_snipe_report.py         Does a purchase reach the website, and does the opt-out really stop
-                             it. The pair to test_error_report.py and the same shape: reads the
-                             service key out of website/.env.local, writes a real row under
+                             it. Reads the service key out of website/.env.local, writes a real row under
                              TEST_MACHINE and deletes it again. Two things neither provable from
                              the endpoint's side: that the app sends what the endpoint validates,
                              since the send is fire and forget and a 400 never reaches the bot,
                              and that the send_telemetry gate actually gates. Wants the site
                              running; TARKBOT_SNIPE_URL points it at the deploy instead.
-test_error_report.py         Crash reporting end to end. The machine id depends on all three of
-                             its inputs, a real screenshot round trips byte for byte, an image
-                             past the bucket cap is refused, and a crash through App._run both
-                             sets the lamp and reports itself. No game needed, but it wants a
-                             screen and the site running (npx next dev in website/); point it
-                             at the deploy with TARKBOT_ERROR_URL. Writes real rows under a
-                             test machine id and deletes them again.
 capture_price.py <value>     Grab the price region now, save it as fixtures/prices/<value>.png,
                              report whether the reader agrees. How the corpus grows.
 build_digit_templates.py     Cut every fixture into glyphs and file them under the digit each
