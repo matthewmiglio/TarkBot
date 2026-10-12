@@ -34,7 +34,7 @@ from pathlib import Path
 import screen
 import snipe_report
 import window
-from interact import snipe  # everything this mode does to a screen goes through that module
+from interact import captcha, snipe  # everything this mode does to a screen goes through that module
 from narrate import log
 from sell_bot import GameRestarts, Stopped, auto_restart_from  # shared runner plumbing, see _pause
 
@@ -89,7 +89,8 @@ STAT_LABELS = (('checked', 'Offers checked'),
                ('buy_failed', 'Buys that missed'),
                ('spent', 'Roubles spent'),
                ('trader_value', 'Trader value bought'),
-               ('profit', 'Profit'))
+               ('profit', 'Profit'),
+               ('captchas_solved', 'Captchas solved'))
 # The row the GUI tints green once it is non-zero. sell_bot names 'money' and gym_bot 'reps';
 # here the "it is actually working" signal is the same one selling uses, roubles made, which
 # for a buyer is what the traders will pay for the pile less what it cost to buy it.
@@ -355,28 +356,11 @@ class FleaSniper(GameRestarts):
                 sweeps += 1
                 log(f'===== sweep {sweeps} =====')
                 try:
-                    self.sweep_once()
+                    self._sweep()
                 except snipe.Captcha:
-                    raise  # never restart through a captcha: it is the account being watched
-                except (RuntimeError, LookupError, window.WindowError) as e:
-                    # Every other fatal in a sweep funnels here. Off, a bare re-raise, so the run
-                    # ends exactly where it always did. On, a fresh client, unless a captcha is
-                    # what really broke the sweep under some other name (a search box that will
-                    # not match, a board that will not read): that still ends the run.
-                    if not self.restart_as:
-                        raise
-                    if snipe.captcha_up(self.region):
-                        raise snipe.Captcha(
-                            f'{e}, and Tarkov is showing its SECURITY CHECK captcha; ending the '
-                            f'run rather than restarting into it') from e
-                    self._restart_game(f'the run hit {type(e).__name__}: {e}')
+                    self._solve_captcha()  # back to the loop if it went, the run ends if not
+                    continue
                 self._pause(SWEEP_PAUSE)
-        except snipe.Captcha:
-            # Every captcha ends the run through here, whichever of the three places named it,
-            # so this is the one place that photographs it. The modal is still up at this point.
-            if self.report:
-                snipe_report.report_captcha_later()
-            raise
         except Stopped:
             log('stopped part way through a sweep')
         finally:
@@ -385,6 +369,42 @@ class FleaSniper(GameRestarts):
             log(f'Flea Sniper finished after {sweeps} sweeps and '
                 f'{time.perf_counter() - started:.0f}s. '
                 + ', '.join(f'{label} {self.stats[key]}' for key, label in STAT_LABELS))
+
+    def _sweep(self):
+        """One sweep, restarting the game on a fatal when auto restart is on. Raises Captcha."""
+        try:
+            self.sweep_once()
+        except snipe.Captcha:
+            raise  # never restart into a captcha: start() solves it or ends the run
+        except (RuntimeError, LookupError, window.WindowError) as e:
+            # Every other fatal in a sweep funnels here. Off, a bare re-raise, so the run
+            # ends exactly where it always did. On, a fresh client, unless a captcha is
+            # what really broke the sweep under some other name (a search box that will
+            # not match, a board that will not read): that goes to the solver instead.
+            if not self.restart_as:
+                raise
+            if snipe.captcha_up(self.region):
+                raise snipe.Captcha(f'{e}, and Tarkov is showing its SECURITY CHECK '
+                                    f'captcha') from e
+            self._restart_game(f'the run hit {type(e).__name__}: {e}')
+
+    def _solve_captcha(self):
+        """A captcha came up: photograph it, try it once, and reopen the board if it went.
+
+        Every captcha comes through here, whichever of the three places named it (a buy whose
+        balance did not move, filters that would not go on, a fatal that turned out to be one),
+        so this is the one place that photographs it. One try only: a failed answer on a watched
+        account is worse than ending the run, which is what a refused captcha still does.
+        """
+        if self.report:
+            snipe_report.report_captcha_later()  # grabbed here, while the modal is still up
+        if not captcha.solve(self.region):
+            raise snipe.Captcha('Tarkov threw its flea SECURITY CHECK captcha and it could not be '
+                                'solved, so the run ends rather than sniping behind it')
+        self.stats['captchas_solved'] += 1
+        # The modal closed onto whatever the board was doing; start it clean, as at Start.
+        if not snipe.open_clean_board(self.region):
+            raise LookupError('the captcha was solved but the flea did not reopen afterwards')
 
     def stop(self):
         """Ask the loop to quit. Safe from any thread, and safe to call twice."""
@@ -450,3 +470,31 @@ if __name__ == '__main__':
     assert targets(TARGETS_PATH.with_name('nope.csv')) == [], 'a missing watchlist is not a crash'
     print(f'ok, {len(rows)} items on the watchlist, dearest '
           f'{max(rows, key=lambda r: r[2])[0]} at {max(r[2] for r in rows):,}')
+
+    # A captcha mid sweep: solved, the board reopens and the sweeps carry on; refused, the run
+    # ends on Captcha. Stand-ins for the screen, since the decision is the loop's, not the game's.
+    import threading as _t
+    def run(solved):
+        bot = FleaSniper.__new__(FleaSniper)
+        bot.watchlist, bot.hwnd, bot.region, bot.report, bot.restart_as = [1], 1, (0, 0, 1, 1), False, None
+        bot.stats, bot._stop = {key: 0 for key, _ in STAT_LABELS}, _t.Event()
+        calls = []
+        def sweep():
+            calls.append('sweep')
+            if calls.count('sweep') == 1:
+                raise snipe.Captcha('test')
+            bot._stop.set()
+        bot.sweep_once = sweep
+        real = captcha.solve, snipe.open_clean_board
+        captcha.solve = lambda region: solved
+        snipe.open_clean_board = lambda region: calls.append('board') or True
+        try:
+            bot.start()
+        except snipe.Captcha:
+            return calls, bot.stats['captchas_solved'], 'ended'
+        finally:
+            captcha.solve, snipe.open_clean_board = real
+        return calls, bot.stats['captchas_solved'], 'carried on'
+    assert run(True) == (['board', 'sweep', 'board', 'sweep'], 1, 'carried on'), run(True)
+    assert run(False) == (['board', 'sweep'], 0, 'ended'), run(False)
+    print('ok')

@@ -150,6 +150,10 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      clean board. Never through a captcha: snipe.Captcha re-raises, and any other
                      fatal looks for one with captcha_up before restarting and raises Captcha if
                      it is up. tests/flea_snipe/test_snipe_auto_restart.py.
+                     Captchas: every snipe.Captcha reaches _solve_captcha, which photographs it
+                     (snipe_report), tries interact/captcha.solve once, and on success counts it
+                     in the Captchas solved row, reopens a clean board and carries on sweeping.
+                     A refused or unreadable captcha raises Captcha and ends the run as before.
                      Self-check, no game needed: python -m snipe_bot
 snipe_targets.csv    That watchlist: name, trader, trader price, 24h flea average, gap, category.
                      Generated, not hand written. _price_scraper/rouble_flips.py writes it from
@@ -421,8 +425,8 @@ snipe_report.py      All the telemetry the app sends, and all of it from snipe m
                      single-use upload url; the png goes straight to the Tarkbot_captchas
                      bucket (private, 25MB, png only), since a 1440p png is past Vercel's 4.5MB
                      body limit. Png, never lossy: these are for cutting reference crops.
-                     Fired from snipe_bot.FleaSniper.start's except snipe.Captcha, the one
-                     place every captcha leaves the run through; the screen is grabbed on the
+                     Fired from snipe_bot.FleaSniper._solve_captcha before the solve, the one
+                     place every captcha goes through; the screen is grabbed on the
                      bot thread so the picture is the modal, and only the encode and upload go
                      to a daemon thread.
                      machine_id() is a uuid5 of the Windows build, the account name and the
@@ -572,6 +576,19 @@ interact/find.py     Locating things on screen. find(), find_all(), find_center(
                      Self-check, no game needed: python -m interact.find
 interact/sell.py     Everything the flea bot does to a screen. See the section below.
                      Geometry self-check, no game needed: python -m interact.sell
+interact/captcha.py  Solves the flea SECURITY CHECK captcha once: solve(region) finds the modal
+                     (anchors + its grey frame), reads the target name (captcha_name.py), asks the
+                     ONNX tile detector (captcha_data/tiles.onnx, onnxruntime) where that one item
+                     is, clicks those tiles and CONFIRM, then grabs again: True if the modal went.
+                     Refuses (clicks nothing, False) on an unread name or no tile found. Works in
+                     a 1080-tall copy of the frame and maps clicks back, so 1080p and 1440p alike.
+                     snipe_bot._solve_captcha calls it once per captcha; a False ends the run as a
+                     captcha always did. Built in _snipebot_captcha_debugging/, whose CLAUDE.md
+                     says how to regenerate captcha_data/ after a retrain or harvest.
+                     python -m interact.captcha plans five saved frames if that folder is there.
+interact/captcha_name.py  The captcha's name reader: segment the name strip into glyphs, match
+                     each to the harvested drawings (captcha_data/name_glyphs.npz), snap to a name
+                     in captcha_data/names.txt. A tie or a poor fit answers None, never a guess.
 interact/snipe.py    The same for the flea sniper. sell.is_flea_open and sell.return_to_browse
                      are used as they are, rather than copied: they are the shipping versions and
                      a second copy would be a second thing to keep in step with the game's UI.

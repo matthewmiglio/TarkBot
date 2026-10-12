@@ -46,12 +46,19 @@ build_exe_options = {
         'test', 'tests', 'setuptools', 'matplotlib',
         'IPython', 'ipykernel', 'jupyter_client', 'jupyter_core', 'jedi', 'debugpy', 'zmq',
         'gevent', 'greenlet', 'dill', 'cloudpickle', 'dns', 'defusedxml', 'lib2to3', 'curses',
+        # interact/captcha.py needs onnxruntime's inference core only (the scan finds it through
+        # the import in _session). These corners of it import torch, transformers and sympy, and
+        # on a machine with torch installed pulled all of it in until the scan blew the stack.
+        'onnxruntime.transformers', 'onnxruntime.tools', 'onnxruntime.quantization',
+        'torch', 'torchvision', 'ultralytics', 'sympy',
     ],
     'include_files': [
         (ROOT / 'interact' / 'reference_images', 'lib/interact/reference_images'),
         (ROOT / 'gui' / 'backgrounds', 'lib/gui/backgrounds'),
         (ROOT / 'gui' / 'characters', 'lib/gui/characters'),
         (ROOT / 'gui' / 'craft_icons', 'lib/gui/craft_icons'),  # the Crafts tab's rouble + item icons
+        # The captcha solver's detector, glyph templates, name list and item footprints.
+        (ROOT / 'interact' / 'captcha_data', 'lib/interact/captcha_data'),
         (ROOT / 'snipe_targets.csv', 'lib/snipe_targets.csv'),  # snipe_bot reads it beside itself
         (ICON, 'lib/gui/tarkbot.ico'),  # the exe embeds it, iconbitmap() still reads the file
         (version_file, '__version__'),  # version.py reads this next to the exe when frozen

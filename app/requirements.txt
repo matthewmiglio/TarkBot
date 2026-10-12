@@ -2,5 +2,6 @@ pyautogui
 pyscreeze
 opencv-python  # required by pyscreeze for confidence= matching in interact/find.py
 numpy
+onnxruntime    # interact/captcha.py runs the captcha tile detector
 pillow         # ocr.py glyph work, and the GUI's composited backdrop
 matplotlib     # tests/view_screenshot.py only
