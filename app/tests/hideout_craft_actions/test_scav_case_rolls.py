@@ -1,26 +1,20 @@
-"""The moonshine scav case roll gets started, and every finished roll gets collected, whatever the scroll.
+"""The scav case pass: one scroll, then read both rolls and act until both are running, then leave.
 
-App layer: craft.scav_case_scroll_positions, craft.find_scav_case_row, craft.lit_get_items and
-craft_bot.HideoutCraft.tend_scav_case. No game: the matcher, the mouse, the clock and the screen
-rect are all stubbed, so this is about which looks, scrolls and clicks happen in what order rather
-than about pixels.
+App layer: craft_bot.HideoutCraft.tend_scav_case and _tend_scav_case_roll, over
+craft.scroll_scav_case_list and craft.read_craft. No game: the scroll, the reads, START, the
+collect and the buy are all stubbed onto a fake panel of two rolls, so this is about which actions
+happen in what order and when the loop stops, not about pixels.
 
-Two failures are behind it, both 2026-09-17, and they are opposite halves of the same panel.
+The shape it pins (from 2026-10-13, replacing a per-roll look-scroll-look hunt and a second
+collect-only sweep behind a panel reopen):
 
-  Starting. tend_scav_case assumed the moonshine roll was the visible one at the top of the list
-  and never scrolled for it. The panel actually opened on another roll with the moonshine row below
-  the fold, so the moonshine read found nothing and raised Blind, which is in craft_bot's restart
-  tuple. The roll was not tended once, all night, and the station kept restarting the game.
-  Checks 5 and 6.
+  1. entering the station is the caller's business, not this pass's
+  2. wheel the list once, and never again in the visit
+  3. read both rows and do the one thing each needs: collect a finished roll, START a ready one,
+     buy the input of one whose START did nothing (once per roll per visit), then START it again
+  4. repeat 3 until both are producing, or have nothing more this visit can do, then leave
 
-  Collecting. A scav case row is named only by its input icon, because every reward variant outputs
-  the same '?' box, and that icon stops being drawn once the roll is running. So a finished roll's
-  lit GET ITEMS belonged to no row the anchored read could find, and its loot was never collected:
-  the screenshot from that day shows a lit GET ITEMS on a row with no input icon on it at all.
-  Collecting is now roll-agnostic, and check 8 is the one that fails against the anchored version.
-
-The load-bearing cases are 5 (the panel opens on another roll) and 8 (the finished roll is below
-the fold and unnamed). Revert either half and the matching check goes red.
+Every case also checks the pass scrolled exactly once and never reopened the panel.
 
 Run:  python tests/hideout_craft_actions/test_scav_case_rolls.py
 """
@@ -33,99 +27,98 @@ import craft_bot  # noqa: E402
 from interact import craft  # noqa: E402
 
 Box = namedtuple('Box', 'left top width height')
-
-MOON = craft.MOONSHINE_TARGET
-OTHER = 'crafting/other_roll'  # some other roll's input; the matcher is stubbed, so no crop needed
-GET_ITEMS = craft.GET_ITEMS_TARGET
-
-ROW_PITCH = 100  # px between row tops in the fake list, so row i sits at y = 100i
+MOON, INTEL = craft.SCAV_CASE, craft.SCAV_CASE_INTEL
 
 
-class FakeList:
-    """A production list taller than the panel: VISIBLE rows drawn, the rest above or below it.
+class FakePanel:
+    """Two scav case rows. Each roll has a state, whether its input is in the stash, and whether
+    START works at all (`stuck` models a START the game ignores whatever the stash holds)."""
 
-    `rows` maps an input-icon target to its row index; a target is findable only while
-    offset <= index < offset + VISIBLE. That is the whole of the behaviour the real panel has that
-    the old code did not model.
+    def __init__(self, **rolls):
+        # rolls: name -> dict(state=..., stash=bool, stuck=bool, absent=bool, unbuyable=bool)
+        self.rolls = {n: dict(dict(stash=False, stuck=False, absent=False, unbuyable=False), **r)
+                      for n, r in rolls.items()}
+        self.scrolls = self.reopens = self.buys = self.collects = self.start_clicks = 0
 
-    `lit` and `greyed` are row indices carrying a GET ITEMS button, and they are deliberately
-    separate from `rows`: a row can have a button and no input icon, which is exactly the state
-    that hid finished rolls from the anchored read. Clicking a lit one collects it, so the button
-    goes away the way the real row flips back once the loot is received.
-    """
-    VISIBLE = 2
-
-    def __init__(self, rows, offset=0, length=4, lit=(), greyed=()):
-        self.rows, self.offset, self.length = rows, offset, length
-        self.lit, self.greyed = set(lit), set(greyed)
-        self.scrolls, self.clicks, self.looks = 0, 0, []
-        self.collected = []
-
-    def _box(self, i):
-        return Box(0, ROW_PITCH * i, 40, 20)
-
-    def _drawn(self, i):
-        return self.offset <= i < self.offset + self.VISIBLE
-
-    def is_lit(self, box):
-        return round(box.top / ROW_PITCH) in self.lit
+    def row(self, craft_):
+        return self.rolls[craft_.ingredients[0].name]
 
     def find(self, target, region=None):
-        self.looks.append(target)
-        i = self.rows.get(target)
-        if i is None or not self._drawn(i):
-            return None
-        return self._box(i)
+        for c in (MOON, INTEL):
+            r = self.rolls.get(c.ingredients[0].name)
+            if c.output_target == target and r and not r['absent']:
+                return Box(1200, 400, 60, 50)
+        return None
 
-    def find_all(self, target, region=None):
-        self.looks.append(target)
-        if target != GET_ITEMS:
-            return []  # no START anywhere, so a startable row reads 'producing'
-        return [self._box(i) for i in sorted(self.lit | self.greyed) if self._drawn(i)]
+    def read(self, craft_, region=None):
+        r = self.row(craft_)
+        button = Box(1500, 420, 60, 20)
+        return craft.CraftRead(r['state'], None, None,
+                               button if r['state'] == 'ready' else None,
+                               button if r['state'] in ('done', 'not started') else None,
+                               [(craft_.ingredients[0].name, r['stash'], (1230, 425))]
+                               if r['state'] == 'ready' else None)
 
-    def scroll(self, notches):
-        self.scrolls += 1
-        step = 1 if notches < 0 else -1  # negative notches wheel down, i.e. further into the list
-        self.offset = max(0, min(self.length - self.VISIBLE, self.offset + step))
+    def start(self, name):
+        self.start_clicks += 1
+        r = self.rolls[name]
+        if r['stash'] and not r['stuck']:
+            r['state'], r['stash'] = 'producing', False
 
-    def click(self, x=None, y=None, *_args, **_kw):
-        self.clicks += 1
-        if y is None:
-            return
-        for i in sorted(self.lit):
-            if abs((ROW_PITCH * i + 10) - y) <= 40:  # the jittered click landed on this row
-                self.lit.discard(i)
-                self.collected.append(i)
-                return
+    def collect(self, name):
+        self.collects += 1
+        self.rolls[name]['state'] = 'ready'
 
 
-def install(panel):
-    """Point craft's matcher, mouse, clock and screen at this fake panel. No restore: the script
-    then exits. Reopening the panel resets the list to the top, which is the behaviour
-    _reopen_scav_case is built on, so the get_to_station stub models that rather than no-opping."""
+def run(panel, jobs=(MOON, INTEL)):
+    """One tend_scav_case visit over this panel. Returns the bot, for its stats and swaps."""
     craft.find.find = panel.find
-    craft.find.find_all = panel.find_all
-    craft.pyautogui.scroll = panel.scroll
-    craft.pyautogui.click = panel.click
-    craft.SCAV_CASE_SCROLL_SETTLE = 0  # do not really sleep between steps
-    craft.get_items_highlighted = lambda box, *a, **k: panel.is_lit(box)
-    craft.screen.rect = lambda: (0, 0, 1920, 1080)  # so a row band needs no real display
+    craft.read_craft = panel.read
     craft.check_stash_full = lambda region=None: False
-    panel.reopens = 0
 
-    def close(region=None):
-        return True
+    def scroll(region=None):
+        panel.scrolls += 1
+    craft.scroll_scav_case_list = scroll
 
-    def get_to(_craft, region=None):
+    def reopen(*a, **k):
         panel.reopens += 1
-        panel.offset = 0  # a reopened panel draws its list from the top
+    craft.get_to_station = craft.close_open_station_panel = reopen
+
+    def buy(location, ceiling, region=None, craft=None, **k):  # noqa: A002 - mirrors the real kwarg
+        panel.buys += 1
+        r = panel.row(craft)
+        if r['unbuyable']:
+            raise craft_module.Unbuyable('over the ceiling')
+        r['stash'] = True
         return True
+    craft.buy_craft_input_item = buy
 
-    craft.close_open_station_panel = close
-    craft.get_to_station = get_to
-    return panel
+    b = object.__new__(craft_bot.HideoutCraft)
+    b.region = None
+    b.jobs = [craft_bot.CraftJob(c, {c.ingredients[0].name: 100000}, {}) for c in jobs]
+    b.index = 0
+    b.stats = {key: 0 for key, _ in craft_bot.STAT_LABELS}
+    b._pause = lambda *a, **k: None
+    b._confirm_receive = lambda *a, **k: None
+    b._click_scav_start = lambda name, read: panel.start(name)
+    b.collect_ok = True
+
+    def click_until_taken(what, box, landed, settle=None):
+        if not b.collect_ok:
+            return None
+        name = 'moonshine' if 'moonshine' in what else 'intelligence'
+        panel.collect(name)
+        return (0, 0)
+    b._click_until_taken = click_until_taken
+    b.swaps = 0
+
+    def swap():
+        b.swaps += 1
+    b._swap = swap
+    return b
 
 
+craft_module = craft
 failures = []
 
 
@@ -135,170 +128,90 @@ def check(name, condition, detail=''):
         failures.append(name)
 
 
-# 1. Already drawn: one look, no wheel touched at all, and no dead-space click either.
-panel = install(FakeList({MOON: 0, OTHER: 1}, offset=0))
-box = craft.find_scav_case_row(MOON)
-check('a visible roll is found without scrolling', box is not None and panel.scrolls == 0,
-      f'scrolls={panel.scrolls}')
-check('a visible roll does not click the panel', panel.clicks == 0, f'clicks={panel.clicks}')
-
-# 2. Below the fold: the 2026-09-17 shape. Wheels down and finds it.
-panel = install(FakeList({OTHER: 0, MOON: 3}, offset=0))
-box = craft.find_scav_case_row(MOON)
-check('a roll below the fold is scrolled down to', box is not None, f'scrolls={panel.scrolls}')
-check('scrolling takes the wheel focus first', panel.clicks == 1, f'clicks={panel.clicks}')
-
-# 3. Above the current position: the down sweep cannot reach it, the sweep back up must.
-panel = install(FakeList({MOON: 0, OTHER: 3}, offset=2))
-box = craft.find_scav_case_row(MOON)
-check('a roll above the fold is found on the sweep back up', box is not None,
-      f'scrolls={panel.scrolls}')
-check('it really needed the up sweep', panel.scrolls > craft.SCAV_CASE_SCROLL_STEPS,
-      f'scrolls={panel.scrolls} > steps={craft.SCAV_CASE_SCROLL_STEPS}')
-
-# 4. Not on the panel at all: None rather than a raise, and bounded rather than spinning.
-panel = install(FakeList({OTHER: 0}, offset=0))
-box = craft.find_scav_case_row(MOON)
-check('a roll that is never there comes back None', box is None)
-check('and the hunt is bounded', panel.scrolls == craft.SCAV_CASE_SCROLL_STEPS * 3,
-      f'scrolls={panel.scrolls}')
+def common(label, panel, bot):
+    check(f'{label}: scrolled exactly once', panel.scrolls == 1, f'scrolls={panel.scrolls}')
+    check(f'{label}: never reopened the panel', panel.reopens == 0, f'reopens={panel.reopens}')
+    check(f'{label}: left the station once', bot.swaps == 1, f'swaps={bot.swaps}')
 
 
-def bot_for(panel):
-    """A HideoutCraft with just the attributes tend_scav_case touches. __init__ wants a Tarkov
-    window and a monitor, and neither is what any of this turns on."""
-    b = object.__new__(craft_bot.HideoutCraft)
-    b.region = None
-    b.jobs = [job]  # the module-level job below; tend_scav_case walks self.jobs for its rolls
-    b.index = 0
-    b.stats = {'started:scav_case': 0, 'total_started': 0, 'profit:scav_case': 0,
-               'total_profit': 0}
-    b._pause = lambda *a, **k: None
-    b._park = lambda *a, **k: None
-    b._confirm_receive = lambda *a, **k: None
-    # The collect's proof that its GET ITEMS click landed is the loot reveal appearing, so a fake
-    # panel has to answer that too or the real poll would go to the matcher. A point means 'the
-    # reveal is up', i.e. the click registered first time. test_collect_retry.py is where a click
-    # that does not register is covered.
-    b._receive_point = lambda *a, **k: (0, 0)
-    b.swaps = 0
+# 1. Both finished, both inputs in the stash: collect both, start both, in the one visit.
+panel = FakePanel(moonshine=dict(state='done', stash=True), intelligence=dict(state='done', stash=True))
+bot = run(panel)
+bot.tend_scav_case(bot.jobs[0])
+common('both done', panel, bot)
+check('both done: both collected', panel.collects == 2, f'collects={panel.collects}')
+check('both done: both started and counted', bot.stats['total_started'] == 2
+      and bot.stats['started:scav_case'] == 1 and bot.stats['started:scav_case_intel'] == 1,
+      f'stats started={bot.stats["total_started"]}')
+check('both done: nothing bought', panel.buys == 0, f'buys={panel.buys}')
 
-    def swap():
-        b.swaps += 1
-    b._swap = swap
-    return b
+# 2. Moonshine ready with no bottle, intelligence already running: START does nothing, buy one,
+#    START again. The running roll is left alone.
+panel = FakePanel(moonshine=dict(state='ready'), intelligence=dict(state='producing'))
+bot = run(panel)
+bot.tend_scav_case(bot.jobs[0])
+common('missing bottle', panel, bot)
+check('missing bottle: one buy', panel.buys == 1, f'buys={panel.buys}')
+check('missing bottle: START, then START again after the buy', panel.start_clicks == 2,
+      f'start clicks={panel.start_clicks}')
+check('missing bottle: moonshine counted once, intelligence not at all',
+      bot.stats['started:scav_case'] == 1 and bot.stats['started:scav_case_intel'] == 0)
 
+# 3. Both already running: read once, touch nothing, leave.
+panel = FakePanel(moonshine=dict(state='producing'), intelligence=dict(state='producing'))
+bot = run(panel)
+bot.tend_scav_case(bot.jobs[0])
+common('both running', panel, bot)
+check('both running: no clicks of any kind', panel.start_clicks == panel.collects == panel.buys == 0)
 
-def read_craft_stub(_craft, region=None):
-    """Stand-in for the real read, which searches the whole region for the moonshine bottle and
-    raises Blind when it is not drawn. Raising here is the point: it is what the shipping code
-    does, and it is what the missing scroll used to walk straight into."""
-    if panel.find(MOON) is None:
-        raise craft.Blind('moonshine output not on screen, cannot read the craft row')
-    return craft.CraftRead('producing', None, None, None, None, None)
+# 4. A folder over the ceiling: the roll is given up for this visit, the other still started.
+panel = FakePanel(moonshine=dict(state='ready', stash=True),
+                  intelligence=dict(state='ready', unbuyable=True))
+bot = run(panel)
+bot.tend_scav_case(bot.jobs[0])
+common('unbuyable', panel, bot)
+check('unbuyable: one buy tried, no retry', panel.buys == 1, f'buys={panel.buys}')
+check('unbuyable: moonshine still started', bot.stats['started:scav_case'] == 1)
+check('unbuyable: intelligence not counted', bot.stats['started:scav_case_intel'] == 0)
 
+# 5. A START the game ignores even with the input bought: one buy, two STARTs, then give up.
+#    The load-bearing one for money: it must not buy a second folder.
+panel = FakePanel(intelligence=dict(state='ready', stuck=True))
+bot = run(panel, jobs=(INTEL,))
+bot.tend_scav_case(bot.jobs[0])
+common('stuck START', panel, bot)
+check('stuck START: exactly one buy', panel.buys == 1, f'buys={panel.buys}')
+check('stuck START: two START clicks, not more', panel.start_clicks == 2,
+      f'start clicks={panel.start_clicks}')
 
-craft.read_craft = read_craft_stub
-Job = namedtuple('Job', 'craft max_prices sources')
-job = Job(craft.SCAV_CASE, {'moonshine': 230000}, {})
-
-# 5. The starts regression: the panel opens on another roll, moonshine below the fold.
-panel = install(FakeList({OTHER: 0, MOON: 3}, offset=0))
-bot = bot_for(panel)
+# 6. A roll not on screen is skipped, not a raise into the restart path.
+panel = FakePanel(moonshine=dict(state='producing'), intelligence=dict(state='ready', absent=True))
+bot = run(panel)
 try:
-    bot.tend_scav_case(job)
+    bot.tend_scav_case(bot.jobs[0])
     raised = None
 except Exception as e:  # noqa: BLE001 - any raise at all is the failure being guarded
     raised = e
-check('a panel opened on another roll does not raise', raised is None, f'raised={raised!r}')
-check('the moonshine roll was looked for', MOON in panel.looks)
-check('the station is left exactly once', bot.swaps == 1, f'swaps={bot.swaps}')
-check('the panel is reopened once, between the two phases', panel.reopens == 1,
-      f'reopens={panel.reopens}')
-check('nothing is collected when no GET ITEMS is lit', panel.collected == [],
-      f'collected={panel.collected}')
+check('absent roll: no raise', raised is None, f'raised={raised!r}')
+common('absent roll', panel, bot)
 
-# 6. The mirror of it, which is what the old code assumed was the only case.
-panel = install(FakeList({MOON: 0, OTHER: 3}, offset=0))
-bot = bot_for(panel)
-try:
-    bot.tend_scav_case(job)
-    raised = None
-except Exception as e:  # noqa: BLE001
-    raised = e
-check('a panel opened on the moonshine roll does not raise either', raised is None,
-      f'raised={raised!r}')
-check('the moonshine roll was looked for there too', MOON in panel.looks)
+# 7. A GET ITEMS whose loot reveal never opens: given up, not clicked forever.
+panel = FakePanel(moonshine=dict(state='done', stash=True), intelligence=dict(state='producing'))
+bot = run(panel)
+bot.collect_ok = False
+bot.tend_scav_case(bot.jobs[0])
+common('stuck collect', panel, bot)
+check('stuck collect: no START on a roll that never emptied', panel.start_clicks == 0)
 
-# 7. A roll genuinely absent is skipped, not fatal: the other roll and the swap still happen.
-panel = install(FakeList({OTHER: 0}, offset=0, length=2))
-bot = bot_for(panel)
-try:
-    bot.tend_scav_case(job)
-    raised = None
-except Exception as e:  # noqa: BLE001
-    raised = e
-check('a missing moonshine roll is skipped rather than fatal', raised is None, f'raised={raised!r}')
-check('and the pass still leaves the station', bot.swaps == 1, f'swaps={bot.swaps}')
-
-# 8. The collect regression, and the reason this file was rewritten. Row 4 has a lit GET ITEMS and
-#    NO input icon, which is what a running-or-finished scav case row actually looks like, and it
-#    sits below the fold. The anchored read could not name that row, so its loot was never taken.
-panel = install(FakeList({OTHER: 0, MOON: 1}, offset=0, length=5, lit={4}))
-bot = bot_for(panel)
-try:
-    bot.tend_scav_case(job)
-    raised = None
-except Exception as e:  # noqa: BLE001
-    raised = e
-check('an unnamed finished roll below the fold does not raise', raised is None, f'raised={raised!r}')
-check('and it is collected anyway', panel.collected == [4], f'collected={panel.collected}')
-check('the collect goes through _book_profit and books 0', bot.stats['profit:scav_case'] == 0,
-      f'stats={bot.stats}')  # 0 on purpose: PROFIT_PER_CRAFT lists no scav_case figure yet, and a
-# guess would inflate the GUI's Est. profit. This is here so that adding one starts counting with
-# no other change, and so a non-zero value cannot appear without somebody measuring it first.
-check('and a collect is not counted as a start', bot.stats['total_started'] == 0,
-      f'stats={bot.stats}')
-
-# 9. A greyed GET ITEMS is a roll that was never started, not a finished one. Left alone.
-panel = install(FakeList({OTHER: 0, MOON: 1}, offset=0, length=5, greyed={4}))
-bot = bot_for(panel)
-bot.tend_scav_case(job)
-check('a greyed GET ITEMS is not collected', panel.collected == [],
-      f'collected={panel.collected}')
-
-# 10. A roll whose input is not in the stash: START does nothing, so it buys one and starts the roll
-#     in the same visit rather than a lap later. The row reads ready until the buy lands.
-panel = install(FakeList({MOON: 0}, offset=0, length=2))
-bot = bot_for(panel)
-bot.stats['started:scav_case'] = 0
-bot._confirm_handover = lambda *a, **k: None
-state = {'bought': False, 'starts': 0}
-
-
-def read_until_bought(_craft, region=None):
-    return craft.CraftRead('producing' if state['starts'] and state['bought'] else 'ready',
-                           None, None, Box(0, 0, 40, 20), None, [('moonshine', False, (5, 5))])
-
-
-def click_start(*a, **k):
-    state['starts'] += 1
-
-
-def buy(*a, **k):
-    state['bought'] = True
-    return True
-
-
-craft.read_craft = read_until_bought
-craft.buy_craft_input_item = buy
-craft_bot.pyautogui.click = click_start
-bot._start_scav_case_roll(job)
-check('a missing input is bought', state['bought'])
-check('and the roll is started in the same visit', bot.stats['started:scav_case'] == 1,
-      f'starts={state["starts"]} stats={bot.stats}')
+# 8. Profit is booked per roll on a collect (0 today: no scav case figure in PROFIT_PER_CRAFT).
+panel = FakePanel(moonshine=dict(state='done', stash=True))
+bot = run(panel, jobs=(MOON,))
+bot.tend_scav_case(bot.jobs[0])
+check('profit: a collect books 0 and is not a start on its own',
+      bot.stats['profit:scav_case'] == 0 and bot.stats['total_started'] == 1,
+      f'profit={bot.stats["profit:scav_case"]} started={bot.stats["total_started"]}')
 
 print()
 if failures:
     sys.exit(f'{len(failures)} check(s) failed: {", ".join(failures)}')
-print('ok: the moonshine roll is started and every finished roll is collected, whatever the scroll')
+print('ok: one scroll, both rolls read and acted on until both run, then the pass leaves')

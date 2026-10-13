@@ -256,12 +256,18 @@ SCAV_CASE_ACTIVE_TARGET = 'hideout/hideout_station_titles/scav_case'
 # The moonshine roll sits in a production list that is taller than the panel, and is not reliably
 # on screen when it opens: on 2026-09-17 the panel opened with the moonshine row below the fold, so
 # the read found nothing and raised Blind, which is in craft_bot's restart tuple.
-# find_scav_case_row scrolls to it, in either direction.
-SCAV_CASE_DEADSPACE_COORD = (1374, 792)  # empty spot in the scav case panel, clicked to take wheel focus.
-                                         # Raw screen coords, tuned live at 2560x1440.
-SCAV_CASE_SCROLL_DOWN = 3  # mouse-wheel notches per step while hunting a roll; tuned live
-SCAV_CASE_SCROLL_STEPS = 6  # steps down before sweeping back up, so a list left scrolled either way is covered
-SCAV_CASE_SCROLL_SETTLE = 0.3  # after each wheel step, for the list to redraw before the next look
+# scroll_scav_case_list wheels the list to the bottom once on entry, which puts both rolls on screen.
+SCAV_CASE_DEADSPACE_COORD = (1030, 594)  # empty spot in the scav case panel, clicked to take wheel focus.
+                                         # 1080p window coords, scaled like every other measurement.
+                                         # Was a raw (1374, 792) tuned at 2560x1440, which on a 1080p
+                                         # screen landed on the intelligence row's progress arrow.
+SCAV_CASE_SCROLL_NOTCHES = 6  # one wheel to the list's bottom; double the 3 that one step of the old hunt used
+SCAV_CASE_SCROLL_SETTLE = 0.3  # after the wheel, for the list to redraw before the first look
+# Scav case row bands are this fraction of the normal band's height, shrunk about its centre. The
+# scav case rows sit closer together than other stations', and a live 1080p read on 2026-10-13
+# had the moonshine band ending 3px above the next row's START. At 0.75 the rows' own START,
+# GET ITEMS and tick/X marks still sit well inside (moonshine 335-475, intelligence 595-747).
+SCAV_CASE_BAND_SCALE = 0.75
 # The bitcoin farm, the simplest station of the lot: no START, no inputs, no slot to keep filled.
 # Graphics cards sit in it permanently and it mines on its own, so the whole pass is "click GET
 # ITEMS if it is lit". Only the two navigation crops are needed, since nothing here is read off a
@@ -947,12 +953,21 @@ def slickers_output_box(region=None):
     return output_box(SLICKERS, region)
 
 
-def _row_band(box, region=None):
-    """A full-width band SLICKERS_BAND_PAD above and below one match's row."""
+def _row_band(box, region=None, scale=1.0):
+    """A full-width band SLICKERS_BAND_PAD above and below one match's row.
+
+    scale shrinks the band's height about its own centre (SCAV_CASE_BAND_SCALE for the scav case).
+    """
     left, _, width, _ = region if region else screen.rect()
     top = box.top - SLICKERS_BAND_PAD + SLICKERS_BAND_TOP_DROP
     bottom = box.top + box.height + SLICKERS_BAND_PAD
+    trim = round((bottom - top) * (1 - scale) / 2)
+    top, bottom = top + trim, bottom - trim
     return (left, top, width, bottom - top)
+
+
+def _band_scale(craft):
+    return SCAV_CASE_BAND_SCALE if craft.name in SCAV_CASE_NAMES else 1.0
 
 
 def craft_row_band(craft, region=None):
@@ -964,7 +979,7 @@ def craft_row_band(craft, region=None):
     GET ITEMS or START off the row needs.
     """
     box = output_box(craft, region)
-    return _row_band(box, region) if box else None
+    return _row_band(box, region, _band_scale(craft)) if box else None
 
 
 def slickers_row_band(region=None):
@@ -993,60 +1008,25 @@ def _on_row(boxes, row_y):
     return min(on, key=lambda b: abs(_center(b)[1] - row_y)) if on else None
 
 
-def scav_case_scroll_positions():
-    """Walk the scav case production list under the mouse wheel, yielding at each position.
+def scroll_scav_case_list(region=None):
+    """Wheel the scav case production list to the bottom, once, so both rolls are on screen.
 
-    Yields False once for the position the list already sits in, so a caller whose target is
-    drawn costs one look and no wheeling at all, then True after each wheel step: down
-    SCAV_CASE_SCROLL_STEPS times, then back up twice that, so a list left scrolled past the target
-    is covered as well as one left above it. Same bounded sweep-and-come-back shape as
-    get_to_station's carousel, and bounded for the same reason: a wheel that is not reaching the
-    list at all must end, not spin.
+    The moonshine and intelligence rolls both sit in the lower half of a list that is a little
+    taller than the panel, so one wheel to the bottom puts both on screen together and every read
+    after it is a plain look. This replaced a per-roll hunt that looked, scrolled and looked again
+    for each roll in turn. Scrolling past the bottom does nothing, so this is safe to repeat.
 
-    Shared by the two passes that have to see the whole list: find_scav_case_row hunting one
-    roll's anchor, and craft_bot's collect pass hunting every lit GET ITEMS.
-
-    The dead-space click that takes the wheel's focus happens once, lazily, before the first
-    actual scroll, so a caller that finds what it wants straight away never clicks the panel.
+    Clicks the panel's dead space first to give the list the wheel's focus.
     """
-    yield False  # look where the list already sits, before touching the wheel
     if SCAV_CASE_DEADSPACE_COORD is None:
         raise ValueError('SCAV_CASE_DEADSPACE_COORD is not set; fill it from a live grab of the '
-                         'scav case panel before sweeping the list')
+                         'scav case panel before scrolling the list')
+    left, top, _, _ = region if region else screen.rect()
+    x, y = (round(c * find.scale()) for c in SCAV_CASE_DEADSPACE_COORD)
     log('clicking the scav case panel dead space to take the scroll focus', 1)
-    pyautogui.click(*SCAV_CASE_DEADSPACE_COORD)
-    for notches, steps in ((-SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS),
-                           (SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS * 2)):
-        for _ in range(steps):
-            pyautogui.scroll(notches)  # negative wheels down
-            time.sleep(SCAV_CASE_SCROLL_SETTLE)
-            yield True
-
-
-def find_scav_case_row(target, region=None):
-    """Bring one scav case roll's anchor on screen and hand back its match Box, or None.
-
-    The roll is not reliably the visible one: the production list is taller than the panel and
-    keeps whatever scroll position it was left at, so which rows are drawn when it opens is not
-    something a caller may assume. See the note by SCAV_CASE_DEADSPACE_COORD for what assuming it
-    cost.
-
-    Only useful for a roll that is *startable*. A roll that is running or finished stops drawing
-    its input icon altogether (see lit_get_items), so there is no anchor left to find and this
-    answers None for a row that is plainly on screen. Collecting therefore does not go through
-    here.
-
-    Returns the Box (truthy) so the caller can build the row band from it; None (falsy) when the
-    roll never showed. None is 'skip this roll', not an error: this panel is where a failed read
-    used to end the entire run.
-    """
-    for scrolled in scav_case_scroll_positions():
-        box = find.find(target, region)
-        if box:
-            log(f'{target} {"scrolled into view" if scrolled else "is already on the visible scav case rows"}', 1)
-            return box
-    log(f'{target} never came into view on the scav case panel', 1)
-    return None
+    pyautogui.click(left + x, top + y)
+    pyautogui.scroll(-SCAV_CASE_SCROLL_NOTCHES)  # negative wheels down
+    time.sleep(SCAV_CASE_SCROLL_SETTLE)
 
 
 def lit_get_items(region=None):
@@ -1119,7 +1099,7 @@ def read_craft(craft, region=None):
     output = output_box(craft, region)
     if output is None:
         raise Blind(f'{craft.name} output not on screen, cannot read the craft row')
-    band = _row_band(output, region)
+    band = _row_band(output, region, _band_scale(craft))
     row_y = _center(output)[1]
 
     start = None
@@ -1887,6 +1867,13 @@ if __name__ == '__main__':
     below = Box(1600, 785, 56, 20)  # centre y 795, 81px down: the next craft's START
     assert _on_row([below], row_y) is None, 'a START on the row below must not count'
     assert _on_row([same], row_y) is same, 'a START on the output row does'
+
+    # Scav case bands are 25% shorter about their centre; every other craft's band is untouched.
+    # The moonshine anchor from the 2026-10-13 live read: normal band 312-498, scav case 335-475.
+    anchor = Box(1217, 352, 60, 46)
+    assert _row_band(anchor, (0, 0, 1920, 1080))[1::2] == (312, 186)
+    assert _row_band(anchor, (0, 0, 1920, 1080), _band_scale(SCAV_CASE))[1::2] == (335, 140)
+    assert _band_scale(SCAV_CASE_INTEL) == SCAV_CASE_BAND_SCALE and _band_scale(SLICKERS) == 1.0
     assert _on_row([below, same], row_y) is same, 'the same-row match wins over a neighbour'
     assert _on_row([], row_y) is None, 'nothing found is nothing'
     print('ok: get_craft_state reads START/GET ITEMS on the output row only')

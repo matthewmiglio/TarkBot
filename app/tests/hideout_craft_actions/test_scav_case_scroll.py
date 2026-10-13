@@ -1,11 +1,9 @@
-"""Scroll the scav case list to a named roll and report whether it was found, and in how many steps.
+"""Wheel the scav case list once, the way the pass does on entry, and report whether both rolls are on screen.
 
-App layer: craft.find_scav_case_row and its constants (SCAV_CASE_DEADSPACE_COORD,
-SCAV_CASE_SCROLL_DOWN, SCAV_CASE_SCROLL_STEPS, SCAV_CASE_SCROLL_SETTLE) over find.find. This is the
-live tuning loop for the scroll amount: too few notches per step overshoots the row, too many is
-slow, and too few steps gives up before a list left scrolled the wrong way can be swept back.
-
-The moonshine roll is the only one the bot runs, so it is the only one this hunts.
+App layer: craft.scroll_scav_case_list and its constants (SCAV_CASE_DEADSPACE_COORD,
+SCAV_CASE_SCROLL_NOTCHES, SCAV_CASE_SCROLL_SETTLE) over find.find. This is the live tuning loop for
+the scroll: the pass wheels exactly once and then only reads, so one wheel has to leave both the
+moonshine and the intelligence rows on screen together.
 
 **This drives the real game.** Tarkov has to be running with the Scav Case panel open. It clicks
 the panel dead spot and scrolls the list for real; it buys and starts nothing.
@@ -22,61 +20,37 @@ from gui import settings  # noqa: E402
 from interact import craft, find  # noqa: E402
 from PIL import ImageDraw  # noqa: E402
 
-ROLLS = {'moonshine': craft.MOONSHINE_TARGET}
-
-wanted = sys.argv[1:] or list(ROLLS)
-unknown = [r for r in wanted if r not in ROLLS]
-if unknown:
-    sys.exit(f'unknown roll(s) {unknown}; pick from {list(ROLLS)}')
-
-# A crop must exist, or find raises deep in the loop with a less obvious message.
-for roll in wanted:
-    crop_dir = Path(find.REFS) / ROLLS[roll]
-    if not any(crop_dir.glob('*.png')):
-        sys.exit(f'no reference crop in {crop_dir} yet - add a crop of the {roll} roll input first')
+ROLLS = (craft.SCAV_CASE, craft.SCAV_CASE_INTEL)
 
 find.VERBOSE = True  # so a near-miss shows its score, same as a real craft run
-runner = craft_bot.build(settings.load(), None)  # real region/window/monitor
-region = runner.region
+region = craft_bot.build(settings.load(), None).region  # real region/window/monitor
 
-# Fail fast if the scav case panel is not actually open, or the hunt runs against the wrong screen
+# Fail fast if the scav case panel is not actually open, or the reads run against the wrong screen
 # and every look is a meaningless miss (seen once against the Customization panel).
 if not find.find(craft.SCAV_CASE_ACTIVE_TARGET, region):
     sys.exit('the Scav Case panel is not open - open it and re-run')
 
-print(f'dead space at {craft.SCAV_CASE_DEADSPACE_COORD}, {craft.SCAV_CASE_SCROLL_DOWN} notches per '
-      f'step, {craft.SCAV_CASE_SCROLL_STEPS} steps down then {craft.SCAV_CASE_SCROLL_STEPS * 2} back up')
+print(f'dead space at {craft.SCAV_CASE_DEADSPACE_COORD} (1080p), '
+      f'{craft.SCAV_CASE_SCROLL_NOTCHES} notches down')
+craft.scroll_scav_case_list(region)
+
 out_dir = Path(__file__).resolve().parents[1] / 'output' / 'scav_case_scroll'
 out_dir.mkdir(parents=True, exist_ok=True)
-
-results = {}
-for roll in wanted:
-    print(f'\n--- hunting the {roll} roll ({ROLLS[roll]}) ---')
-    box = craft.find_scav_case_row(ROLLS[roll], region)
-    results[roll] = box
-    if not box:
-        print(f'NOT FOUND: the {roll} roll never came into view')
-        continue
-    print(f'FOUND the {roll} roll at {tuple(box)}')
-
-    # Write the frame it was found on: the row band (yellow) a caller would read START / GET ITEMS
-    # off, plus the anchor match itself (green), so a band that frames the wrong row is visible
-    # rather than showing up later as a state read that makes no sense.
-    band = craft.craft_row_band(craft.SCAV_CASE, region)
-    print(f'row band {tuple(band) if band else None}')
-    shot = screen.grab(region).convert('RGB')
-    d = ImageDraw.Draw(shot)
-    if band:
+shot = screen.grab(region).convert('RGB')
+d = ImageDraw.Draw(shot)
+found = {}
+for c in ROLLS:
+    box = find.find(c.output_target, region)
+    found[c.name] = box
+    print(f'{c.name:>16}: {"on screen at " + str(tuple(box)) if box else "NOT ON SCREEN"}')
+    if box:
+        band = craft.craft_row_band(c, region)  # the band a read takes START / GET ITEMS off (yellow)
         bl, bt, bw, bh = band
         d.rectangle([bl - region[0], bt - region[1], bl - region[0] + bw, bt - region[1] + bh],
                     outline=(255, 200, 0), width=3)
-    x0, y0 = box.left - region[0], box.top - region[1]
-    d.rectangle([x0, y0, x0 + box.width, y0 + box.height], outline=(0, 255, 0), width=4)
-    out = out_dir / f'{roll}.png'
-    shot.save(out)
-    print(f'wrote {out}')
-
-print()
-for roll, box in results.items():
-    print(f'{roll:>10}: {"found" if box else "NOT FOUND"}')
-sys.exit(0 if all(results.values()) else 1)
+        x0, y0 = box.left - region[0], box.top - region[1]
+        d.rectangle([x0, y0, x0 + box.width, y0 + box.height], outline=(0, 255, 0), width=4)
+out = out_dir / 'after_scroll.png'
+shot.save(out)
+print(f'wrote {out}')
+sys.exit(0 if all(found.values()) else 1)

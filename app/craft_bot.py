@@ -57,9 +57,9 @@ COLLECT_SETTLE = 3.0  # seconds after collecting for the row to flip back to rea
                       # anything reads that row, and the 12:54 Blind that prompted the change came
                       # off the failed-handover path (START_SETTLE, already 3.0s) rather than off a
                       # collect, so this hardens the lag but is not proven to be that fix.
-SCAV_CASE_MAX_COLLECTS = 6  # lit GET ITEMS clicked in one scav case pass before giving up. The panel
-                            # holds five rows, so reaching this means a button that will not clear,
-                            # and a bounded loop ends the pass instead of spinning on it.
+SCAV_CASE_MAX_ROUNDS = 6  # read-and-act rounds over the scav case rolls in one visit. The longest
+                          # honest path is five (collect, START, buy, START, read producing), so
+                          # reaching six means a roll that will not settle, and the visit ends.
 PARK_OFFSET = 100  # 1080p px to shove the cursor right after a click, so it stops covering the row
 
 # The GUI's per-ingredient SOURCE picker. 'Players' or 'Traders' as shown; build() lowercases them
@@ -330,7 +330,7 @@ class HideoutCraft(GameRestarts):
           collect_craft              the button itself goes away (craft.get_items_cleared). A
                                      normal craft collects instantly, so a cleared button is the
                                      whole of the evidence.
-          _collect_scav_case_rolls   the LOOT FROM SCAVS reveal opens (_receive_point). A scav
+          _collect_scav_case_roll    the LOOT FROM SCAVS reveal opens (_receive_point). A scav
                                      case click opens a modal that *covers* its button instead of
                                      removing it, so a cleared button would read true for a click
                                      that collected nothing.
@@ -486,152 +486,113 @@ class HideoutCraft(GameRestarts):
         self._swap()
 
     def tend_scav_case(self, job):
-        """The scav case's pass: start what can be started, then collect what has finished.
+        """The scav case's pass: scroll once, then read both rolls and act until both are running.
 
-        Two phases with a panel reopen between them, because they want opposite things from the
-        panel and cannot share one sweep of its list:
+          1. wheel the list to the bottom once (craft.scroll_scav_case_list), which puts every roll
+             the bot runs on screen together
+          2. read each roll's row and do the one thing it needs (_tend_scav_case_roll): collect a
+             finished roll, START a ready one, buy the input of one whose START did nothing
+          3. repeat 2 until every roll is producing, or has nothing more this visit can do, and
+             leave
 
-          starts   a startable roll still draws its input icon, so it can be named: the moonshine
-                   bottle or the intelligence folder. Each enabled roll is hunted by its own
-                   anchor (craft.find_scav_case_row), in whichever scroll direction it lies.
-          collect  a roll that is running or finished stops drawing its input icon, so a lit GET
-                   ITEMS cannot be attributed to a row at all. It does not need to be: every roll
-                   pays out the same '?' boxes, so every lit GET ITEMS is collected wherever it
-                   sits (craft.lit_get_items).
+        No scrolling after the first wheel, and no reopening the panel: the rows stay where they
+        are, so every round is plain reads. This replaced a per-roll hunt (look, scroll, look again,
+        for each roll in turn) and a second collect-only sweep behind a panel reopen. That sweep
+        existed because a running or finished roll was believed to stop drawing its input icon; on
+        2026-10-13 a finished moonshine roll still showed its bottle and a running intelligence roll
+        its folder, so the anchored read names a row in every state.
 
-        That second point is the bug this shape exists to fix. Collecting used to go through the
-        same anchor-then-band read a start does, so a finished roll whose input label had dimmed
-        was invisible to it and its loot was never taken. The screenshot of 2026-09-17 has a lit
-        GET ITEMS sat on a row with no input icon drawn on it at all.
-
-        Before that, this tended moonshine off 'the visible top row', which was not always where it
-        sat: the moonshine read found nothing and raised Blind into the restart path. A roll that
-        cannot be found is skipped with a log line.
-
-        The reopen between the phases is what lets the collect sweep start from a known place: the
-        starts phase leaves the list wherever hunting its anchors stopped.
-
-        Every scav case job (craft.SCAV_CASE_NAMES) is tended in this one visit, not one visit per
-        job: the collect sweep takes every roll's loot anyway, so a second visit would only wheel
-        the whole list again to find nothing. build() keeps the jobs of one station adjacent, so
-        jumping the index to the last of them before the swap skips exactly the ones just done.
+        Bounded by SCAV_CASE_MAX_ROUNDS: a roll that never reaches producing ends the visit rather
+        than spinning on it. Every scav case job (craft.SCAV_CASE_NAMES) is tended in this one
+        visit; build() keeps them adjacent, so the index jumps to the last of them before the swap.
         """
         rolls = [j for j in self.jobs if j.craft.name in craft.SCAV_CASE_NAMES]
-        for roll in rolls:
-            self._start_scav_case_roll(roll)
-        self._reopen_scav_case(job)
-        self._collect_scav_case_rolls()
-        self.index = max(self.jobs.index(r) for r in rolls)
-        self._swap()  # leave the scav case; both phases (start, collect) are done
-
-    def _reopen_scav_case(self, job):
-        """Close the scav case panel and open it again, putting its list back at the top.
-
-        Reopening rather than scrolling back: the starts phase leaves the list wherever its anchor
-        hunt stopped, and 'wheel up until it stops moving' is more wheeling and more trust than
-        letting the panel redraw itself. get_to_station re-enters through the module carousel,
-        which does not touch the production list's own scroll at all.
-
-        A panel that will not close raises LookupError out of close_open_station_panel, which is in
-        this mode's restart tuple, and that is the right answer: the collect phase cannot read a
-        list it cannot see, and a wedged panel is the thing a restart fixes.
-        """
-        log('reopening the scav case panel to put its list back at the top', 1)
-        craft.close_open_station_panel(self.region)
-        craft.get_to_station(job.craft, self.region)
-
-    def _collect_scav_case_rolls(self):
-        """Click every lit GET ITEMS on the scav case panel, whichever row each one sits on.
-
-        Sweeps the whole list (craft.scav_case_scroll_positions), because a finished roll can sit
-        below the fold, and re-looks after every collect rather than walking a list of boxes taken
-        up front: the loot reveal and the row flipping back both redraw the panel, so a box found
-        before a click is stale after it.
-
-        Bounded by SCAV_CASE_MAX_COLLECTS, for the reason every loop in this file is bounded: a
-        button that will not clear has to end the pass rather than spin on it.
-        """
-        collected, stuck = 0, False
-        for _ in craft.scav_case_scroll_positions():
-            while not stuck and collected < SCAV_CASE_MAX_COLLECTS:
-                boxes = craft.lit_get_items(self.region)
-                if not boxes:
-                    break
-                # The same verified click every collect gets, with this panel's own proof: the
-                # LOOT FROM SCAVS reveal opening. A scav case collect is two steps, not one, and
-                # the click that opens the reveal is the one the game can swallow. settle=0 because
-                # _receive_point polls for the reveal by itself.
-                point = self._click_until_taken('a finished scav case roll', boxes[0],
-                                                lambda: self._receive_point() is not None,
-                                                settle=0)
-                if point is None:
-                    stuck = True
-                    break
-                self._confirm_receive()  # the loot only lands once RECEIVE is clicked
-                self._pause(COLLECT_SETTLE)
-                # The loot has to land. A full stash makes Tarkov refuse it, which is the user's to
-                # clear, so stop rather than keep clicking collects that cannot arrive.
-                craft.check_stash_full(self.region)
-                _book_profit(self.stats, craft.SCAV_CASE_NAME)  # 0 until scav_case has a figure
-                collected += 1
-            if stuck or collected >= SCAV_CASE_MAX_COLLECTS:
+        craft.scroll_scav_case_list(self.region)
+        progress = {j.craft.name: {'starts': 0, 'bought': False, 'counted': False} for j in rolls}
+        for _ in range(SCAV_CASE_MAX_ROUNDS):
+            self._pause()
+            # A list, not a generator: every roll gets its action this round, rather than all()
+            # stopping at the first one that is still busy.
+            if all([self._tend_scav_case_roll(j, progress[j.craft.name]) for j in rolls]):
+                log('every scav case roll is running or has nothing more to do, leaving')
                 break
-        if stuck:
-            log(f'a finished scav case roll would not open its loot reveal after '
-                f'{GET_ITEMS_ATTEMPTS} clicks, so the rest of the sweep is left for the next lap', 1)
-        elif collected >= SCAV_CASE_MAX_COLLECTS:
-            log(f'stopped after {SCAV_CASE_MAX_COLLECTS} collects, which a five-row panel '
-                'should never reach', 1)
-        log(f'collected {collected} finished scav case roll(s)' if collected
-            else 'no finished scav case rolls to collect')
+        else:
+            log(f'gave up on the scav case after {SCAV_CASE_MAX_ROUNDS} rounds; the next lap '
+                'tries again', 1)
+        self.index = max(self.jobs.index(r) for r in rolls)
+        self._swap()
 
-    def _start_scav_case_roll(self, job):
-        """Start this scav case roll (moonshine or intelligence) if it is ready. Collecting is
-        _collect_scav_case_rolls' job.
+    def _tend_scav_case_roll(self, job, progress):
+        """Read one scav case roll and do the one thing it needs. True when it needs nothing more
+        this visit: producing, or stuck in a way only a later lap can fix.
 
-        The row is named only by its input, so read_craft anchors on that input (the moonshine
-        bottle, the intelligence folder) rather than an output (see craft.SCAV_CASE), and there is
-        no per-input tick, so 'ready' cannot be split into have-the-input and need-to-buy the way
-        read_craft does for other crafts: the input is always drawn on a startable row, ticked or
-        not. So readiness is judged after the fact: click START, then read the row back. Producing
-        now means it started (count it). Still ready means the click did nothing, which for a scav
-        case means the input was not in the stash, so buy one and start it then.
+        `progress` is this roll's own record across the rounds of one visit: START clicks made,
+        whether its input was bought, whether its start has been counted.
 
-        Every state but 'ready' is somebody else's business now, 'done' included: the collect phase
-        takes a finished roll, and it needs no anchor and no row to do it.
-
-        START may or may not raise a handover dialog. The other crafts always get one and treat a
-        missing one as Blind; this one was never confirmed to, so _confirm_handover(required=False)
-        clears one if it shows and shrugs if it does not. The start is judged by the row read, not
-        by the dialog.
-
-        ponytail: the re-read is the only 'did it start' signal there is, since the row carries no
-        tick. Its blind spot is a START that opens an insert dialog even when the bottle IS in the
-        stash: that dialog shows the moonshine, so the re-read could match the bottle in the dialog
-        and read 'producing' falsely. Not seen in practice (the handover is believed not to appear
-        at all), and the fix if it ever does is a crop of the 'Collecting' state or the insert
-        dialog to disambiguate, rather than trusting the bottle match alone.
+        A ready row is not split into have-the-input and need-to-buy by its tick. On a 1080p panel
+        wheeled to the bottom the lowest row's tick is cut off by the panel's edge, and reading a
+        cut-off tick as 'missing' would buy a 400k folder that was already in the stash. So START
+        is clicked first and the next round's read says whether it took: still ready means the
+        input is not there, so buy one and START again. One buy per roll per visit, so a START that
+        fails for some other reason cannot buy input after input.
         """
-        # Scroll to it first. read_craft searches for the input across the whole region and
-        # raises Blind when it is not drawn, and Blind restarts the game, so a roll sitting below
-        # the panel's fold has to be brought into view before the read rather than after it.
-        roll = job.craft.ingredients[0].name  # 'moonshine' / 'intelligence', for the log
-        if craft.find_scav_case_row(job.craft.output_target, self.region) is None:
-            log(f'the {roll} scav case roll is not startable right now, skipping its start', 1)
-            return
-
+        name = job.craft.ingredients[0].name  # 'moonshine' / 'intelligence', for the log
+        if not find.find(job.craft.output_target, self.region):
+            log(f'the {name} scav case roll is not on screen, skipping it this visit', 1)
+            return True
         read = craft.read_craft(job.craft, self.region)
-        if read.state != 'ready':
-            log(f'scav case {roll} roll is {read.state}, nothing to start')
-            self._pause()  # a Stop still lands here, as it did in the old producing branch
-            return
+        if read.state == 'producing':
+            if progress['starts'] and not progress['counted']:
+                progress['counted'] = True
+                log(f'scav case {name} roll started')
+                self.stats[f'started:{job.craft.name}'] += 1
+                self.stats['total_started'] += 1
+            return True
+        if read.state == 'done':
+            return not self._collect_scav_case_roll(name, job, read)
+        if read.state != 'ready':  # 'not started', a greyed GET ITEMS: nothing a click can do
+            log(f'scav case {name} roll is {read.state}, nothing to do', 1)
+            return True
+        if progress['starts'] == 0 or (progress['bought'] and progress['starts'] == 1):
+            self._click_scav_start(name, read)
+            progress['starts'] += 1
+            return False
+        if progress['bought']:
+            log(f'the {name} roll still did not start after buying its input; the next lap tries '
+                'again', 1)
+            return True
+        progress['bought'] = True
+        return not self._buy_scav_case_input(job, read)
 
-        if self._click_scav_start(job, read):
-            return
+    def _collect_scav_case_roll(self, name, job, read):
+        """Collect a finished roll through its LOOT FROM SCAVS reveal. True if the loot landed.
 
-        # Still ready: the START did nothing, so the input is not in the stash. Buy one (the row's
-        # sole input) at its ceiling, then start the roll straight away rather than a lap later.
-        # location is the input on the row, from read.inputs; quantity 1, since a scav case takes one.
+        The same verified click every collect gets, with this panel's own proof: the reveal
+        opening. A scav case collect is two steps, not one, and the click that opens the reveal is
+        the one the game can swallow. settle=0 because _receive_point polls for the reveal itself.
+        """
+        point = self._click_until_taken(f'the finished {name} scav case roll', read.get_items,
+                                        lambda: self._receive_point() is not None, settle=0)
+        if point is None:
+            log(f'the finished {name} roll would not open its loot reveal after '
+                f'{GET_ITEMS_ATTEMPTS} clicks; the next lap tries again', 1)
+            return False
+        self._confirm_receive()  # the loot only lands once RECEIVE is clicked
+        self._pause(COLLECT_SETTLE)
+        # The loot has to land. A full stash makes Tarkov refuse it, which is the user's to clear,
+        # so stop rather than keep clicking collects that cannot arrive.
+        craft.check_stash_full(self.region)
+        _book_profit(self.stats, job.craft.name)  # 0 until the scav case rolls have a figure
+        return True
+
+    def _buy_scav_case_input(self, job, read):
+        """Buy this roll's one input off the flea at its ceiling. True if bought.
+
+        Called when a START did nothing, which for a scav case means the input is not in the stash.
+        location is the input on the row, from read.inputs; quantity 1, since a roll takes one. The
+        buy escapes the flea back to this panel (return_to_station) whether it bought or not, and
+        the next round's read picks the roll up from there.
+        """
         name, _, location = read.inputs[0]
         ceiling = job.max_prices[name]  # build() guarantees it
         source = job.sources.get(name, 'players')
@@ -649,36 +610,26 @@ class HideoutCraft(GameRestarts):
                                        filters=name != 'moonshine')
         except craft.Unbuyable as e:
             log(f'{name} {e}, moving on', 1)
-            return
+            return False
         except LookupError as e:
             log(f'{name}: {e}, moving on', 1)
-            return
+            return False
+        return True
 
-        # The buy escapes the flea back to this panel (return_to_station), so the roll is one
-        # find and one START away. A miss here is left for the next lap, which tries again anyway.
-        if craft.find_scav_case_row(job.craft.output_target, self.region) is None:
-            log(f'bought the {name}, but the {roll} roll is out of sight; the next lap starts it', 1)
-            return
-        read = craft.read_craft(job.craft, self.region)
-        if read.state != 'ready' or not self._click_scav_start(job, read):
-            log(f'bought the {name}, but the {roll} roll did not start ({read.state}); '
-                'the next lap tries again', 1)
+    def _click_scav_start(self, name, read):
+        """Click a roll's START and give the row time to flip. Whether it took is the next round's
+        read, not this click's business.
 
-    def _click_scav_start(self, job, read):
-        """Click this roll's START and read the row back. True (and counted) if it is producing."""
-        roll = job.craft.ingredients[0].name
+        START may or may not raise a handover dialog. The other crafts always get one and treat a
+        missing one as Blind; this one was never confirmed to, so _confirm_handover(required=False)
+        clears one if it shows and shrugs if it does not.
+        """
         point = sell.jitter(pyautogui.center(read.start))
-        log(f'starting the scav case {roll} roll, clicking START at {point}', 1)
+        log(f'starting the scav case {name} roll, clicking START at {point}', 1)
         pyautogui.click(*point)
         self._confirm_handover(required=False)  # confirm one if it shows; fine if it does not
         self._park(point)
         self._pause(START_SETTLE)  # give the click time to flip the row to producing
-        if craft.read_craft(job.craft, self.region).state != 'producing':
-            return False
-        log(f'scav case {roll} roll started')
-        self.stats[f'started:{job.craft.name}'] += 1
-        self.stats['total_started'] += 1
-        return True
 
     def step(self):
         """One pass of the state machine over the craft currently in front of us.

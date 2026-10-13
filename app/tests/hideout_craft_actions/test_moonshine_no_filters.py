@@ -3,7 +3,7 @@
 Run:  python tests/hideout_craft_actions/test_moonshine_no_filters.py
 
 App layer: interact/craft.py's buy_craft_input_item (the new `filters` argument) and the one
-call site that passes it False, craft_bot.HideoutCraft._start_scav_case_roll. The mouse,
+call site that passes it False, craft_bot.HideoutCraft._buy_scav_case_input. The mouse,
 the clock, the matcher and the flea are all stubbed, so this is about which steps run and in
 what order, not about pixels. No game needed.
 
@@ -69,40 +69,26 @@ def buy_with(**kwargs):
 
 
 def scav_case_moonshine_buy():
-    """Drive the roll's start with the bottle missing. Returns the buy's kwargs, or None."""
+    """Drive the roll's buy with the bottle missing. Returns the buy's kwargs, or None."""
     sent = {}
     read = types.SimpleNamespace(state='ready', start=BUTTON,
                                  inputs=[('moonshine', False, (400, 500))])
-    names = ('find_scav_case_row', 'read_craft', 'buy_craft_input_item', 'MOONSHINE_TARGET')
-    saved = {n: getattr(craft, n) for n in names}
-    saved_pyautogui, saved_sell = craft_bot.pyautogui, craft_bot.sell
+    saved = craft.buy_craft_input_item
 
     def buy(*a, **k):
         sent.update(k)
         return True
 
-    craft.find_scav_case_row = lambda *a, **k: BUTTON
-    craft.read_craft = lambda *a, **k: read  # 'ready' before the click and still after it
     craft.buy_craft_input_item = buy
-    craft_bot.pyautogui = types.SimpleNamespace(
-        click=lambda *a: None, moveTo=lambda *a: None,
-        center=lambda b: (b.left + b.width / 2, b.top + b.height / 2))
-    craft_bot.sell = types.SimpleNamespace(jitter=lambda point, **k: point)
-
     bot = craft_bot.HideoutCraft.__new__(craft_bot.HideoutCraft)  # no window, no monitor
     bot.region = (0, 0, 1920, 1080)
-    bot.stats = {}
     bot._pause = lambda seconds=0: None
-    bot._park = lambda point: None
-    bot._confirm_handover = lambda required=True: True
     job = craft_bot.CraftJob(craft.SCAV_CASE, {'moonshine': CEILING}, {'moonshine': 'players'})
     try:
-        bot._start_scav_case_roll(job)
+        bot._buy_scav_case_input(job, read)
         return sent or None
     finally:
-        for name, value in saved.items():
-            setattr(craft, name, value)
-        craft_bot.pyautogui, craft_bot.sell = saved_pyautogui, saved_sell
+        craft.buy_craft_input_item = saved
 
 
 if __name__ == '__main__':
