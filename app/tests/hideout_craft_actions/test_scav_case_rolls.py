@@ -9,12 +9,14 @@ The shape it pins (from 2026-10-13, replacing a per-roll look-scroll-look hunt a
 collect-only sweep behind a panel reopen):
 
   1. entering the station is the caller's business, not this pass's
-  2. wheel the list once, and never again in the visit
+  2. wheel the list once, and again only after a buy (the flea trip resets it to the top)
   3. read both rows and do the one thing each needs: collect a finished roll, START a ready one,
      buy the input of one whose START did nothing (once per roll per visit), then START it again
   4. repeat 3 until both are producing, or have nothing more this visit can do, then leave
 
-Every case also checks the pass scrolled exactly once and never reopened the panel.
+Every case also checks the pass scrolled once plus once per buy, and never reopened the panel.
+The fake panel hides every row until a scroll and again after each buy, so a pass that forgets
+the post-buy wheel fails the missing-bottle case (the roll goes "not on screen" and never starts).
 
 Run:  python tests/hideout_craft_actions/test_scav_case_rolls.py
 """
@@ -39,11 +41,16 @@ class FakePanel:
         self.rolls = {n: dict(dict(stash=False, stuck=False, absent=False, unbuyable=False), **r)
                       for n, r in rolls.items()}
         self.scrolls = self.reopens = self.buys = self.collects = self.start_clicks = 0
+        # Rows are only on screen once the list is wheeled down, and a flea trip resets it to
+        # the top, as the live list does (2026-10-15).
+        self.scrolled = False
 
     def row(self, craft_):
         return self.rolls[craft_.ingredients[0].name]
 
     def find(self, target, region=None):
+        if not self.scrolled:
+            return None
         for c in (MOON, INTEL):
             r = self.rolls.get(c.ingredients[0].name)
             if c.output_target == target and r and not r['absent']:
@@ -78,6 +85,7 @@ def run(panel, jobs=(MOON, INTEL)):
 
     def scroll(region=None):
         panel.scrolls += 1
+        panel.scrolled = True
     craft.scroll_scav_case_list = scroll
 
     def reopen(*a, **k):
@@ -86,6 +94,7 @@ def run(panel, jobs=(MOON, INTEL)):
 
     def buy(location, ceiling, region=None, craft=None, **k):  # noqa: A002 - mirrors the real kwarg
         panel.buys += 1
+        panel.scrolled = False  # back from the flea with the list at the top
         r = panel.row(craft)
         if r['unbuyable']:
             raise craft_module.Unbuyable('over the ceiling')
@@ -129,7 +138,8 @@ def check(name, condition, detail=''):
 
 
 def common(label, panel, bot):
-    check(f'{label}: scrolled exactly once', panel.scrolls == 1, f'scrolls={panel.scrolls}')
+    check(f'{label}: scrolled once, plus once after each buy', panel.scrolls == 1 + panel.buys,
+          f'scrolls={panel.scrolls} buys={panel.buys}')
     check(f'{label}: never reopened the panel', panel.reopens == 0, f'reopens={panel.reopens}')
     check(f'{label}: left the station once', bot.swaps == 1, f'swaps={bot.swaps}')
 
@@ -214,4 +224,4 @@ check('profit: a collect books 0 and is not a start on its own',
 print()
 if failures:
     sys.exit(f'{len(failures)} check(s) failed: {", ".join(failures)}')
-print('ok: one scroll, both rolls read and acted on until both run, then the pass leaves')
+print('ok: one scroll (plus one per buy), both rolls read and acted on until both run, then the pass leaves')

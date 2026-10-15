@@ -495,8 +495,10 @@ class HideoutCraft(GameRestarts):
           3. repeat 2 until every roll is producing, or has nothing more this visit can do, and
              leave
 
-        No scrolling after the first wheel, and no reopening the panel: the rows stay where they
-        are, so every round is plain reads. This replaced a per-roll hunt (look, scroll, look again,
+        No reopening the panel, and no scrolling after the first wheel except straight after a buy:
+        the trip to the flea and back resets the list to the top, which on 2026-10-15 left a
+        just-bought folder's row off screen ("not on screen, skipping it this visit"), so
+        _buy_scav_case_input wheels again on its way back. Otherwise every round is plain reads. This replaced a per-roll hunt (look, scroll, look again,
         for each roll in turn) and a second collect-only sweep behind a panel reopen. That sweep
         existed because a running or finished roll was believed to stop drawing its input icon; on
         2026-10-13 a finished moonshine roll still showed its bottle and a running intelligence roll
@@ -591,7 +593,10 @@ class HideoutCraft(GameRestarts):
         Called when a START did nothing, which for a scav case means the input is not in the stash.
         location is the input on the row, from read.inputs; quantity 1, since a roll takes one. The
         buy escapes the flea back to this panel (return_to_station) whether it bought or not, and
-        the next round's read picks the roll up from there.
+        the next round's read picks the roll up from there. That return lands the list scrolled to
+        the top, so it is wheeled to the bottom again here, bought or not (an unbuyable roll's
+        neighbour still needs its row on screen). Not after a LookupError: that one may not have
+        made it back to the panel, and the wheel clicks the panel's dead space first.
         """
         name, _, location = read.inputs[0]
         ceiling = job.max_prices[name]  # build() guarantees it
@@ -610,11 +615,14 @@ class HideoutCraft(GameRestarts):
                                        filters=name != 'moonshine')
         except craft.Unbuyable as e:
             log(f'{name} {e}, moving on', 1)
-            return False
+            bought = False
         except LookupError as e:
             log(f'{name}: {e}, moving on', 1)
             return False
-        return True
+        else:
+            bought = True
+        craft.scroll_scav_case_list(self.region)  # the flea trip reset the list to the top
+        return bought
 
     def _click_scav_start(self, name, read):
         """Click a roll's START and give the row time to flip. Whether it took is the next round's
