@@ -9,14 +9,15 @@ The shape it pins (from 2026-10-13, replacing a per-roll look-scroll-look hunt a
 collect-only sweep behind a panel reopen):
 
   1. entering the station is the caller's business, not this pass's
-  2. wheel the list once, and again only after a buy (the flea trip resets it to the top)
+  2. wheel the list once, and again only after a buy or a collect (both move the list)
   3. read both rows and do the one thing each needs: collect a finished roll, START a ready one,
      buy the input of one whose START did nothing (once per roll per visit), then START it again
   4. repeat 3 until both are producing, or have nothing more this visit can do, then leave
 
-Every case also checks the pass scrolled once plus once per buy, and never reopened the panel.
-The fake panel hides every row until a scroll and again after each buy, so a pass that forgets
-the post-buy wheel fails the missing-bottle case (the roll goes "not on screen" and never starts).
+Every case also checks the pass scrolled once plus once per buy and per collect, and never
+reopened the panel. The fake panel hides every row until a scroll and again after each buy or
+collect, so a pass that forgets either re-wheel fails (the roll goes "not on screen" and never
+starts).
 
 Run:  python tests/hideout_craft_actions/test_scav_case_rolls.py
 """
@@ -74,6 +75,7 @@ class FakePanel:
 
     def collect(self, name):
         self.collects += 1
+        self.scrolled = False  # the loot reveal shifts the list off the bottom
         self.rolls[name]['state'] = 'ready'
 
 
@@ -138,8 +140,9 @@ def check(name, condition, detail=''):
 
 
 def common(label, panel, bot):
-    check(f'{label}: scrolled once, plus once after each buy', panel.scrolls == 1 + panel.buys,
-          f'scrolls={panel.scrolls} buys={panel.buys}')
+    check(f'{label}: scrolled once, plus once after each buy and collect',
+          panel.scrolls == 1 + panel.buys + panel.collects,
+          f'scrolls={panel.scrolls} buys={panel.buys} collects={panel.collects}')
     check(f'{label}: never reopened the panel', panel.reopens == 0, f'reopens={panel.reopens}')
     check(f'{label}: left the station once', bot.swaps == 1, f'swaps={bot.swaps}')
 
@@ -224,4 +227,4 @@ check('profit: a collect books 0 and is not a start on its own',
 print()
 if failures:
     sys.exit(f'{len(failures)} check(s) failed: {", ".join(failures)}')
-print('ok: one scroll (plus one per buy), both rolls read and acted on until both run, then the pass leaves')
+print('ok: one scroll (plus one per buy and collect), both rolls read and acted on until both run, then the pass leaves')

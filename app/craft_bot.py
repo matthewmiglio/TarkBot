@@ -57,9 +57,11 @@ COLLECT_SETTLE = 3.0  # seconds after collecting for the row to flip back to rea
                       # anything reads that row, and the 12:54 Blind that prompted the change came
                       # off the failed-handover path (START_SETTLE, already 3.0s) rather than off a
                       # collect, so this hardens the lag but is not proven to be that fix.
-SCAV_CASE_MAX_ROUNDS = 6  # read-and-act rounds over the scav case rolls in one visit. The longest
-                          # honest path is five (collect, START, buy, START, read producing), so
-                          # reaching six means a roll that will not settle, and the visit ends.
+SCAV_CASE_MAX_ROUNDS = 8  # read-and-act rounds over the scav case rolls in one visit. The longest
+                          # honest path is five (collect, START, buy, START, read producing). Was
+                          # six; on 2026-10-15 a collect that hid the other row cost two rounds and
+                          # the visit ran out one read short of counting a folder's start, so two
+                          # rounds of slack. Reaching eight means a roll that will not settle.
 PARK_OFFSET = 100  # 1080p px to shove the cursor right after a click, so it stops covering the row
 
 # The GUI's per-ingredient SOURCE picker. 'Players' or 'Traders' as shown; build() lowercases them
@@ -495,10 +497,11 @@ class HideoutCraft(GameRestarts):
           3. repeat 2 until every roll is producing, or has nothing more this visit can do, and
              leave
 
-        No reopening the panel, and no scrolling after the first wheel except straight after a buy:
-        the trip to the flea and back resets the list to the top, which on 2026-10-15 left a
-        just-bought folder's row off screen ("not on screen, skipping it this visit"), so
-        _buy_scav_case_input wheels again on its way back. Otherwise every round is plain reads. This replaced a per-roll hunt (look, scroll, look again,
+        No reopening the panel, and no scrolling after the first wheel except straight after a buy
+        or a collect: the trip to the flea and back resets the list to the top, and a collect's
+        loot reveal shifts it, each of which on 2026-10-15 left a row off screen ("not on screen,
+        skipping it this visit"). So _buy_scav_case_input and _collect_scav_case_roll each wheel
+        again on their way back. Otherwise every round is plain reads. This replaced a per-roll hunt (look, scroll, look again,
         for each roll in turn) and a second collect-only sweep behind a panel reopen. That sweep
         existed because a running or finished roll was believed to stop drawing its input icon; on
         2026-10-13 a finished moonshine roll still showed its bottle and a running intelligence roll
@@ -585,6 +588,9 @@ class HideoutCraft(GameRestarts):
         # so stop rather than keep clicking collects that cannot arrive.
         craft.check_stash_full(self.region)
         _book_profit(self.stats, job.craft.name)  # 0 until the scav case rolls have a figure
+        # The reveal closing shifts the list, which on 2026-10-15 pushed the intelligence row off
+        # screen for two rounds after a moonshine collect. Wheel back to the bottom, as after a buy.
+        craft.scroll_scav_case_list(self.region)
         return True
 
     def _buy_scav_case_input(self, job, read):
