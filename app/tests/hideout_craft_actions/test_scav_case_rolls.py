@@ -45,6 +45,7 @@ class FakePanel:
         # Rows are only on screen once the list is wheeled down, and a flea trip resets it to
         # the top, as the live list does (2026-10-15).
         self.scrolled = False
+        self.events = []  # (action, roll) in the order the pass did them
 
     def row(self, craft_):
         return self.rolls[craft_.ingredients[0].name]
@@ -70,11 +71,14 @@ class FakePanel:
     def start(self, name):
         self.start_clicks += 1
         r = self.rolls[name]
-        if r['stash'] and not r['stuck']:
+        took = r['stash'] and not r['stuck']
+        self.events.append(('start' if took else 'start (no input)', name))
+        if took:
             r['state'], r['stash'] = 'producing', False
 
     def collect(self, name):
         self.collects += 1
+        self.events.append(('collect', name))
         self.scrolled = False  # the loot reveal shifts the list off the bottom
         self.rolls[name]['state'] = 'ready'
 
@@ -98,6 +102,7 @@ def run(panel, jobs=(MOON, INTEL)):
         panel.buys += 1
         panel.scrolled = False  # back from the flea with the list at the top
         r = panel.row(craft)
+        panel.events.append(('buy', craft.ingredients[0].name))
         if r['unbuyable']:
             raise craft_module.Unbuyable('over the ceiling')
         r['stash'] = True
@@ -223,6 +228,20 @@ bot.tend_scav_case(bot.jobs[0])
 check('profit: a collect books 0 and is not a start on its own',
       bot.stats['profit:scav_case'] == 0 and bot.stats['total_started'] == 1,
       f'profit={bot.stats["profit:scav_case"]} started={bot.stats["total_started"]}')
+
+# 9. The full visit: both finished, neither input in the stash. Collect both, buy both, start
+#    both, in one visit. Each START before its buy is the probe that finds the input missing.
+panel = FakePanel(moonshine=dict(state='done'), intelligence=dict(state='done'))
+bot = run(panel)
+bot.tend_scav_case(bot.jobs[0])
+common('full visit', panel, bot)
+print('  full visit order: ' + ', '.join(f'{a} {n}' for a, n in panel.events))
+order = [a for a, _ in panel.events]
+check('full visit: both collected, then both bought, then both started',
+      order == ['collect', 'collect', 'start (no input)', 'start (no input)', 'buy', 'buy',
+                'start', 'start'], f'order={order}')
+check('full visit: both counted as started', bot.stats['started:scav_case'] == 1
+      and bot.stats['started:scav_case_intel'] == 1, f'started={bot.stats["total_started"]}')
 
 print()
 if failures:
