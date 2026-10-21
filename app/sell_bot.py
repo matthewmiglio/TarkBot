@@ -1,3 +1,4 @@
+import collections
 import contextlib
 import random
 import sys
@@ -7,6 +8,7 @@ from collections import namedtuple
 
 import pyautogui
 
+import frames
 import screen
 import window
 from game_client import tarkov
@@ -38,12 +40,19 @@ def _human_jitter():
 
     def jittered_sleep(seconds=0.0):
         if sys._getframe(1).f_globals.get('__name__', '') in sell_modules:
-            seconds += random.uniform(0, JITTER_MAX)
+            pad = random.uniform(0, JITTER_MAX)
+            _times['fixed sleeps'] += seconds
+            _times['jitter padding'] += pad
+            seconds += pad
+        else:
+            _times['pyautogui pauses+drags'] += seconds
         real_sleep(seconds)
 
     def wait_then(fn):
         def clicked(*args, **kwargs):
-            real_sleep(random.uniform(0, JITTER_MAX))
+            pad = random.uniform(0, JITTER_MAX)
+            _times['jitter padding'] += pad
+            real_sleep(pad)
             return fn(*args, **kwargs)
         return clicked
 
@@ -56,6 +65,113 @@ def _human_jitter():
         time.sleep = real_sleep
         for name, fn in saved_clicks.items():
             setattr(pyautogui, name, fn)
+
+
+# Flea-sell timing log. Every top-level log line in this module is a step of the pass; _timing
+# closes the step before it with one '[timing]' line saying how long it took and where that went,
+# and each pass ends with its steps ranked by cost. The categories:
+#   matching                template matching (find.find / find_all), screen grab included
+#   frame grabs             frames.py's debug screenshots around inputs
+#   fixed sleeps            time.sleep called by sell.py / sell_bot.py, before jitter
+#   jitter padding          what _human_jitter added to those sleeps and before every click/drag
+#   pyautogui pauses+drags  pyautogui's own PAUSE and drag tweens
+#   stop-aware waits        FleaSeller._pause(seconds): the price poll, the refresh waits
+#   other                   whatever is left: clicks, typing, Python, OCR
+# ponytail: on by default and terminal-visible, since finding the time sink is the point. Set it
+# False to silence it; nothing else reads these tallies.
+TIMING_LOG = True
+# Seconds per category since the last step line. Written by _human_jitter, _pause and _timing's
+# wrappers. Matching inside sell._read_dropdowns runs on threads, so 'matching' can sum to more
+# than the wall time there and 'other' goes negative.
+# ponytail: no lock; a lost += between two matching threads is a few ms off a timing log.
+_times = collections.Counter()
+
+
+@contextlib.contextmanager
+def _timing():
+    """Flea-sell only: log each step's wall time and category split, and each pass's ranking.
+
+    Installed for one run beside _human_jitter and taken back out in the finally, so the sniper
+    and craft mode, which share find.py and frames.py, never inherit the wrappers.
+    """
+    global log  # every step line in this module goes through the module's own log name
+    if not TIMING_LOG:
+        yield
+        return
+    real_log, real_find, real_find_all, real_capture = log, find.find, find.find_all, frames.capture
+    counts = collections.Counter()
+    step = {'name': None, 'started': 0.0}
+    pass_steps = []  # (name, seconds, {category: seconds}) for the pass in progress
+    run_totals = collections.Counter()
+
+    def tallied(category, fn):
+        def wrapped(*args, **kwargs):
+            started = time.perf_counter()
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                _times[category] += time.perf_counter() - started
+                counts[category] += 1
+        return wrapped
+
+    def close_step():
+        if step['name'] is None:
+            _times.clear()
+            counts.clear()
+            return
+        wall = time.perf_counter() - step['started']
+        spent = dict(_times)
+        parts = ', '.join(f'{k} {v:.2f}s' + (f' x{counts[k]}' if counts[k] else '')
+                          for k, v in sorted(spent.items(), key=lambda kv: -kv[1]) if v >= 0.005)
+        other = wall - sum(spent.values())
+        real_log(f'[timing] {wall:.2f}s on "{step["name"]}": {parts or "nothing tallied"}, '
+                 f'other {other:.2f}s', 1)
+        pass_steps.append((step['name'], wall, spent))
+        _times.clear()
+        counts.clear()
+        step['name'] = None
+
+    def pass_summary():
+        if not pass_steps:
+            return
+        total = sum(wall for _, wall, _ in pass_steps)
+        by_category = collections.Counter()
+        for _, _, spent in pass_steps:
+            by_category.update(spent)
+        run_totals.update(by_category)
+        real_log(f'[timing] pass total {total:.1f}s, steps by cost:')
+        for name, wall, _ in sorted(pass_steps, key=lambda s: -s[1]):
+            real_log(f'[timing] {wall:6.2f}s {wall / total:4.0%}  {name}', 1)
+        real_log('[timing] by category: ' + ', '.join(
+            f'{k} {v:.1f}s ({v / total:.0%})' for k, v in by_category.most_common())
+            + f', other {total - sum(by_category.values()):.1f}s', 1)
+        pass_steps.clear()
+
+    def timed_log(message, indent=0, quiet=False):
+        if indent == 0:
+            close_step()
+            if message.startswith('====='):
+                pass_summary()  # the banner closes a pass rather than opening a step of its own
+            else:
+                step['name'], step['started'] = message[:70], time.perf_counter()
+        real_log(message, indent, quiet)
+
+    find.find = tallied('matching', real_find)
+    find.find_all = tallied('matching', real_find_all)
+    frames.capture = tallied('frame grabs', real_capture)
+    log = timed_log
+    _times.clear()
+    try:
+        yield
+    finally:
+        log = real_log
+        find.find, find.find_all, frames.capture = real_find, real_find_all, real_capture
+        close_step()
+        pass_summary()
+        if run_totals:
+            real_log('[timing] whole run by category: ' + ', '.join(
+                f'{k} {v:.1f}s' for k, v in run_totals.most_common()))
+
 
 SCAV_CHANCE = 0.5  # how often to sell out of a scav case instead of the stash, when enabled
 # Where the bot takes items from. key -> (label, target_scav_cases, scav_chance). The GUI
@@ -290,7 +406,11 @@ class FleaSeller(GameRestarts):
         interrupt a drag or a right-click already in flight, so worst case is a second or
         two, not a whole listing.
         """
-        if self._stop.wait(seconds):  # wait(0) is just a check, no sleep
+        started = time.perf_counter()
+        stopped = self._stop.wait(seconds)  # wait(0) is just a check, no sleep
+        if seconds:
+            _times['stop-aware waits'] += time.perf_counter() - started
+        if stopped:
             # Stopped unwinds past every frame between here and start(), where it is caught and
             # the traceback thrown away, so without this the log just stops mid pass. The line
             # above this one is the step it was interrupted at.
@@ -748,7 +868,7 @@ class FleaSeller(GameRestarts):
         self._stop.clear()
         passes = 0
         try:
-            with _human_jitter():
+            with _human_jitter(), _timing():
                 if self.hwnd is None:  # built with the game shut, and auto restart says open it
                     self._boot_game()
                 self._recover()
