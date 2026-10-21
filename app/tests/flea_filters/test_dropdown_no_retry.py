@@ -76,27 +76,32 @@ def run_pick(option_point):
 def run_pass(rounds):
     """apply_flea_filters with the screen faked. (returned, clicks, keys, rounds consumed).
 
-    `rounds` is one bool per read of the window: True means every dropdown reads as settled,
-    False means both still read 'any'. filter_plan and confirm_filters each consume one, which
-    is what lets a round be scripted as "not set, then set".
+    `rounds` is one bool per look at the window: True means every dropdown reads as settled,
+    False means both still read 'any'. filter_plan and confirm_filters each take one look (one
+    screen grab, every crop matched against it at once), which is what lets a round be scripted
+    as "not set, then set". Counted per call to _read_dropdowns rather than per find, because the
+    matches inside a look run on threads in no fixed order.
     """
     clicks, keys, state = [], [], {'reads': list(rounds), 'used': 0}
+    real_read = sell._read_dropdowns
 
-    def fake_find(name, region=None):
+    def look(dropdowns, region=None):
+        state['used'] += 1
+        return real_read(dropdowns, region)
+
+    def fake_find(name, region=None, haystack=None):
         if name in (sell.FILTERS_WINDOW_TARGET, sell.CONDITION_LABEL_TARGET,
                     sell.EXPIRING_TEXT_TARGET, sell.FILTER_BUTTON_TARGET):
             return BOX
-        settled_targets = {d.settled_target for d in sell.filter_dropdowns('players')}
-        any_targets = {d.any_target for d in sell.filter_dropdowns('players')}
-        if name in settled_targets:
-            # A read pair is (settled, any); one entry is consumed per dropdown per look.
-            state['used'] += 1
-            return BOX if state['reads'][min(state['used'] - 1, len(state['reads']) - 1)] else None
-        if name in any_targets:
-            return None if state['reads'][min(state['used'] - 1, len(state['reads']) - 1)] else BOX
+        settled = state['reads'][min(state['used'] - 1, len(state['reads']) - 1)]
+        if name in {d.settled_target for d in sell.filter_dropdowns('players')}:
+            return BOX if settled else None
+        if name in {d.any_target for d in sell.filter_dropdowns('players')}:
+            return None if settled else BOX
         return None
 
     originals = patched(fake_find, lambda name, region=None: OK_POINT)
+    sell._read_dropdowns = look
     pyautogui.click = lambda x, y=None, **kw: clicks.append((x, y))
     pyautogui.press = lambda key, **kw: keys.append(key)
     sell.time.sleep = lambda *a: None
@@ -104,6 +109,7 @@ def run_pass(rounds):
     try:
         return sell.apply_flea_filters(set_condition=False), clicks, keys, state['used']
     finally:
+        sell._read_dropdowns = real_read
         restore(originals)
 
 
@@ -140,7 +146,7 @@ if __name__ == '__main__':
     # window is read more times than there are dropdowns is the whole point: the check is a
     # phase of its own at the end of the round, not a read wedged in after each click.
     sell.open_filters = lambda region=None: True
-    ok, clicks, keys, reads = run_pass([False, False, True, True, True, True, True, True])
+    ok, clicks, keys, reads = run_pass([False, False, True])
     sell.open_filters = real_open_filters
     assert ok is True, 'a pass whose filters settled on the second round reported failure'
     assert any(near(click, OK_POINT) for click in clicks), f'clicked {clicks}, never reached OK'

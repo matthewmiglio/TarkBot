@@ -6,7 +6,7 @@ Geometry self-check:  python -m interact.sell
 import random
 import time
 from collections import namedtuple
-from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pyautogui
@@ -114,6 +114,16 @@ FILTERING_OFFER_CORNER = 'bottom right'
 FILTERING_SCAV_CORNER = 'top right'
 DRAG_SECONDS = 0.4  # fast, but not a teleport; an instant drag gets dropped by the UI
 DRAG_REPEATS = 3  # dragged windows trail the cursor, so one drag stops short of the corner
+# Fraction of the screen width right of its title's centre that the offer and scav case windows
+# are grabbed at on a drag to a left corner, so one pass overshoots into the edge instead of
+# trailing short of it. 1024px at 2560 wide, which still lands on both title bars: the offer
+# window is ~1590px wide and the scav case ~1177px. Not the filter window, at ~750px a grab that
+# far right would land on the flea board behind it.
+LEFT_REACH = 0.4
+# ponytail: half pyautogui's 0.1s PAUSE around the offer window's drags, on 2026-10-21. The drag
+# itself stays DRAG_SECONDS: halving that too was tried the same day and made the window trail
+# further short. Back to None if test_orientate_offer_tour.py starts taking two passes.
+OFFER_DRAG_PAUSE = 0.05
 # Early-quit for the drag loop. A window that is already jammed in its corner is dragged
 # DRAG_REPEATS times over for nothing, and the filter step re-parks the offer and scav windows
 # that were already parked. is_window_orientated lets a pass stop the moment the window is where
@@ -138,8 +148,16 @@ ORIENTATED_OFFSETS = {
     ('window_titles/window_title', 'top left'): (3, 3),
     ('window_titles/offer_creation_window_title', 'bottom left'): (6, -966),
     ('window_titles/offer_creation_window_title', 'bottom right'): (-1193, -966),
+    # Measured live on 2026-10-21 at 2560x1440, the window parked by hand in each corner and its
+    # title found where it sat: top-left at (10, 5) top left and (970, 5) top right.
+    ('window_titles/offer_creation_window_title', 'top left'): (8, 4),
+    ('window_titles/offer_creation_window_title', 'top right'): (-1192, 4),
     ('window_titles/scav_case_window_title', 'top left'): (7, 4),
     ('window_titles/scav_case_window_title', 'top right'): (-884, 4),
+    # Measured live on 2026-10-21 at 2560x1440, the window parked by hand: title top-left at
+    # (11, 222) bottom left and (1383, 222) bottom right.
+    ('window_titles/scav_case_window_title', 'bottom left'): (8, -913),
+    ('window_titles/scav_case_window_title', 'bottom right'): (-882, -913),
 }
 ORIENTATED_TOL = 12  # px at 1080p, scaled by find.scale(); how close the top-left must sit to count as arrived
 # These two are slow on purpose and were tried faster on 2026-08-22: 0.2s drags, pyautogui's
@@ -239,6 +257,10 @@ FILTER_PACE = 0.1  # what the three waits below are, as a fraction of the genera
 FILTER_MENU_DELAY = 0.03          # MENU_DELAY * FILTER_PACE
 FILTER_DROPDOWN_DELAY = 0.03      # DROPDOWN_DELAY * FILTER_PACE
 FILTER_OFFERS_FROM_DELAY = 0.033  # OFFERS_FROM_DELAY * FILTER_PACE
+# ponytail: half DRAG_SECONDS, for the filter window only, on 2026-10-21. Its two drags were the
+# biggest wait in a filter pass (0.8s of 3.6s). The offer and scav windows keep the full 0.4s;
+# put this back to DRAG_SECONDS if the filter window starts getting dropped mid drag.
+FILTER_DRAG_SECONDS = 0.2
 # Rounds of read-all / act-all / check-all before the pass gives up. More than one because the
 # usual failure is a click landing while a list is still unrolling, which the next round just
 # repeats past. Was DROPDOWN_ATTEMPTS, when the retry lived inside one dropdown.
@@ -1399,8 +1421,18 @@ def is_window_orientated(target, corner, box):
 
 
 def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECONDS,
-                    repeats=DRAG_REPEATS):
+                    repeats=DRAG_REPEATS, left_reach=0.0, pause=None):
     """Grab the centre of target's bbox and drag it into a corner. Last point grabbed, or None.
+
+    pause: seconds to wait after the move to the grab point and after the drag, in place of
+    pyautogui's global PAUSE (0.1s). None keeps the global, which every other window still uses.
+
+    left_reach: on a drag to a left corner, grab this fraction of the screen width to the right
+    of the title's centre instead of on it. The window trails the cursor, so a drag that ends with
+    the title's centre on the corner leaves it short (772px of the 960 on the offer window, timed
+    by tests/flea_sell/test_orientate_offer_tour.py) and costs a second pass. Grabbing further
+    right asks for more travel than there is, and the screen edge stops the window where it
+    belongs. Only for a window wide enough that the grab still lands on its own title bar.
 
     Dragged repeats times over: the window trails the cursor, so one pass stops short and each
     following pass re-finds it wherever it settled. Stops early if it goes missing, which is
@@ -1447,12 +1479,19 @@ def _drag_to_corner(target, corner='top left', region=None, duration=DRAG_SECOND
                 log(f'pass {attempt}/{repeats}: {target} already at the {corner}, no drag needed', 2)
                 break
             point = pyautogui.center(box)
+            if left_reach and 'left' in corner:
+                point = pyautogui.Point(int(point[0] + screen.rect()[2] * left_reach), point[1])
             log(f'pass {attempt}/{repeats}: {target} pre ({int(box.left)}, {int(box.top)}) '
                 f'{int(box.width)}x{int(box.height)}, grabbing its centre {tuple(point)}', 2)
             log(f'cursor {tuple(point)} -> {destination} over {duration:.2f}s, left button down', 2)
             grabbed = point
-            pyautogui.moveTo(*point)
-            pyautogui.dragTo(*destination, duration=duration, button='left')
+            # pause None keeps pyautogui's own PAUSE after each call; a number replaces it.
+            pyautogui.moveTo(*point, _pause=pause is None)
+            if pause:
+                time.sleep(pause)
+            pyautogui.dragTo(*destination, duration=duration, button='left', _pause=pause is None)
+            if pause:
+                time.sleep(pause)
             box = find.find(target, region)  # the post of this pass, and the pre of the next
             if not box:
                 log(f'{target} post: gone from the screen after the drag', 2)
@@ -1493,7 +1532,8 @@ def orientate_offer_creation(region=None, corner=OFFER_CORNER, duration=DRAG_SEC
     one is out of the way depends on the layout. region stays the first argument because
     sell_bot calls this positionally.
     """
-    point = _drag_to_corner(OFFER_TARGET, corner, region, duration, repeats)
+    point = _drag_to_corner(OFFER_TARGET, corner, region, duration, repeats, LEFT_REACH,
+                            OFFER_DRAG_PAUSE)
     log(f'dragged the offer window to the {corner} by {point}' if point
         else 'offer creation window not on screen to drag', 1)
     return point
@@ -1519,7 +1559,25 @@ def filter_dropdowns(source):
                            settled_target, FILTER_OFFERS_FROM_DELAY))
 
 
-def _read_dropdown(dropdown, region=None):
+def _read_dropdowns(dropdowns, region=None):
+    """[(state, the 'any' box)] for each closed dropdown, in order. See _dropdown_state.
+
+    One screenshot for the lot, and every crop folder matched against it at once on its own
+    thread (cv2's matcher lets go of the GIL). It was two grabs and two serial matches per
+    dropdown, ~150ms each, and an 'any' folder that misses tries all of its 6-8 crops.
+    """
+    if not dropdowns:
+        return []
+    image = screen.grab(region)
+    offset = tuple((region or screen.rect())[:2])
+    targets = [t for d in dropdowns for t in (d.settled_target, d.any_target)]
+    with ThreadPoolExecutor(len(targets)) as pool:
+        boxes = pool.map(lambda t: find._shift(find.find(t, haystack=image), offset), targets)
+        found = dict(zip(targets, boxes))
+    return [_dropdown_state(d, found[d.settled_target], found[d.any_target]) for d in dropdowns]
+
+
+def _dropdown_state(dropdown, settled, any_box):
     """(state, the 'any' box) for one closed dropdown. state is 'set', 'unset' or None.
 
     None means the window did not answer, and it is never treated as set. A dropdown still
@@ -1530,8 +1588,6 @@ def _read_dropdown(dropdown, region=None):
     Both crops matching at once is also None rather than a guess. It means one of the two
     reference sets is loose enough to match the other state, and nothing here can say which.
     """
-    settled = find.find(dropdown.settled_target, region)
-    any_box = find.find(dropdown.any_target, region)
     if settled and any_box:
         log(f'ambiguous read on {dropdown.name}: {dropdown.any_target} and '
             f'{dropdown.settled_target} both matched', 1)
@@ -1558,8 +1614,8 @@ def filter_plan(region=None, source='players', set_condition=True):
     means.
     """
     todo = []
-    for dropdown in filter_dropdowns(source):
-        state, any_box = _read_dropdown(dropdown, region)
+    dropdowns = filter_dropdowns(source)
+    for dropdown, (state, any_box) in zip(dropdowns, _read_dropdowns(dropdowns, region)):
         if state is None:
             return None
         if state == 'unset':
@@ -1643,7 +1699,8 @@ def confirm_filters(dropdowns, region=None):
     The condition box is not in here and cannot be. No crop of it can tell 100 from 0, see
     _set_condition_from.
     """
-    unset = [d.name for d in dropdowns if _read_dropdown(d, region)[0] != 'set']
+    unset = [d.name for d, (state, _) in zip(dropdowns, _read_dropdowns(dropdowns, region))
+             if state != 'set']
     log('confirm: ' + ('every set dropdown held' if not unset else f'{unset} did not take'), 1)
     return (not unset, unset)
 
@@ -1703,7 +1760,7 @@ def _set_condition_from(region=None):
     return True
 
 
-def orientate_filters_window(region=None, corner=FILTERS_CORNER, duration=DRAG_SECONDS,
+def orientate_filters_window(region=None, corner=FILTERS_CORNER, duration=FILTER_DRAG_SECONDS,
                              repeats=DRAG_REPEATS):
     """Drag the flea's filter window into a corner of the monitor, by its title bar.
 
@@ -1894,7 +1951,7 @@ def orientate_scav_box(region=None, corner=SCAV_CORNER, duration=DRAG_SECONDS,
     corner: any name _corner_point knows, the top left by default. It moves to the top right
     for the filter step and back afterwards, the same way the offer window does.
     """
-    point = _drag_to_corner(SCAV_WINDOW_TARGET, corner, region, duration, repeats)
+    point = _drag_to_corner(SCAV_WINDOW_TARGET, corner, region, duration, repeats, LEFT_REACH)
     log(f'dragged the scav case window to the {corner} by {point}' if point
         else 'scav case window not on screen to drag', 1)
     return point

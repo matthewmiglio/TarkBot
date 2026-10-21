@@ -56,6 +56,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_sell_pixels.py` — sell.infer_inventory_region/find_sell_pixels — paint every stash pixel that counts as an item — game
 - `test_select_item.py` — sell.select_item_from_inventory — pick a stash item and right-click to filter by it — game
 - `test_orientate_offer.py` — sell.orientate_offer_creation — drag the offer window to a corner, measure travel — game
+- `test_orientate_offer_tour.py` — sell.orientate_offer_creation (timing) — drag the offer window bottom left → bottom right → top left → top right → bottom left, frames on, and time each leg (find/sleep/frames split) — game
 - `test_inventory_region.py` — sell.infer_inventory_region — draw the inferred stash region and its framing buttons — game
 - `test_inventory_region_stress.py` — sell.infer_inventory_region — drag the offer window randomly until a framing button drops — game
 - `add_offer_color.py` — sell add-offer brightness threshold — measure the button colour to pick the lit/greyed threshold — game
