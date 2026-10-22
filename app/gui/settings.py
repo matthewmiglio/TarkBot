@@ -9,6 +9,9 @@ from pathlib import Path
 APP_DIR = Path(os.environ.get('APPDATA') or Path.home()) / 'tarkbot'
 SETTINGS_PATH = APP_DIR / 'settings.json'
 DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
+            # Ticked sell_bot.SOURCES keys. Empty means not chosen yet, and sell_bot.sources_from
+            # falls back to the older 'mode' above, so an existing install keeps its pick.
+            'sources': [],
             'tab': 'flea',  # which mode tab the GUI opens on
             # Which screen to watch and click on, as the device name Windows gives it
             # (\\.\DISPLAY1). 'auto' until the user picks, which resolves to the monitor Tarkov

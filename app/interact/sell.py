@@ -52,6 +52,12 @@ OFFER_TARGET = 'window_titles/offer_creation_window_title'  # that window's titl
 # spotting one left open. Named to match scav_case_window_title and flea_filters/window_title:
 # the three things recovery escapes are all matched on their title bars, for the same reason.
 SCAV_WINDOW_TARGET = 'window_titles/scav_case_window_title'  # reference images for the opened scav case window
+THICC_WINDOW_TARGET = 'window_titles/thicc_case_window_title'  # the same for an opened thicc case
+# The containers the bot sells out of besides the stash. Both open, read and sell the same way;
+# only the crops differ. kind -> (the item in the stash, its opened window's title, its name in
+# the log). Every scav case function takes kind, defaulting to scav.
+CASES = {'scav': ('flea/scav_case', SCAV_WINDOW_TARGET, 'scav case'),
+         'thicc': ('flea/thicc_case', THICC_WINDOW_TARGET, 'thicc case')}
 CLOSE_BUTTON_TARGET = 'close_window_button'  # several are on screen at once, we want the leftmost
 NO_SELECTION_TARGET = 'flea/no_items_selected'  # the placeholder shown while nothing is picked
 SELECTION_TARGET = 'flea/item_is_selected'  # the panel shown once something is, the other half of the read
@@ -158,6 +164,13 @@ ORIENTATED_OFFSETS = {
     # (11, 222) bottom left and (1383, 222) bottom right.
     ('window_titles/scav_case_window_title', 'bottom left'): (8, -913),
     ('window_titles/scav_case_window_title', 'bottom right'): (-882, -913),
+    # Measured live on 2026-10-21 at 2560x1440, parked by hand: title top-left at (2, 1) top left
+    # and (1374, 1) top right, (2, 222) bottom left, (1374, 222) bottom right. Nearer the corner
+    # than the scav case's because this crop starts at the window's own edge.
+    ('window_titles/thicc_case_window_title', 'top left'): (2, 1),
+    ('window_titles/thicc_case_window_title', 'top right'): (-890, 1),
+    ('window_titles/thicc_case_window_title', 'bottom left'): (2, -914),
+    ('window_titles/thicc_case_window_title', 'bottom right'): (-890, -914),
 }
 ORIENTATED_TOL = 12  # px at 1080p, scaled by find.scale(); how close the top-left must sit to count as arrived
 # These two are slow on purpose and were tried faster on 2026-08-22: 0.2s drags, pyautogui's
@@ -596,6 +609,7 @@ def close_leftover_windows(region=None, delay=RECOVER_DELAY):
     # top, and taking the top one first means each escape lands on the window it was aimed at.
     presses = sum((_escape_window(OFFER_TARGET, 'the offer creation window', region, delay),
                    _escape_window(SCAV_WINDOW_TARGET, 'a scav case window', region, delay),
+                   _escape_window(THICC_WINDOW_TARGET, 'a thicc case window', region, delay),
                    _escape_window(FILTERS_WINDOW_TARGET, 'the flea filter window', region, delay)))
     if not presses:
         log('nothing left open from a previous session', 2)
@@ -1094,21 +1108,23 @@ def _scav_region_from(title, close_btn, screen_height):
     return left, top, width, height
 
 
-def infer_scav_case_region(region=None):
+def infer_scav_case_region(region=None, kind='scav'):
     """The opened scav case grid as (left, top, width, height) in screen coords.
 
     Runs from the title bar's left edge to the right edge of the *leftmost* close button;
     there is a second close button further right belonging to another window, and taking it
     would swallow half the screen. Raises LookupError if either piece is missing.
+    kind: a CASES key, which window's title to measure from.
     """
-    title = find.find(SCAV_WINDOW_TARGET, region)
+    _, window, name = CASES[kind]
+    title = find.find(window, region)
     closes = find.find_all(CLOSE_BUTTON_TARGET, region)
-    missing = ([SCAV_WINDOW_TARGET] if not title else []) + ([CLOSE_BUTTON_TARGET] if not closes else [])
+    missing = ([window] if not title else []) + ([CLOSE_BUTTON_TARGET] if not closes else [])
     if missing:
-        raise LookupError(f'cannot infer scav case region, not on screen: {", ".join(missing)}')
+        raise LookupError(f'cannot infer {name} region, not on screen: {", ".join(missing)}')
     screen_height = region[3] if region else screen.size()[1]
     inferred = _scav_region_from(title, min(closes, key=lambda b: b.left), screen_height)
-    log(f'scav case grid inferred at {inferred} from the title bar and '
+    log(f'{name} grid inferred at {inferred} from the title bar and '
         f'the leftmost of {len(closes)} close buttons', 1)
     return inferred
 
@@ -1121,8 +1137,12 @@ def _expand(box, margin=SCAV_MARGIN):
 
 
 def scav_case_regions(region=None, margin=SCAV_MARGIN):
-    """(left, top, right, bottom) of every scav case on screen, each grown by margin. [] if none."""
-    return [_expand(box, margin) for box in find.find_all('flea/scav_case', region)]
+    """(left, top, right, bottom) of every scav and thicc case on screen, each grown by margin.
+
+    [] if none. Both kinds, so the stash path never clicks a case itself.
+    """
+    return [_expand(box, margin) for item, _, _ in CASES.values()
+            for box in find.find_all(item, region)]
 
 
 def _pack(rgb):
@@ -1226,14 +1246,14 @@ def find_sell_pixels(region=None):
     return points
 
 
-def find_scav_case_pixels(region=None):
+def find_scav_case_pixels(region=None, kind='scav'):
     """Screen (x, y) of every pixel in the open scav case that isn't an empty slot.
 
     No scav exclusion here: inside the case, those items are the point.
     """
-    case = infer_scav_case_region(region)
+    case = infer_scav_case_region(region, kind)
     points = _pixels_in(case)
-    log(f'{len(points)} live pixels inside the scav case at {case}', 2)
+    log(f'{len(points)} live pixels inside the {CASES[kind][2]} at {case}', 2)
     return points
 
 
@@ -1957,8 +1977,19 @@ def orientate_scav_box(region=None, corner=SCAV_CORNER, duration=DRAG_SECONDS,
     return point
 
 
-def open_scav_case(region=None):
+def orientate_thicc_case(region=None, corner=SCAV_CORNER, duration=DRAG_SECONDS,
+                         repeats=DRAG_REPEATS):
+    """orientate_scav_box for an opened thicc case window. Same corner, same drag."""
+    point = _drag_to_corner(THICC_WINDOW_TARGET, corner, region, duration, repeats, LEFT_REACH)
+    log(f'dragged the thicc case window to the {corner} by {point}' if point
+        else 'thicc case window not on screen to drag', 1)
+    return point
+
+
+def open_scav_case(region=None, kind='scav'):
     """Right-click a random scav case and choose open from the menu that appears.
+
+    kind: a CASES key. A thicc case opens through the same 'open' menu entry.
 
     Returns the clicked (x, y) of the open entry, or None if there was no case on screen
     or the menu never showed up.
@@ -1968,12 +1999,13 @@ def open_scav_case(region=None):
     infer_scav_case_region then had nothing to measure from, and the pass fell back to the
     stash reporting a case that was on screen the whole time, just late.
     """
-    cases = find.find_all('flea/scav_case', region)
-    log(f'scav cases on screen: {len(cases)}', 1)
+    item, window, name = CASES[kind]
+    cases = find.find_all(item, region)
+    log(f'{name}s on screen: {len(cases)}', 1)
     if not cases:
         return None
     case = pyautogui.center(random.choice(cases))
-    log(f'right click a scav case at {case}', 1)
+    log(f'right click a {name} at {case}', 1)
     pyautogui.rightClick(*case)
     time.sleep(MENU_DELAY)
     # The menu drops at the cursor, so scope to the box around the click, full-window fallback on
@@ -1985,18 +2017,24 @@ def open_scav_case(region=None):
     point = pyautogui.center(box)
     log(f'click open at {point}, waiting up to {SCAV_WINDOW_TIMEOUT:.0f}s for the window', 1)
     pyautogui.click(*point)
-    if wait_for(SCAV_WINDOW_TARGET, region) is None:
+    if wait_for(window, region) is None:
         # Still the clicked point, not None: the caller uses a truthy return to decide how
         # many escapes it takes to back out, and a window that appears a moment after we
         # stopped looking still has to be escaped past.
         return point
-    grabbed = orientate_scav_box(region)
-    log(f'dragged the scav window to the top left by {grabbed}' if grabbed
-        else 'scav window up but its title bar would not grab', 1)
+    grabbed = orientate_case(region, kind=kind)
+    log(f'dragged the {name} window to the top left by {grabbed}' if grabbed
+        else f'{name} window up but its title bar would not grab', 1)
     return point
 
 
-def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, stop=None):
+def orientate_case(region=None, corner=SCAV_CORNER, kind='scav'):
+    """orientate_scav_box or orientate_thicc_case, by CASES key."""
+    return (orientate_thicc_case if kind == 'thicc' else orientate_scav_box)(region, corner)
+
+
+def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, stop=None,
+                                      kind='scav'):
     """Grab a random item from the open scav case and filter by it on the flea.
 
     Assumes the case is already open and orientated. Same flow as
@@ -2010,9 +2048,9 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, sto
         if stop is not None and stop.is_set():
             log(f'stop asked for after {attempt - 1} attempt(s), abandoning the selection', 2)
             return None
-        points = find_scav_case_pixels(region)
+        points = find_scav_case_pixels(region, kind)
         if not points:
-            log('no live pixels in the scav case, it is empty', 1)
+            log(f'no live pixels in the {CASES[kind][2]}, it is empty', 1)
             return None  # an empty case will not fill itself on a retry
         chosen = random.choice(points)
         log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)

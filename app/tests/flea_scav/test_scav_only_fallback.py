@@ -32,14 +32,18 @@ failures = []
 class FakeSell:
     """Just the four calls select_item makes, plus what the real module's constants are."""
 
+    CASES = sell_bot.sell.CASES  # the real one, read before pick() swaps the module out
+
     def __init__(self, case_opens):
         self.case_opens = case_opens
         self.stash_touched = False
+        self.opened = None  # which case kind open_scav_case was asked for
 
-    def open_scav_case(self, region=None):
+    def open_scav_case(self, region=None, kind='scav'):
+        self.opened = kind
         return (100, 100) if self.case_opens else None
 
-    def select_item_from_random_scav_case(self, region=None, stop=None):
+    def select_item_from_random_scav_case(self, region=None, stop=None, kind='scav'):
         return (200, 200)
 
     def select_item_from_inventory(self, region=None, stop=None):
@@ -47,11 +51,15 @@ class FakeSell:
         return (300, 300)
 
 
-def pick(mode, case_opens):
-    """Run select_item for a GUI mode against a screen with or without a case on it."""
+def pick(mode, case_opens, cases=None):
+    """Run select_item for a GUI mode against a screen with or without a case on it.
+
+    cases: the case kinds ticked, ('scav',) or nothing by default as the old modes meant.
+    """
     _, scav, chance = MODES[mode]
     bot = object.__new__(FleaSeller)
-    bot.target_scav_cases, bot.scav_chance = scav, chance
+    bot.cases = cases or (('scav',) if scav else ())
+    bot.target_scav_cases, bot.scav_chance = bool(bot.cases), chance
     bot.region, bot._stop = None, threading.Event()
     fake = FakeSell(case_opens)
     real, sell_bot.sell = sell_bot.sell, fake
@@ -76,6 +84,17 @@ check('scav', True, want_point=True, want_stash=False, why='scav only, case ther
 # Every other mode keeps the fallback it always had.
 check('both', False, want_point=True, want_stash=True, why='inventory+scav, no case')
 check('inventory', False, want_point=True, want_stash=True, why='inventory only')
+
+# Thicc cases only: opens a thicc case, never a scav one, and still refuses the stash.
+selection, fake = pick('scav', True, cases=('thicc',))
+ok = fake.opened == 'thicc' and selection.case == 'thicc' and not fake.stash_touched
+print(f'{"ok  " if ok else "FAIL"} thicc only opens a thicc case: opened={fake.opened} '
+      f'case={selection.case} stash={fake.stash_touched}')
+if not ok:
+    failures.append('thicc only did not open a thicc case')
+selection, fake = pick('scav', False, cases=('thicc',))
+if selection.point is not None or fake.stash_touched:
+    failures.append('thicc only, no case: should end the pass without the stash')
 
 print(f'\n{len(failures)} failure(s)')
 for line in failures:

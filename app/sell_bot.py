@@ -179,6 +179,18 @@ SCAV_CHANCE = 0.5  # how often to sell out of a scav case instead of the stash, 
 MODES = {'inventory': ('INVENTORY ONLY', False, 0.0),
          'both': ('INVENTORY + SCAV', True, SCAV_CHANCE),
          'scav': ('SCAV CASES ONLY', True, 1.0)}
+# What replaced MODES in the GUI: tick any of these. key -> label. The case keys are
+# sell.CASES keys. MODES stays for the CLI's --source and for reading an older settings file.
+SOURCES = {'inventory': 'INVENTORY', 'scav': 'SCAV CASES', 'thicc': 'THICC CASES'}
+
+
+def sources_from(prefs):
+    """The ticked SOURCES keys, or the old 'mode' pref translated when nothing is ticked yet."""
+    picked = [key for key in SOURCES if key in (prefs.get('sources') or ())]
+    if picked:
+        return picked
+    _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])
+    return (['inventory'] if chance < 1.0 else []) + (['scav'] if scav else [])
 # How long a full offer board is allowed to sit before we cancel what has not sold. GUI label
 # -> minutes, so the dropdown, the saved setting and the wait all read off one definition.
 STALE_THRESHOLDS = {'5m': 5, '10m': 10, '30m': 30}
@@ -242,7 +254,7 @@ STAT_LABELS = (('selected', 'Items found'),
                ('price_found', 'Prices read'),
                ('price_missing', 'Prices unreadable'),
                ('posted', 'Items posted'),
-               ('posted_scav', '  from scav cases'),
+               ('posted_scav', '  from cases'),  # scav and thicc both, see sell_one
                ('posted_inventory', '  from inventory'),
                ('money', 'Total money'),
                ('stale_removed', 'Stale offers removed'))
@@ -250,7 +262,8 @@ MONEY_STAT = 'money'  # the one row the GUI tints, so both ends read off one nam
 TINT_STAT = MONEY_STAT  # what the GUI tints for this mode; gym_bot.py names its own
 
 # What select_item picked, where it came from, and how many escapes back out of that screen.
-Selection = namedtuple('Selection', 'point escapes source')
+# case is which sell.CASES kind is open when escapes says one is.
+Selection = namedtuple('Selection', 'point escapes source case', defaults=('scav',))
 
 
 class Stopped(Exception):
@@ -373,16 +386,19 @@ class FleaSeller(GameRestarts):
                  stale_minutes=STALE_THRESHOLDS[DEFAULT_STALE],
                  undercut=UNDERCUTS[DEFAULT_UNDERCUT],
                  autoselect=AUTOSELECT[DEFAULT_AUTOSELECT],
-                 restart_as=AUTO_RESTART[DEFAULT_AUTO_RESTART], stats=None):
+                 restart_as=AUTO_RESTART[DEFAULT_AUTO_RESTART], stats=None, cases=None):
         log('Initalizing Flea Seller')
         self.restart_as = restart_as  # a tarkov.Character to relaunch as, or None to never restart
         self._measure_or_defer()  # a closed game is only fatal when nothing is allowed to open one
-        self.target_scav_cases = target_scav_cases  # sell out of scav cases too, not just the stash
-        self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is scav cases only
+        # Which sell.CASES kinds to open, one picked at random per case pass. None keeps the old
+        # meaning of target_scav_cases: scav cases or nothing.
+        self.cases = tuple(cases) if cases is not None else (('scav',) if target_scav_cases else ())
+        self.target_scav_cases = bool(self.cases)  # sell out of cases too, not just the stash
+        self.scav_chance = scav_chance  # how often, when the above is on. 1.0 is cases only
         self.stale_minutes = stale_minutes  # how long a full board waits before we cancel offers
         self.undercut = undercut  # (fraction, flat), straight into sell.undercut_price
         self.autoselect = autoselect  # leave autoselect similar ticked, so an offer is the stack
-        log(f'scav cases {"on" if target_scav_cases else "off"} '
+        log(f'cases {", ".join(self.cases) or "off"} '
             f'(chance {scav_chance:.0%}), stale threshold {stale_minutes}m, '
             f'undercut {undercut[0]:.1%} or {undercut[1]} roubles, '
             f'autoselect similar {"on" if autoselect else "off"}, '
@@ -644,28 +660,31 @@ class FleaSeller(GameRestarts):
         """
         escapes = INVENTORY_ESCAPES
         stash_allowed = self.scav_chance < 1.0  # SCAV CASES ONLY is the only mode without it
+        kind = random.choice(self.cases) if self.cases else 'scav'
+        name = sell.CASES[kind][2]
         if self.target_scav_cases and random.random() < self.scav_chance:
-            log('picking an item, trying a scav case first')
-            if not sell.open_scav_case(self.region):
+            log(f'picking an item, trying a {name} first')
+            if not sell.open_scav_case(self.region, kind):
                 if not stash_allowed:
-                    log('no scav case to open and the stash is off, ending this pass', 1)
-                    return Selection(None, escapes, 'scav')
-                log('no scav case to open, falling back to the stash', 1)
+                    log(f'no {name} to open and the stash is off, ending this pass', 1)
+                    return Selection(None, escapes, kind, kind)
+                log(f'no {name} to open, falling back to the stash', 1)
             else:
                 escapes = SCAV_ESCAPES  # open now, and open whatever happens next
                 try:
-                    point = sell.select_item_from_random_scav_case(self.region, stop=self._stop)
-                    return Selection(point, escapes, 'scav')
+                    point = sell.select_item_from_random_scav_case(self.region, stop=self._stop,
+                                                                   kind=kind)
+                    return Selection(point, escapes, kind, kind)
                 except LookupError as e:  # opened, but the window never became readable
                     if not stash_allowed:
-                        log(f'scav case window not readable ({e}) and the stash is off, '
+                        log(f'{name} window not readable ({e}) and the stash is off, '
                             f'ending this pass', 1)
-                        return Selection(None, escapes, 'scav')
-                    log(f'scav case window not readable ({e}), falling back to the stash', 1)
+                        return Selection(None, escapes, kind, kind)
+                    log(f'{name} window not readable ({e}), falling back to the stash', 1)
         else:
             log('picking an item out of the stash')
         return Selection(sell.select_item_from_inventory(self.region, stop=self._stop),
-                         escapes, 'inventory')
+                         escapes, 'inventory', kind)
 
     def _park_windows(self, picked, offer_corner, scav_corner, scav_first):
         """Move whatever this pass has open into the named corners.
@@ -694,7 +713,9 @@ class FleaSeller(GameRestarts):
         """
         moves = [(sell.orientate_offer_creation, offer_corner)]
         if picked.escapes == SCAV_ESCAPES:
-            moves.insert(0 if scav_first else 1, (sell.orientate_scav_box, scav_corner))
+            moves.insert(0 if scav_first else 1,
+                         (lambda region, corner: sell.orientate_case(region, corner, picked.case),
+                          scav_corner))
         for move, corner in moves:
             move(self.region, corner)
 
@@ -811,7 +832,7 @@ class FleaSeller(GameRestarts):
             raise Retry('the offer was refused as below market value')
 
         self.stats['posted'] += 1
-        self.stats[f'posted_{picked.source}'] += 1
+        self.stats['posted_inventory' if picked.source == 'inventory' else 'posted_scav'] += 1
         # What we asked for, not what we got: nothing on screen says whether an offer ever sold.
         self.stats[MONEY_STAT] += listing
         log(f'offer placed, {self.stats["posted"]} so far, {self.stats[MONEY_STAT]} asked for '
@@ -922,11 +943,15 @@ def build(prefs, stats):
     other mode, and the GUI calls whichever the active tab names.
     """
     screen.use(prefs.get('monitor', screen.AUTO))  # before the FleaSeller, which clips to it
-    _, scav, chance = MODES.get(prefs.get('mode'), MODES['inventory'])
+    sources = sources_from(prefs)
+    cases = [key for key in sources if key != 'inventory']
+    # Every ticked source gets an equal share of passes: all three is a third each. select_item
+    # rolls this for "a case at all", then picks one of the ticked cases evenly.
+    chance = len(cases) / len(sources)
     stale = STALE_THRESHOLDS.get(prefs.get('stale'), STALE_THRESHOLDS[DEFAULT_STALE])
     undercut = UNDERCUTS.get(prefs.get('undercut'), UNDERCUTS[DEFAULT_UNDERCUT])
     autoselect = AUTOSELECT.get(prefs.get('autoselect'), AUTOSELECT[DEFAULT_AUTOSELECT])
-    return FleaSeller(target_scav_cases=scav, scav_chance=chance, stale_minutes=stale,
+    return FleaSeller(scav_chance=chance, stale_minutes=stale, cases=cases,
                    undercut=undercut, autoselect=autoselect, restart_as=auto_restart_from(prefs),
                    stats=stats)
 

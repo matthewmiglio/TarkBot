@@ -31,7 +31,7 @@ import window  # noqa: E402
 import narrate  # noqa: E402  the module, not the function: narrate.LAST has to be read live
 from sell_bot import (AUTO_RESTART, AUTOSELECT, DEFAULT_AUTO_RESTART,  # noqa: E402
                       DEFAULT_AUTOSELECT, DEFAULT_STALE, DEFAULT_UNDERCUT,
-                      MODES, STALE_THRESHOLDS, UNDERCUTS)
+                      SOURCES, STALE_THRESHOLDS, UNDERCUTS, sources_from)
 from snipe_bot import DEFAULT_MARGIN, MARGINS  # noqa: E402
 from gui import settings, theme  # noqa: E402
 
@@ -518,10 +518,7 @@ class App:
         # Tagged tab:flea, so it is on screen only on that tab. Gym mode has nothing of its own
         # to pick: it watches for the skill check and clicks it, and the only thing it needs
         # told is which monitor, which the row below asks once for both modes.
-        labels = [label for label, _, _ in MODES.values()]
-        current = MODES.get(self.prefs['mode'], MODES['inventory'])[0]
-        self.mode_var = self._dropdown('SOURCE', 916, labels, current, self._pick_mode, 150,
-                                       tag='tab:flea')
+        self._sources_dropdown(916, 150)
 
         # Snipe mode's own pick, in the slot SOURCE uses on the flea tab. The two are never on
         # screen together, the same arrangement as UNDERCUT and MARGIN on the row below.
@@ -1031,12 +1028,54 @@ class App:
         settings.save(self.prefs)
         self._paint_backdrop()
 
-    def _pick_mode(self, label):
-        for key, (text, _, _) in MODES.items():
-            if text == label:
-                self.prefs['mode'] = key
-                break
-        settings.save(self.prefs)
+    def _sources_dropdown(self, right, width):
+        """SOURCE as a dropdown of checkboxes: tick any of sell_bot.SOURCES.
+
+        Same footprint and look as _dropdown, but a Menubutton, since an OptionMenu holds one
+        value. Each tick reopens the menu, so it stays up until a click outside it. The last
+        ticked box cannot be unticked, so a run always has somewhere to sell from.
+        """
+        ticked = sources_from(self.prefs)
+        boxes = {key: tk.BooleanVar(value=key in ticked) for key in SOURCES}
+        button = tk.Menubutton(self.canvas, bg=theme.PLATE, fg=theme.INK,
+                               activebackground=theme.PLATE_HOT, activeforeground=theme.INK,
+                               highlightthickness=1, bd=0, relief='flat',
+                               highlightbackground=theme.LINE, highlightcolor=theme.LINE,
+                               font=self.fonts['label'], anchor='w', width=1, padx=8, pady=2,
+                               indicatoron=False, direction='below')
+        menu = tk.Menu(button, tearoff=False, bg=theme.PLATE, fg=theme.INK,
+                       activebackground=theme.PLATE_HOT, activeforeground=theme.INK,
+                       selectcolor=theme.INK, bd=0, relief='flat', font=self.fonts['label'])
+        button['menu'] = menu
+
+        def caption():
+            picked = [key for key in SOURCES if boxes[key].get()]
+            button['text'] = ' + '.join(SOURCES[key].split()[0] for key in picked)
+            return picked
+
+        def toggle(key):
+            picked = caption()
+            if not picked:  # nothing to sell from: put the box straight back
+                boxes[key].set(True)
+                picked = caption()
+            self.prefs['sources'] = picked
+            settings.save(self.prefs)
+            # tk shuts a menu on every click; open it again where it was, so it only closes on a
+            # click outside it. after() because the menu is still unposting when this runs.
+            button.after(1, lambda: menu.post(button.winfo_rootx(),
+                                              button.winfo_rooty() + button.winfo_height()))
+
+        for key, label in SOURCES.items():
+            menu.add_checkbutton(label=label, variable=boxes[key],
+                                 command=lambda key=key: toggle(key))
+        caption()
+        y = DROP_ROW[0]
+        self.canvas.create_window(right, y, anchor='e', window=button, width=width, height=24,
+                                  tags=('tab:flea',))
+        self.canvas.create_text(right - width - 10, y + 1, anchor='e', text=spaced('SOURCE'),
+                                fill=theme.INK_FAINT, font=self.fonts['small'], tags=('tab:flea',))
+        Tip(button, 'Where to sell from. Tick any mix; each ticked source gets an equal share '
+                    'of passes', self.fonts['label'])
 
     def _pick_hotkey(self, name):
         """Claim the new key, give the old one back, and relabel the button that names it."""

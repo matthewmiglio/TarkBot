@@ -84,7 +84,11 @@ sell_bot.py          FleaSeller: the flea selling mode. Named for its mode, like
                      _after_restart (flea: clear the tally and _recover) and decides in its own
                      start() what is never restarted through. auto_restart_from(prefs) is the one
                      reader of the shared 'autorestart' pref for all three build()s.
-                     UNDERCUTS is the GUI's UNDERCUT dropdown, MODES its SOURCE dropdown,
+                     SOURCES is the GUI's SOURCE dropdown of checkboxes (stash, scav cases,
+                     thicc cases, any mix; sources_from reads it, falling back to the older
+                     single-choice MODES pref). A thicc case runs the scav case path with its
+                     own crops, through sell.CASES and each scav function's kind argument.
+                     UNDERCUTS is the GUI's UNDERCUT dropdown,
                      STALE_THRESHOLDS its STALE OFFER THRESHOLD one and AUTOSELECT its
                      AUTOSELECT SIMILAR one: ON leaves the offer window's checkbox ticked, so
                      one pick takes every matching item and the offer is the whole stack.
