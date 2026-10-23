@@ -579,6 +579,11 @@ interact/find.py     Locating things on screen. find(), find_all(), find_center(
                      they exist to give.
                      Self-check, no game needed: python -m interact.find
 interact/sell.py     Everything the flea bot does to a screen. See the section below.
+interact/grid.py     The stash grid: where its cell lines sit in a region (cells(frame, region,
+                     scale)) and which cells hold something sellable (brightest pixel at least
+                     SELLABLE_BRIGHTNESS). What sell.py's item picks click. The method was chosen
+                     in _sellable_unsellable_testing/ (gitignored), against hand-annotated frames.
+                     Self-check, no game needed: python -m interact.grid
                      Geometry self-check, no game needed: python -m interact.sell
 interact/captcha.py  Solves the flea SECURITY CHECK captcha once: solve(region) finds the modal
                      (anchors + its grey frame), reads the target name (captcha_name.py), asks the
@@ -873,9 +878,16 @@ interact/reference_images/<target>/*.png
   because the checkbox is at that end of every reference crop of it. Sizing the region off the
   whole box, as it used to, made it depend on which crop won: a short crop matching gave a
   region too small to hold the checkmark needle, and pyscreeze raises rather than missing.
-- **Finding items** `find_sell_pixels` masks out empty slots using a 256³ boolean cube built
-  from every color in `reference_images/flea/dead_pixels/`, ±5 per channel. Scav case boxes are
-  expanded 15% and excluded.
+- **Finding items** `find_sell_pixels` (stash) and `find_scav_case_pixels` (an opened scav or
+  thicc case) return the centre of every grid cell holding something sellable, through
+  `interact/grid.py`: the cell is 63px at 1080p so only the lines' offset is searched for, and a
+  cell is sellable when its brightest pixel reaches `grid.SELLABLE_BRIGHTNESS` (98), because
+  Tarkov dims whatever cannot be listed (gap 95..101 over 500 hand-labelled cells). A cell counts
+  when its centre is inside the inferred region, since those regions stop ~30px short of the
+  grid. Stash cells under a scav or thicc case are dropped, unexpanded. The names predate the
+  grid: until 2026-10-23 these returned raw non-empty pixels off a dead-colour cube, which let a
+  click land on a dimmed, unlistable item. `tests/flea_sell/test_sell_grid.py` on the frames in
+  `tests/fixtures/sell/`.
 - **Acting** `click_all_button`, `click_add_offer`, `wait_for_offer_slot` (no timeout unless
   asked for one; pass a threading.Event as `stop` to make it interruptible),
   `remove_stale_offers` (my-offers tab, walk `stale_offer_rows` bottom upwards clicking every

@@ -64,6 +64,7 @@ Thirteen folders, grouped by the app layer each drives. Format below is
 - `test_flea_open.py` — sell.is_flea_open — print whether the flea reads open, with the brightness — game
 - `test_remove_offers.py` — sell.remove_stale_offers/return_to_browse — run the whole stale-offer sweep, land back on browse — game
 - `test_bot_loop.py` — sell_bot.FleaSeller sell_one/start/stop — drive the whole flea sell loop, incl. the GUI stop path — game
+- `test_sell_grid.py` — interact/grid.cells on sell.infer_inventory_region / infer_scav_case_region — grid the stash, an opened thicc case and an opened scav case on the frames in fixtures/sell/, classify each cell sellable by its brightest pixel, draw it to output/sell_grid/ — no-game
 - `test_checkmark_region.py` — sell._checkmark_region_from — the autoselect checkmark search region fits the needle over saved frames — no-game
 
 ### `flea_scav/` — scav-case selling (`interact/sell.py` scav paths, `sell_bot.py` fallback)

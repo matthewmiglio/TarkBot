@@ -10,21 +10,16 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pyautogui
-from PIL import Image
 
 import screen
-from interact import find, ocr
+from interact import find, grid, ocr
 from narrate import log
 
 ALL_BUTTON_TARGET = 'flea/inventory_all_button'  # the ALL tab over the inventory grid
 AUTOSELECT_TARGET = 'flea/autoselect_similar'  # the autoselect similar checkbox, on the offer window
 # The buttons framing the inventory grid: (left edge, right and top edge, bottom edge)
 EDGES = (ALL_BUTTON_TARGET, AUTOSELECT_TARGET, 'flea/auto_sort')
-SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their pixels are dropped
-# Every color an empty slot is known to take, read off screenshots showing nothing but empty
-# slots. Drop another png in that folder to teach it more. ponytail: the images are the list.
-DEAD_REFERENCE = 'flea/dead_pixels'  # a folder under reference_images/, any number of pngs
-DEAD_TOL = 5  # per-channel slack; this close to a known slot color still counts as empty
+SCAV_MARGIN = 0.15  # scav case boxes grow this much per side before their cells are dropped
 MENU_DELAY = 0.3  # seconds for the right-click menu to draw before we go looking for it
 WINDOW_DELAY = 1.0  # seconds for a window to finish appearing before we grab its title bar
 # The scav case window is the one thing on screen that does not draw within WINDOW_DELAY: it
@@ -1145,87 +1140,49 @@ def scav_case_regions(region=None, margin=SCAV_MARGIN):
             for box in find.find_all(item, region)]
 
 
-def _pack(rgb):
-    """Squash the last axis of an RGB array into one int per pixel, so colors compare as scalars."""
-    rgb = np.asarray(rgb).astype(np.uint32)
-    return (rgb[..., 0] << 16) | (rgb[..., 1] << 8) | rgb[..., 2]
+def _sellable_centres(cells, exclude=()):
+    """Centre (x, y) of every sellable Cell whose centre is outside every excluded rect.
 
-
-def _load_dead_colors(name=DEAD_REFERENCE):
-    """Every distinct color across every reference image of empty slots, packed and sorted.
-
-    Transparent pixels are skipped, so a screenshot can be masked down to just its empty slots.
+    exclude: (left, top, right, bottom) rects in screen coords, the scav and thicc cases.
     """
-    seen = []
-    for path in find.images(name):
-        pixels = np.asarray(Image.open(path).convert('RGBA')).reshape(-1, 4)
-        seen.append(_pack(pixels[pixels[:, 3] > 0][:, :3]))
-    return np.unique(np.concatenate(seen))
-
-
-def _dead_cube(colors, tol=DEAD_TOL):
-    """A 256^3 lookup, True for any color within tol of a known one on every channel.
-
-    ponytail: 16MB of bools built once at import, so the per-pixel test is a plain array
-    index. Widening every known color beats comparing 500k pixels against 1500 colors.
-    """
-    cube = np.zeros((256, 256, 256), dtype=bool)
-    rgb = np.stack([(colors >> 16) & 255, (colors >> 8) & 255, colors & 255], axis=1)
-    span = range(-tol, tol + 1)
-    offsets = np.array([(r, g, b) for r in span for g in span for b in span], dtype=np.int16)
-    near = np.clip(rgb[:, None, :].astype(np.int16) + offsets, 0, 255).reshape(-1, 3)
-    cube[near[:, 0], near[:, 1], near[:, 2]] = True
-    return cube
-
-
-DEAD_COLOURS = _load_dead_colors()
-DEAD_CUBE = _dead_cube(DEAD_COLOURS)
-
-
-def calculate_dead_pixel(pixel, cube=None):
-    """True where the color is within DEAD_TOL of one an empty slot takes.
-
-    Takes one (r, g, b) or a whole HxWx3 array. Not a brightness threshold: a dark blue is
-    dark but is nowhere near a slot color, so it stays alive.
-    """
-    rgb = np.asarray(pixel)
-    lookup = DEAD_CUBE if cube is None else cube
-    return lookup[rgb[..., 0], rgb[..., 1], rgb[..., 2]]
-
-
-def _live_mask(pixels, origin, exclude=()):
-    """Bool HxW: True where a pixel is not dead and not inside an excluded rect.
-
-    exclude: (left, top, right, bottom) rects in screen coords; origin is the crop's top-left.
-    """
-    mask = ~calculate_dead_pixel(pixels)
-    for left, top, right, bottom in exclude:  # clamped, a rect may hang off the crop
-        mask[max(0, top - origin[1]):max(0, bottom - origin[1]),
-             max(0, left - origin[0]):max(0, right - origin[0])] = False
-    return mask
-
-
-def _live_points(pixels, origin, exclude=()):
-    """Screen coords of every pixel in an HxWx3 array that isn't dead."""
-    ys, xs = np.nonzero(_live_mask(pixels, origin, exclude))
-    return list(zip((xs + origin[0]).tolist(), (ys + origin[1]).tolist()))
+    points = []
+    for cell in cells:
+        if not cell.sellable:
+            continue
+        x, y = cell.box[0] + cell.box[2] // 2, cell.box[1] + cell.box[3] // 2
+        if not any(left <= x < right and top <= y < bottom for left, top, right, bottom in exclude):
+            points.append((x, y))
+    return points
 
 
 def _pixels_in(rect, exclude=()):
-    """Screen (x, y) of every live pixel inside rect, itself a (left, top, width, height)."""
-    shot = np.asarray(screen.grab(rect).convert('RGB'))
-    ys, xs = np.nonzero(_live_mask(shot, rect[:2], exclude))
-    return list(zip((xs + rect[0]).tolist(), (ys + rect[1]).tolist()))
+    """Centre (x, y) of every grid cell inside rect that holds something sellable.
+
+    rect: (left, top, width, height), the stash or an opened case as inferred above. The grid
+    and the sellable test are interact/grid.py's: cells 63px at 1080p, sellable when the brightest
+    pixel inside is at least grid.SELLABLE_BRIGHTNESS, since Tarkov dims what cannot be listed.
+    The screen is grabbed whole, not as rect, because grid.cells reads half a cell past every
+    edge to reach the outer column the inferred regions stop short of.
+
+    This replaced a per-pixel empty-slot colour mask on 2026-10-23. That one picked a random
+    non-empty *pixel*, so a click could land on a dimmed item that cannot be listed, or on the
+    edge of one, and the pass spent its attempts on gaps; a cell centre is always an item's
+    middle and never a dimmed one. tests/flea_sell/test_sell_grid.py is the check.
+    """
+    frame = np.asarray(screen.grab().convert('RGB'))[:, :, ::-1]  # BGR, as cv2 reads it
+    left, top = screen.rect()[:2]
+    local = (rect[0] - left, rect[1] - top, rect[2], rect[3])
+    cells = [c._replace(box=(c.box[0] + left, c.box[1] + top) + c.box[2:])
+             for c in grid.cells(frame, local, find.scale())]
+    return _sellable_centres(cells, exclude)
 
 
 def find_sell_pixels(region=None):
-    """Screen (x, y) of every pixel inside the inventory region that isn't an empty slot.
+    """Screen (x, y) centre of every stash cell holding something sellable, see _pixels_in.
 
-    Pixels inside a scav case (grown by SCAV_MARGIN) are dropped, since those items
-    are not ours to sell. Handles any number of cases.
-
-    ponytail: returns raw pixels; grouping them into clickable items is still open,
-    see docs/pixel_clustering_ideas.md.
+    Cells under a scav or thicc case are dropped: a case is not
+    listable, and its green SELL tag is bright enough to read as sellable. Handles any number.
+    The name predates the grid; it returned raw pixels until 2026-10-23.
     """
     inventory = infer_inventory_region(region)
     # Search for scav cases in the full region, not inside `inventory`. A case whose left edge
@@ -1237,23 +1194,26 @@ def find_sell_pixels(region=None):
     # it was the only thing in an otherwise-sold-out stash, its ~47 live edge pixels were the
     # only "sellable" ones, and the stash path clicked the case ten times a pass, every pass,
     # selecting nothing (a case cannot be listed) and looking to the user like it was trying to
-    # sell the scav case in a loop. Found in the full region it matches at 0.891; _pixels_in
-    # clamps the exclusion rect into the grid, so widening the search only ever adds overlap.
-    cases = scav_case_regions(region)
+    # sell the scav case in a loop. Found in the full region it matches at 0.891; a case
+    # rect hanging past the grid's edge only ever excludes cells that are not there anyway.
+    # Not grown by SCAV_MARGIN, which was for stray pixels on a case's edge: a case cell's centre
+    # is well inside its matched box, and 15% of a thicc case (5 cells wide) is 63px at 1440p,
+    # which reached the centres of the next column over and dropped real items there.
+    cases = scav_case_regions(region, margin=0)
     points = _pixels_in(inventory, cases)
-    log(f'{len(points)} live pixels in the inventory grid, {len(cases)} scav case(s) excluded'
+    log(f'{len(points)} sellable cells in the inventory grid, {len(cases)} case(s) excluded'
         + (f' at {cases}' if cases else ''), 2)
     return points
 
 
 def find_scav_case_pixels(region=None, kind='scav'):
-    """Screen (x, y) of every pixel in the open scav case that isn't an empty slot.
+    """Screen (x, y) centre of every sellable cell in the open case, see _pixels_in.
 
-    No scav exclusion here: inside the case, those items are the point.
+    No case exclusion here: inside the case, those items are the point.
     """
     case = infer_scav_case_region(region, kind)
     points = _pixels_in(case)
-    log(f'{len(points)} live pixels inside the {CASES[kind][2]} at {case}', 2)
+    log(f'{len(points)} sellable cells inside the {CASES[kind][2]} at {case}', 2)
     return points
 
 
@@ -1287,10 +1247,10 @@ def menu_region(click, region=None):
 def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS, stop=None):
     """Grab a random item from the inventory screen and filter by it on the flea.
 
-    Left-clicks a random sellable pixel and asks the offer panel whether that actually
-    selected anything. A live pixel is not always a clickable item (icon overhang, a tooltip,
-    a stack counter), so a miss just means try again somewhere else: the pixels are re-found
-    and a new one drawn each attempt. Only once something is selected does it bother with the
+    Left-clicks the centre of a random sellable cell and asks the offer panel whether that
+    actually selected anything. A miss (a tooltip over the cell, an item that went between
+    reads) just means try again somewhere else: the cells are re-read and a new one drawn
+    each attempt. Only once something is selected does it bother with the
     right-click menu and 'filter by item'. Returns the clicked (x, y), or None if every
     attempt missed.
 
@@ -1312,10 +1272,10 @@ def select_item_from_inventory(region=None, attempts=SELECT_ATTEMPTS, stop=None)
             return None
         points = find_sell_pixels(region)
         if not points:
-            log('no sellable pixels in the inventory, the stash looks empty', 1)
+            log('no sellable cells in the inventory, the stash looks empty', 1)
             return None  # nothing to sell, retrying will not conjure an item
         chosen = random.choice(points)
-        log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)
+        log(f'attempt {attempt}/{attempts}: {len(points)} sellable cells, clicking {chosen}', 2)
         pyautogui.click(*chosen)
         if _sleep(SELECT_POLL_DELAY, stop):  # cut short means stop, not a poll that finished
             log('stop asked for while waiting on the offer panel, abandoning the selection', 2)
@@ -2050,10 +2010,10 @@ def select_item_from_random_scav_case(region=None, attempts=SELECT_ATTEMPTS, sto
             return None
         points = find_scav_case_pixels(region, kind)
         if not points:
-            log(f'no live pixels in the {CASES[kind][2]}, it is empty', 1)
+            log(f'no sellable cells in the {CASES[kind][2]}, it is empty', 1)
             return None  # an empty case will not fill itself on a retry
         chosen = random.choice(points)
-        log(f'attempt {attempt}/{attempts}: {len(points)} live pixels, clicking {chosen}', 2)
+        log(f'attempt {attempt}/{attempts}: {len(points)} sellable cells, clicking {chosen}', 2)
         pyautogui.click(*chosen)
         if _sleep(SELECT_POLL_DELAY, stop):  # cut short means stop, not a poll that finished
             log('stop asked for while waiting on the offer panel, abandoning the selection', 2)
@@ -2108,18 +2068,11 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     except LookupError:
         pass
 
-    assert len(DEAD_COLOURS) > 100, f'{DEAD_REFERENCE}/ gave only {len(DEAD_COLOURS)} colors'
-    one = _dead_cube(np.array([_pack(np.array([100, 100, 100]))]), tol=5)  # tolerance, on its own
-    assert one[100, 100, 100] and one[105, 100, 95], 'within 5 on every channel is dead'
-    assert not one[106, 100, 100], '6 off on any channel is alive'
-    assert calculate_dead_pixel((23, 24, 24)) and not calculate_dead_pixel((200, 0, 0))
-    img = np.full((3, 4, 3), (23, 24, 24), dtype=np.uint8)  # 3 rows, 4 cols of empty slot
-    img[0, 0] = (24, 25, 25)  # another slot color, still empty
-    img[1, 2] = (200, 0, 0)  # an item, at row 1 col 2
-    img[2, 3] = (0, 200, 0)  # another item, at row 2 col 3
-    assert _live_points(img, (100, 200)) == [(102, 201), (103, 202)], 'x/y swapped?'
-    assert _live_points(img, (100, 200), exclude=[(102, 201, 103, 202)]) == [(103, 202)]
-    assert _live_points(img, (100, 200), exclude=[(0, 0, 50, 50)]) == [(102, 201), (103, 202)]  # off the crop
+    lit, dim = (grid.Cell(0, 0, (100, 200, 84, 84), 200, True),
+                grid.Cell(0, 1, (184, 200, 84, 84), 40, False))
+    assert _sellable_centres([lit, dim]) == [(142, 242)], 'only the lit cell, at its centre'
+    assert _sellable_centres([lit], exclude=[(130, 230, 150, 250)]) == [], 'a case over it drops it'
+    assert _sellable_centres([lit], exclude=[(0, 0, 50, 50)]) == [(142, 242)], 'elsewhere keeps it'
     assert _expand(Box(100, 200, 20, 40), 0.10) == (98, 196, 122, 244)
     PRIMARY = (0, 0, 1920, 1080)  # a monitor at the origin, and one to the left of it
     LEFT_OF_IT = (-1920, 0, 1920, 1080)
