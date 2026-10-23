@@ -1,4 +1,5 @@
 import "server-only";
+import type { Period } from "./derive";
 
 // The dashboard's whole data layer. Reads the Tarkbot_ tables straight off
 // PostgREST with the service key, server-side only, so no key ever reaches the
@@ -164,6 +165,49 @@ export async function getCaptchas(): Promise<{ rows: CaptchaRow[]; recent: Recen
     rows,
     recent: newest.map((r) => ({ ...r, url: urls.get(`${r.image_id}.png`) ?? null })),
   };
+}
+
+export type BlogStats = {
+  posts: { path: string; views: number; visitors: number }[];
+  funnel: { landed: number; reached_download: number; clicked_download: number };
+};
+
+const EMPTY_BLOG: BlogStats = {
+  posts: [],
+  funnel: { landed: 0, reached_download: 0, clicked_download: 0 },
+};
+
+// Postgres does the counting (sql/tarkbot_blog_stats.sql), so each call returns a
+// handful of numbers rather than view rows. One call per period tab, all up front,
+// so switching tabs never waits on a fetch.
+export async function getBlogStats(): Promise<Record<Period, BlogStats>> {
+  const days: Record<Period, number | null> = { "1d": 1, "10d": 10, "60d": 60, all: null };
+  const entries = await Promise.all(
+    (Object.keys(days) as Period[]).map(async (period) => {
+      if (!SUPABASE_URL || !SERVICE_KEY) return [period, EMPTY_BLOG] as const;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/tarkbot_blog_stats`, {
+          method: "POST",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ p_days: days[period] }),
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          console.error("read blog stats failed", res.status, await res.text());
+          return [period, EMPTY_BLOG] as const;
+        }
+        return [period, (await res.json()) as BlogStats] as const;
+      } catch (e) {
+        console.error("read blog stats threw", e);
+        return [period, EMPTY_BLOG] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(entries) as Record<Period, BlogStats>;
 }
 
 export async function getAnalytics() {

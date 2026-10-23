@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { DownloadButton, DISCORD_URL, RELEASES_URL } from "./download-button";
 import { ContactForm } from "./contact-form";
 import appGui from "./app_gui.png";
@@ -57,6 +58,7 @@ export default function Page() {
           <a href="#how" className="hover:text-ink transition-colors">How it works</a>
           <a href="#features" className="hover:text-ink transition-colors">Features</a>
           <a href="#contact" className="hover:text-ink transition-colors">Contact</a>
+          <Link href="/blog" className="hover:text-ink transition-colors">Blog</Link>
           <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="hover:text-ink transition-colors">Discord</a>
         </nav>
         {/* Discord is the one link worth keeping reachable from the top on a phone. */}

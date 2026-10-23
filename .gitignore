@@ -128,3 +128,6 @@ _username_enumeration/
 
 # Snipe search-wait frames and region picker, kept local for now.
 _flea_snipe_item_select_patch/
+
+# Sellable vs unsellable stash frames, full-screen shots of a real stash, kept local.
+_sellable_unsellable_testing/

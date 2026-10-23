@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ViewEvent, DownloadEvent, SnipeRow } from "@/lib/data";
+import type { ViewEvent, DownloadEvent, SnipeRow, BlogStats } from "@/lib/data";
 import {
   PERIODS, categorizeSource, distinct, normalizePath, perDay, roubles, sumBy, tally, withinPeriod,
 } from "@/lib/derive";
@@ -340,6 +340,58 @@ export function BuysOverTime({ snipes }: { snipes: SnipeRow[] }) {
   return (
     <Card title="Items Bought · Last 30 Days">
       <Columns data={data} color="bg-amber-500" unit="buys" />
+    </Card>
+  );
+}
+
+// ─── blog ────────────────────────────────────────────────────────────────────
+
+export function BlogViews({ stats }: { stats: Record<Period, BlogStats> }) {
+  const [period, setPeriod] = useState<Period>("all");
+  const rows = stats[period].posts.map((p) => ({ label: p.path.replace(/^\/blog\//, ""), count: p.views }));
+  return (
+    <Card title="Page Views per Blog Post" tabs={{ period, onChange: setPeriod }}>
+      <BarList rows={rows} color="bg-emerald-500" empty="No blog views in this period" />
+    </Card>
+  );
+}
+
+export function BlogFunnel({ stats }: { stats: Record<Period, BlogStats> }) {
+  const [period, setPeriod] = useState<Period>("all");
+  const f = stats[period].funnel;
+  const steps = [
+    { label: "Landed on a blog page", count: f.landed },
+    { label: "Reached the download page", count: f.reached_download },
+    { label: "Clicked download", count: f.clicked_download },
+  ];
+  return (
+    <Card title="Blog Conversion · Visitors" tabs={{ period, onChange: setPeriod }}>
+      {f.landed === 0 ? (
+        <p className="text-xs text-gray-400">No blog visitors in this period</p>
+      ) : (
+        <div className="space-y-3">
+          {steps.map((s, i) => {
+            const pct = (s.count / f.landed) * 100;
+            return (
+              <div key={s.label}>
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>{i + 1}. {s.label}</span>
+                  <span className="tabular-nums font-medium">
+                    {s.count} · {pct.toFixed(pct < 10 && pct > 0 ? 1 : 0)}%
+                  </span>
+                </div>
+                <div className="h-6 bg-gray-100 rounded overflow-hidden">
+                  <div className="h-full rounded bg-indigo-500" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="mt-4 text-xs text-gray-400">
+        Counted per visitor. A step only counts when it happens after that visitor&apos;s first blog visit.
+        The download page is the home page, where the download button is.
+      </p>
     </Card>
   );
 }
