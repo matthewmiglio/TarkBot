@@ -69,10 +69,13 @@ _held = False
 # Work for the saver thread, in the order it was asked for: (path, image) writes that image,
 # (path, None) deletes that file. Both go through the one queue so a frame is always written
 # before the prune that drops it, whatever the timing.
-# The cap is small and put() blocks: a screenshot is megabytes, and a saver that has fallen
-# eight frames behind should slow the bot down rather than fill memory up. Falling behind at
-# all takes a burst of inputs with no sleeps between them.
-_saves = queue.Queue(maxsize=8)
+# Unbounded, but capture() drops an ordinary frame rather than queue a ninth: a screenshot is
+# megabytes, so the backlog has to stop somewhere, and it used to stop with put() blocking, which
+# stalled the bot behind the ~150ms PNG encodes for as long as a burst of clicks lasted (13s of
+# one pass on 2026-10-23). Losing an in-between frame of a burst costs far less than that.
+# Deletes and pinned frames always go in: one is cheap, the other is the picture of a failure.
+_saves = queue.Queue()
+BACKLOG = 8  # ordinary frames waiting to be written before new ones are dropped
 _saver = None  # the thread, started by the first start() and left running
 
 
@@ -151,6 +154,18 @@ def _prune():
     return dropped
 
 
+def _grab():
+    """The working monitor only, copied straight off it.
+
+    The working monitor, not the primary and not the whole desk: the point of a frame is what the
+    game was showing, and screen.py is the only thing that knows which screen that is. Through
+    fast_grab rather than grab(), which photographs every monitor and crops: 122ms against 38ms
+    on a 2560x1440 game beside a second screen, and the bot waits on it twice a click. fast_grab's
+    pixels can be a level or two off Pillow's, which no one looking at a frame can see.
+    """
+    return screen.fast_grab(screen.rect())
+
+
 def capture(label='', image=None, pin=False):
     """Save one frame named for now, as `<unix milliseconds>-<label>.png`. Its path, or None.
 
@@ -179,13 +194,13 @@ def capture(label='', image=None, pin=False):
         kept = _dir / KEPT_SUBDIR
         kept.mkdir(parents=True, exist_ok=True)
         path = kept / name
-        _saves.put((path, image if image is not None else screen.grab()))
+        _saves.put((path, image if image is not None else _grab()))
         return path  # deliberately never appended to _kept, so _prune cannot reach it
+    if _saves.qsize() >= BACKLOG:
+        return None  # the saver is behind; skip this one rather than make the bot wait
     path = _dir / name
-    # The working monitor, not the primary and not the whole desk: the point of a frame is what
-    # the game was showing, and screen.py is the only thing that knows which screen that is.
     # The grab is the bot thread's; the encode and the write belong to the saver.
-    _saves.put((path, image if image is not None else screen.grab()))
+    _saves.put((path, image if image is not None else _grab()))
     _kept.append(path)
     _prune()
     return path
@@ -266,11 +281,17 @@ if __name__ == '__main__':
 
         for n in range(9):
             capture(f'post{n}', blank)
+            flush()  # one at a time, or a fast loop outruns the saver and frames get dropped
         flush()
         left = sorted(p.name for p in directory.glob(f'*{SUFFIX}'))
         assert len(left) == 5, f'the cap holds, {len(left)} frames left'
         assert not first.exists(), 'and it is the oldest that goes'
         assert left[-1].endswith(f'post8{SUFFIX}'), f'newest survives, {left[-1]}'
+
+        # A saver that is behind drops the frame instead of making the caller wait.
+        BACKLOG, backlog = 0, BACKLOG
+        assert capture('dropped', blank) is None, 'a frame past the backlog is dropped'
+        BACKLOG = backlog
 
         # start() adopts what is on disk rather than starting the count from zero.
         start(directory, keep=5)
@@ -280,7 +301,7 @@ if __name__ == '__main__':
         assert len(list(directory.glob(f'*{SUFFIX}'))) == 3, 'a lower cap trims on start'
 
         # The wrapper takes its two frames around whatever it is given, and only once.
-        screen.grab = lambda *a, **k: blank  # no real screen needed to check the wiring
+        screen.grab = screen.fast_grab = lambda *a, **k: blank  # no real screen needed for wiring
         calls = []
 
         class _Fake:
