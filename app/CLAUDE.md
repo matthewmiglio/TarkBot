@@ -939,7 +939,7 @@ interact/reference_images/<target>/*.png
   returns the higher of `price * fraction` and `price - flat`, so the flat cut wins on expensive
   items and the percentage wins on cheap ones without ever going negative. They cross at
   `flat / (1 - fraction)`. Which pair to use is the GUI's UNDERCUT dropdown, `sell_bot.UNDERCUTS`:
-  2k, 3k or 5k, all at 90%, so the choice only moves the price where the flat cut takes over.
+  2k, 3k or 5k, each at 90% or 85%.
   `sell.py`'s own constants are only the defaults.
 
 ## Tests

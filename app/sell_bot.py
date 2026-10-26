@@ -196,12 +196,15 @@ def sources_from(prefs):
 STALE_THRESHOLDS = {'5m': 5, '10m': 10, '30m': 30}
 DEFAULT_STALE = '10m'
 # How far under the suggested price to list. GUI label -> (fraction, flat) for
-# sell.undercut_price, which takes the higher of the two cuts. The percentage is the same 90%
-# throughout; only the flat cut changes, so picking a bigger one only moves the price above
-# which the flat cut takes over: 20000, 30000, 50000 roubles.
+# sell.undercut_price, which takes the higher of the two cuts. Each flat cut comes at 90% and
+# at 85%; a bigger flat cut only moves the price above which it takes over: 20000, 30000,
+# 50000 roubles at 90%, and 13333, 20000, 33333 at 85%.
 UNDERCUTS = {'2k rubles | 90%': (0.90, 2000),
              '3k rubles | 90%': (0.90, 3000),
-             '5k rubles | 90%': (0.90, 5000)}
+             '5k rubles | 90%': (0.90, 5000),
+             '2k rubles | 85%': (0.85, 2000),
+             '3k rubles | 85%': (0.85, 3000),
+             '5k rubles | 85%': (0.85, 5000)}
 DEFAULT_UNDERCUT = '2k rubles | 90%'
 # Whether the offer creation window's autoselect similar checkbox ends up ticked. GUI label ->
 # the state to leave it in, so the dropdown, the saved setting and the click read off one
