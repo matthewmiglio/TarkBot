@@ -99,8 +99,14 @@ snipe_bot.py         FleaSniper: the flea run backwards. Walks a watchlist of it
                      check_one is one item: find the search box, hand it to snipe.search_for
                      (which types the name, polls the suggestion row until it lights up (up to 10s), gives up
                      on a padlock, otherwise clicks the suggestion and empties the box), wait
-                     BOARD_DELAY for the board, read the price on the topmost offer row, and buy
-                     that row if it is far enough under trader value.
+                     BOARD_DELAY for the board, check every offer row names the same item
+                     (snipe.one_item_board; a board of several items means the suggestion click
+                     missed and the whole category is up, so the item is skipped), read the price
+                     on the topmost offer row, and buy that row if it is far enough under trader
+                     value. The suggestion wait compares the row against a grab taken just before
+                     typing rather than waiting for it to be bright: at 1080p that row sits on the
+                     lit 'Barter items' category, so the old check fired at once and the click hit
+                     the category (2026-10-26, two Strike Cigarettes bought as other items).
                      self._search_box is where the box was last seen, carried across items and
                      handed back to snipe.find_search_box. The box only matches while it is
                      empty, so without it one clear that did not take ends the sweep: every item

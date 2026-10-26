@@ -40,7 +40,10 @@ class FakeBoard:
     Captcha = real_snipe.Captcha
 
     def __init__(self, price, buttons=1, filters=True, search=True, locked=False,
-                 buy_lands=True, item_filter=False, captcha=False, captcha_on_buy=False):
+                 buy_lands=True, item_filter=False, captcha=False, captcha_on_buy=False,
+                 mixed=False):
+        self.mixed = mixed  # whether the board shows several items: the suggestion click missed
+        self.prices_read = 0
         self.price = price  # what read_price answers, or None for unreadable
         self.buttons = buttons  # how many offer rows the board is showing
         self.filters = filters
@@ -79,7 +82,11 @@ class FakeBoard:
     def purchase_buttons(self, region=None):
         return [f'button{n}' for n in range(self.buttons)]
 
+    def one_item_board(self, region, buttons):
+        return not self.mixed
+
     def read_price(self, button):
+        self.prices_read += 1
         return self.price
 
     def dismiss_error_popup(self, region=None):
@@ -130,6 +137,14 @@ if __name__ == '__main__':
         check(bot.stats['profit'] == 890, 'and profit is the difference between the two')
         check(bot.stats['profit'] == bot.stats['trader_value'] - bot.stats['spent'],
               'the three rows agree with each other')
+
+        print('a board showing several items is skipped before its price is read')
+        board = FakeBoard(price=6_000, mixed=True)  # the cigarettes the 2026-10-26 run bought
+        bot = sniper(board)
+        check(bot.sweep_once() == 0, 'nothing bought')
+        check(board.bought == [], 'purchase was never clicked')
+        check(board.prices_read == 0, 'the top price was never read')
+        check(bot.stats['checked'] == 1, 'it still counts as checked, and the sweep moved on')
 
         print('a top offer inside the margin is left alone')
         board = FakeBoard(price=19_500)  # only 390 under, against a 500 margin

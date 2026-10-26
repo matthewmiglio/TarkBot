@@ -119,18 +119,24 @@ PRICE_LIT = 140      # brightest channel that counts as text rather than backgro
 RUBLE_ROI_FRACTIONS = (0.75, 0.055, 0.87, 0.10)
 
 # The suggestion list is not drawn the moment typing stops: the flea goes away and looks the name
-# up, and clicking into the gap lands on whatever was underneath, which is the board rather than a
-# suggestion. So after typing, SUGGESTION_ROW_FRACTIONS is polled every SUGGESTION_POLL seconds
-# and the suggestion is clicked the moment it lights up, giving up after SUGGESTION_TIMEOUT.
-# That replaced a flat 3 second wait, which was most of the time an item took.
+# up, and clicking into the gap lands on whatever was underneath, which is the category tree
+# rather than a suggestion. So SUGGESTION_ROW_FRACTIONS is photographed just before typing, polled
+# every SUGGESTION_POLL seconds after, and the suggestion is clicked the moment the row differs
+# from that photograph, giving up after SUGGESTION_TIMEOUT.
+#
+# It used to wait for the row to be *bright* instead, which was measured on 1440p only, where the
+# row is empty before the list drops. At 1080p the same fractions sit on the category tree's first
+# row, 'Barter items', whose text is lit before anything is typed: the poll returned after 0.00s
+# every time, the click landed on the category, and on 2026-10-26 the sniper read and bought off
+# the whole Barter items board (two Strike Cigarettes, bought as a RAM stick and a Poxeram tube).
+# Comparing against the row's own picture works whatever was drawn there first.
 #
 # The row is (left, top, right, bottom) as fractions of the window, picked in
-# _flea_snipe_item_select_patch/region_picker.html. Brightest channel of any pixel in it: 231
-# with a suggestion drawn (2560x1440), 18 at most on three frames without one (both monitors),
-# so SUGGESTION_BRIGHT at 100 sits in the middle of the gap.
-# ponytail: one 1440p positive behind it; grab a 1080p one before trusting the gap there.
+# _flea_snipe_item_select_patch/region_picker.html. SUGGESTION_CHANGED is the mean grey difference
+# from the photograph that counts as the list having dropped: 0.0 between grabs of the same search
+# before the list shows, 61-112 once it has (1080p laptop frames of 2026-10-26).
 SUGGESTION_ROW_FRACTIONS = (0.038, 0.145, 0.183, 0.158)
-SUGGESTION_BRIGHT = 100
+SUGGESTION_CHANGED = 20
 SUGGESTION_POLL = 0.05
 SUGGESTION_TIMEOUT = 10.0
 SEARCH_DELAY = 3.0  # the old flat wait, still used when there is no window region to poll
@@ -395,11 +401,12 @@ def search_for(name, box, region=None):
     pyautogui.click(*sell.jitter(pyautogui.center(box)))
     time.sleep(sell.MENU_DELAY)
     pyautogui.hotkey('ctrl', 'a')
+    before = None if region is None else screen.grab(suggestion_row(region))
     pyautogui.typewrite(name)
     if region is None:
         time.sleep(SEARCH_DELAY)
     else:
-        wait_for_suggestion(region)
+        wait_for_suggestion(region, before)
 
     if region is not None and is_locked(region):
         clear_search(box)  # still emptied, or the next name goes in on top of this one
@@ -423,13 +430,16 @@ def suggestion_row(region):
             round(width * (r - l)), round(height * (b - t)))
 
 
-def suggestion_lit(image):
-    """True if anything in a grab of suggestion_row is bright enough to be suggestion text."""
-    return int(np.asarray(image.convert('RGB')).max()) >= SUGGESTION_BRIGHT
+def suggestion_changed(before, now):
+    """True if a grab of suggestion_row differs from the one taken before typing."""
+    diff = np.abs(np.asarray(before.convert('L'), int) - np.asarray(now.convert('L'), int))
+    return diff.mean() >= SUGGESTION_CHANGED
 
 
-def wait_for_suggestion(region, timeout=SUGGESTION_TIMEOUT, poll=SUGGESTION_POLL):
-    """Poll the suggestion row until it lights up. Returns the seconds waited, or None on timeout.
+def wait_for_suggestion(region, before, timeout=SUGGESTION_TIMEOUT, poll=SUGGESTION_POLL):
+    """Poll the suggestion row until it differs from `before`, its grab from just before typing.
+
+    Returns the seconds waited, or None on timeout.
 
     A timeout is logged and otherwise ignored: search_for clicks where the suggestion would be
     anyway, which is what the flat wait this replaced always did, and an empty board after it is
@@ -439,7 +449,7 @@ def wait_for_suggestion(region, timeout=SUGGESTION_TIMEOUT, poll=SUGGESTION_POLL
     started = time.perf_counter()
     while True:
         waited = time.perf_counter() - started
-        if suggestion_lit(screen.grab(rect)):
+        if suggestion_changed(before, screen.grab(rect)):
             log(f'suggestion showed after {waited:.2f}s', 1)
             return waited
         if waited >= timeout:
@@ -479,6 +489,47 @@ def suggestion_point(box):
 def purchase_buttons(region=None):
     """Every PURCHASE button on the board, topmost first. One per offer row."""
     return sorted(find.find_all(PURCHASE_TARGET, region), key=lambda box: box.top)
+
+
+# The item-name strip on an offer row, from that row's PURCHASE button, in 1080p pixels, and the
+# share of lit text pixels two rows may disagree on and still name the same item. A search that
+# missed its suggestion leaves the whole category board up, and its top row is some other item's
+# price (2026-10-26: Strike Cigarettes bought as a RAM stick). Tuned on the nine 1080p laptop
+# boards in tests/fixtures/snipe/: same-item rows at most 5.2% apart, different items at least
+# 11.1%, so SAME_ITEM is the midpoint. tests/flea_snipe/test_search_select_live.py --frame.
+NAME_LEFT = -805
+NAME_TOP = -14
+NAME_WIDTH = 320
+NAME_HEIGHT = 24
+NAME_LIT = 140      # brightest grey that counts as name text rather than row background
+NAME_SLACK = 5      # px of vertical shift tried, since PURCHASE crops land a few px apart
+SAME_ITEM = 0.0815
+
+
+def name_disagreements(image, buttons, origin=(0, 0)):
+    """(rects, scores): each offer row's name strip in `image`, and how far its text is from the
+    top row's. `buttons` are in screen coords; `origin` is where `image` sits on the screen."""
+    grey = np.asarray(image.convert('L'))
+    k = find.scale()
+    w, h, s = round(NAME_WIDTH * k), round(NAME_HEIGHT * k), round(NAME_SLACK * k)
+    rects, masks = [], []
+    for b in buttons:
+        left = b.left - origin[0] + round(NAME_LEFT * k)
+        top = b.top - origin[1] + round(NAME_TOP * k)
+        rects.append((left, top, w, h))
+        masks.append(grey[top:top + h, left:left + w] > NAME_LIT)
+    scores = [min((masks[0][s:-s] ^ np.roll(m, shift, axis=0)[s:-s]).mean()
+                  for shift in range(-s, s + 1)) for m in masks]
+    return rects, scores
+
+
+def one_item_board(region, buttons):
+    """True if every offer row on the board names the same item as the top one."""
+    _, scores = name_disagreements(screen.grab(region), buttons, region[:2])
+    worst = max(scores, default=0)
+    log(f'{len(scores)} offer rows, furthest from the top row {worst:.1%} '
+        f'(same item up to {SAME_ITEM:.2%})', 1)
+    return worst <= SAME_ITEM
 
 
 def price_region(button):
@@ -714,14 +765,17 @@ if __name__ == '__main__':  # the geometry, checked without needing Tarkov open
     assert suggestion_point(Box(400, 300, 150, 20)) == (475, 350)
     assert suggestion_point(Box(400, 300, 150, 40)) == (475, 400), 'a taller box drops further'
 
-    # The suggestion row: where it lands on a 1440p window at a negative origin, and the
-    # brightness test on the two readings it was measured against (231 lit, 18 empty).
+    # The suggestion row: where it lands on a 1440p window at a negative origin, and the change
+    # test. A row already lit before typing (1080p: the 'Barter items' category) is not a
+    # suggestion until it differs from itself; the brightness test this replaced said yes at once.
     from PIL import Image
     assert suggestion_row((-2560, 0, 2560, 1440)) == (-2463, 209, 371, 19)
-    assert not suggestion_lit(Image.new('RGB', (371, 19), (18, 10, 5)))
-    lit = Image.new('RGB', (371, 19), (18, 10, 5))
-    lit.putpixel((100, 9), (231, 220, 200))
-    assert suggestion_lit(lit), 'one bright pixel of text is enough'
+    category = Image.new('RGB', (278, 14), (40, 40, 40))
+    category.paste((220, 220, 210), (60, 3, 200, 11))
+    assert not suggestion_changed(category, category.copy()), 'a lit row that has not changed'
+    dropped = Image.new('RGB', (278, 14), (30, 30, 30))
+    dropped.paste((220, 220, 210), (20, 3, 120, 11))
+    assert suggestion_changed(category, dropped), 'the row redrawn as the suggestion list'
 
     # The price box, off the button that was actually measured. At 1080p the offsets are used
     # as written; find.scale() is what a real screen multiplies them by.

@@ -42,7 +42,10 @@ $bmp.Save("$PSScriptRoot\grab.tmp", [System.Drawing.Imaging.ImageFormat]::Png)
 Move-Item -Force "$PSScriptRoot\grab.tmp" "$PSScriptRoot\grab.png"
 PS
 
-ssh "$HOST" "if not exist $REMOTE_WIN mkdir $REMOTE_WIN & del $REMOTE_WIN\\grab.png 2>nul" >/dev/null
+# Parentheses, because cmd reads everything after an unbracketed `if` as its body: written as
+# `if not exist X mkdir X & del ...` the del only ran when the folder was missing, so the poll
+# below copied the last run's grab.png before the task had written a new one.
+ssh "$HOST" "(if not exist $REMOTE_WIN mkdir $REMOTE_WIN) & del $REMOTE_WIN\\grab.png 2>nul" >/dev/null
 scp -q "$TMP/grab.ps1" "$HOST:$REMOTE/grab.ps1"
 ssh "$HOST" "schtasks /create /f /tn $TASK /tr \"conhost.exe --headless powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_WIN\\grab.ps1\" /sc once /st 00:00 /ru matmi /it && schtasks /run /tn $TASK" >/dev/null
 

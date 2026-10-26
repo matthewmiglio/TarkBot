@@ -240,6 +240,11 @@ class FleaSniper(GameRestarts):
             log(f'{name}: no offers on the board', 1)
             snipe.dismiss_error_popup(self.region)
             return False
+        # A board that is not all one item means the suggestion click missed and the whole
+        # category is up; its top price belongs to some other item. Next search, not a guess.
+        if not snipe.one_item_board(self.region, buttons):
+            log(f'{name}: the board shows more than one item, so the search missed; skipping', 1)
+            return False
         top = buttons[0]  # topmost, which is the cheapest once the board is sorted by price
         asking = snipe.read_price(top)
         if asking is None:

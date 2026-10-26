@@ -44,7 +44,9 @@ ssh "$HOST" "cd /d $REMOTE_WIN && tar -xzf app.tgz" >/dev/null
 # ssh -> cmd.exe -> schtasks /tr is a thicket, and run_live.cmd reads the file. The test path too,
 # so one task serves every live test rather than one task per test.
 printf '%s' "$TEST" > "$TMP/run_test.txt"
-printf '%s' "$*" > "$TMP/run_args.txt"
+# Each argument double-quoted, so cmd hands a multi-word one ("RAM stick") to python as one
+# argument; "$*" alone split every item name into a search per word.
+[ $# -gt 0 ] && printf '"%s" ' "$@" > "$TMP/run_args.txt" || : > "$TMP/run_args.txt"
 scp -q "$TMP/run_test.txt" "$TMP/run_args.txt" "$HOST:$REMOTE/"
 
 echo "== running $TEST $* in the laptop's desktop session"
