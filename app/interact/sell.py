@@ -81,6 +81,12 @@ FLEA_OPEN_BRIGHTNESS = 90  # mean channel value: measured 57 closed, 117 open
 # lit background just as well as 57 against 117 does on the stash's dark one.
 FLEA_OPEN_TIMEOUT = 12.0  # seconds before giving up on the click having taken
 FLEA_OPEN_POLL = 0.4  # seconds between reads; each read parks the cursor and matches the entry
+# Hover the flea entry this long before clicking it. click() teleports the cursor and presses in
+# the same instant, and Tarkov can take the press at the parked mid-screen point it last saw. On
+# the main menu that point is the KORD BREACH banner: 2026-10-26, after every fresh boot the
+# escape-and-reopen landed on the main menu, the click opened the battle pass instead of the
+# flea, and the run restarted the game over and over.
+FLEA_HOVER = 0.2
 # The suggested price readout, as (left, top, right, bottom) fractions of the window.
 # Measured at 1920x1080: left 1339, top 147, right 1498, bottom 186.
 PRICE_FRACTIONS = (1339 / 1920, 147 / 1080, 1498 / 1920, 186 / 1080)
@@ -625,6 +631,8 @@ def open_flea(region=None):
         return True
     point = _scoped(FLEA_ICON_TARGET, region, find.find_center)
     log(f'flea icon brightness {brightness:.0f} < {FLEA_OPEN_BRIGHTNESS}, clicking it at {point}', 1)
+    pyautogui.moveTo(*point)
+    time.sleep(FLEA_HOVER)  # let the game see the cursor on the entry before the press, see FLEA_HOVER
     pyautogui.click(*point)
     opened = wait_for_flea(region)
     log(f'flea {"open" if opened else "still shut after the click"}', 1)
