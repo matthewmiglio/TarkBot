@@ -461,7 +461,13 @@ class App:
                 ('✕', 0, self.close, theme.CLOSE, theme.CLOSE_HOT),
                 ('−', 26, self.minimise, theme.STOPPED, theme.INK)):
             tag = f'chrome{offset}'
-            item = bar.create_text(width - PAD - offset, theme.TITLEBAR // 2, text=glyph,
+            cx = width - PAD - offset
+            # ponytail: invisible bg-filled rect behind the glyph widens the click target;
+            # same tag, so it inherits the glyph's bindings. An unfilled rect only catches
+            # clicks on its 1px outline, hence fill.
+            bar.create_rectangle(cx - 13, 0, cx + 13, theme.TITLEBAR - 1,
+                                 fill=theme.TITLEBAR_BG, outline='', tags=tag)
+            item = bar.create_text(cx, theme.TITLEBAR // 2, text=glyph,
                                    fill=rest, font=self.fonts['status'], tags=tag)
             bar.tag_bind(tag, '<Button-1>', lambda _, c=command: c())
             # Canvas items have no cursor of their own, so the bar's own is swapped on the way
