@@ -70,64 +70,20 @@ desktop.ini
 .claude/
 
 # ---- Not published ----
-# Local screen recorder and its takes, gigabytes of lossless frames. See _recorder/README.md.
-_recorder/
+# Every top-level _-prefixed folder is local scratch and stays out: benches, soak-test debugging
+# (_craft_mode_run_debugging/ and the other _*_mode_run_debugging/), scrapers, 1440p find
+# patches, the screen recorder, the sudak work. Many hold real players' crash screenshots with
+# their character name and rouble balance in frame, so this is also a privacy guard: do not
+# un-ignore a _ folder without first checking what frames are in it.
+/_*/
+# Non-_ scratch the rule above does not catch:
 demo_obfuscator/
-# Local png/webp/avif size comparison scratch, ~10MB of the same picture over and over.
-# Globbed rather than literal: this folder has already been spelled image-size-testing and
-# _image_size_testing, and a rename should not quietly put 10MB back on the table.
+# png/webp/avif size comparison scratch, ~10MB of the same picture. Globbed because this folder
+# has been spelled image-size-testing and _image_size_testing both, and a rename should not
+# quietly put 10MB back on the table.
 *image?size?testing/
-# Working out why find() matched nothing at 1440p, and the frames it was worked out against.
-# A 2560x1440 lossless png is 4.5MB and this fills up with them. The finding itself is written
-# up in that folder's README and the fix landed in screen.py, so nothing here needs keeping.
-_1440p_find_fix/
-# Crash screenshots pulled out of Tarkbot_screenshots to cut 1440p reference crops from. These
-# are somebody's actual screen, character name and rouble balance included, so they never go
-# near a commit. The skill downloads them to the temp folder for exactly this reason; this
-# folder exists because the crops have to be cut against a real frame and that wants them kept.
-_1440p_find_patch/
-# The autoselect similar bench: ten frames, half of them somebody else's crash screenshot, for
-# the same reason as the folder above. Same rule, they never go near a commit.
-_autoselect_similar_testing/
+# Local cleanup/audit planning scratch, machine-local, never shipped.
+cleanup_*.md
 # docs/ itself stays out; readme_assets is the exception, the README links its images.
 docs/*
 !docs/readme_assets/
-
-# Gym bot test rig: recorded playthroughs, frames and all
-_gym_bot_testing/
-
-# Price scraper scratch module
-_price_scraper/
-
-# Flea search harness: the screenshots it takes of the suggestion list
-_item_search_testing/
-
-# Filter-by-item confidence bench: 260 frames scored, 20 of them kept as a labelled set. Full
-# screen shots of a real stash, so the same rule as the benches above, they never go near a
-# commit. score.py rebuilds the whole thing from any frames folder.
-_filer_by_item_conf_testing/
-
-# Snipe captcha debugging: a user's crash dump (logs + full-screen frames with their character
-# name and rouble balance) and the parsed purchase timeline. Same rule as the benches above.
-_snipebot_captcha_debugging/
-
-# Local cleanup/audit planning scratch, machine-local, never shipped
-cleanup_*.md
-
-# Pressure-test soak debugging: per-run bug reports and log ledger, machine-local, one folder per
-# mode (_craft_mode_run_debugging/, _sell_mode_run_debugging/, ...)
-_*_mode_run_debugging/
-
-# Item name recognition bench: 306 captured name strips off a real stash, the transcribed answer
-# key, and the glyph references built from them. Same rule as the benches above, the strips are
-# crops of a live inventory. build then harvest rebuilds the references from any names/ folder.
-_item_name_recognition/
-
-# Username enumeration scratch work, kept local.
-_username_enumeration/
-
-# Snipe search-wait frames and region picker, kept local for now.
-_flea_snipe_item_select_patch/
-
-# Sellable vs unsellable stash frames, full-screen shots of a real stash, kept local.
-_sellable_unsellable_testing/

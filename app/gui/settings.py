@@ -37,6 +37,10 @@ DEFAULTS = {'background': 'camp.png', 'mode': 'inventory', 'stale': '10m',
             # Which trader's items snipe mode watches for, so everything bought sells to one
             # trader. 'All traders' watches the whole list. See snipe_bot.trader_choices.
             'trader': 'Therapist',
+            # Which craftable item sudak mode hunts: a display name from daily_bot.ITEMS, matched
+            # by rerolling Ragman's daily until it is offered. Anything not in ITEMS falls back to
+            # daily_bot.DEFAULT_ITEM at startup.
+            'sudak_item': 'WD-40 (100ml)',
             # The key that starts and stops the bot from inside the game. A name from
             # gui.app.HOTKEYS; anything else falls back to the default at startup.
             'hotkey': 'F4',

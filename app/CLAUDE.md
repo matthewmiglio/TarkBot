@@ -360,18 +360,36 @@ craft_bot.py         HideoutCraft: the fourth mode, keeping several hideout craf
                      Blind. start()'s totals line and find.VERBOSE restore are in a finally.
                      tests/hideout_craft_actions/test_craft_auto_restart.py.
 daily_bot.py         DailyReset: the fifth mode, the SUDAK tab. Rerolls Ragman's operational
-                     'Find and transfer' task with REPLACE until it asks for WD-40 (100ml), then
-                     stops on its own. Start it on TRADERS > TASKS with Ragman selected; accepting
-                     the task is left to the player. Loop: click the offer once, then check, and
-                     if it is not WD-40 press REPLACE, 'y', and click the offer again, since the
-                     panel keeps showing the old offer until it is reopened.
-                     The WD-40 check matches a crop of '(100ml)' alone at 0.95, inside
-                     OBJECTIVE_FRACTIONS. A crop of the whole objective line let other items
-                     through, because most of it is text every offer shares: 'Ripstop fabric'
-                     scored 0.836 and 'WD-40 (400ml)' 0.987. '(100ml)' alone reads 0.991 on
-                     100ml against 0.872 on 400ml. No center subcrops for that one: smaller is
-                     mostly the '00ml' 400ml shares. Measured in _sudak_daily_resetter/, which
-                     also holds the fixture frame and the region picker.
+                     'Find and transfer' task with REPLACE until it offers the craftable item the
+                     GUI's SUDAK ITEM dropdown picked, then stops on its own. Start it on
+                     TRADERS > TASKS with Ragman selected; accepting the task is left to the
+                     player. Loop: click the offer once, then check, and if it is not the target
+                     press REPLACE, 'y', and click the offer again, since the panel keeps showing
+                     the old offer until it is reopened.
+                     ITEMS is the 23 craftable offers, display name -> reference folder under
+                     interact/reference_images/sudak/. is_target_offer matches that one folder's
+                     crop in OBJECTIVE_FRACTIONS at SUDAK_CONFIDENCE (0.95); DEFAULT_ITEM is
+                     WD-40 (100ml), what the mode hunted before it could hunt anything, and
+                     build() reads the GUI's 'sudak_item' pref through ITEMS, falling back to the
+                     default on anything unknown.
+                     Each reference is a crop of the WHOLE objective line, not the tight '(100ml)'
+                     crop the WD-40-only reader used. The line shares its 'Hand over the found in
+                     raid item:' prefix with every offer, so a wrong item still matches up to
+                     0.901 while the right one matches 0.990 at both 1080p and 1440p, a gap
+                     0.95 sits in with ~0.05 either side. This is why one full-line crop per item
+                     works where the WD-40 reader needed a hand-cut '(100ml)': the prefix raises
+                     the false-match floor but never reaches the true match. WD-40 (100ml) vs
+                     (400ml), the case the tight crop was built for, reads 0.871 here, clear of
+                     the threshold. OBJECTIVE_FRACTIONS is the 1080p search region (552, 577,
+                     1919, 703), measured with _sudak_options/region_picker.html.
+                     tests/sudak/test_sudak_name_match.py is the evidence and the regression net:
+                     it scores every sudak reference against every quest fixture
+                     (tests/fixtures/sudak_quests/{1080p,1440p}/, one of each craftable item at
+                     each resolution) and asserts 0.95 separates all 46 true matches from all
+                     1035 false ones. The corpus was gathered in _sudak_options/ (the 234 captured
+                     offer frames, the labelled name crops, the region picker, the capture tools).
+                     No standalone game test; python -m daily_bot is the no-game self-check that
+                     every ITEMS slug has reference crops and build() maps a pick to its slug.
                      The GUI's run timer stays frozen at the run's length once a run ends, so a
                      mode that stops itself still shows how long it took.
 window.py            Locates windows via ctypes/user32. Load bearing: bot, gui and every test

@@ -75,7 +75,7 @@ TIPS = {
     'crafts': ('Jaeger crafts for you! Tick which crafts to run.',
                (288, 168), 152, (264, 262)),
     'dailies': ("Start on Ragman's task screen with the Sudak task showing. I'll swap until "
-                'the WD-40 task appears!', (236, 146), 190, (212, 216)),
+                'the item you picked appears!', (236, 146), 190, (212, 216)),
 }
 # Px to slide each tab's figure sideways from centre, negative is left, to open up room on the
 # right for its bubble. A tab not listed stays centred. Its TIPS tail point slides with it, so

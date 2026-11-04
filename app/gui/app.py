@@ -539,6 +539,17 @@ class App:
             tip='Only buy items this trader will buy back, so everything bought goes to one '
                 'trader when you sell it on')
 
+        # Sudak mode's one pick, in the same row-0 slot SOURCE and TRADER share: the three modes'
+        # tabs are never on screen together. 'ITEM' is the caption rather than 'SUDAK ITEM' so it
+        # clears BACKGROUND's widget on its left; the full item name shows in the open menu.
+        if self.prefs['sudak_item'] not in daily_bot.ITEMS:  # an edited settings file must not wedge it
+            self.prefs['sudak_item'] = daily_bot.DEFAULT_ITEM
+        self.sudak_item_var = self._dropdown(
+            'ITEM', 916, list(daily_bot.ITEMS), self.prefs['sudak_item'], self._pick_sudak_item,
+            150, tag='tab:dailies',
+            tip='Which craftable item to hunt: the bot rerolls Ragman\'s daily task until it is '
+                'offered, then stops')
+
         # Second row. Untagged like the background: which screen the game is on belongs to the
         # window, not to a mode, so both tabs see it.
         self.monitors = {m.label: m for m in screen.monitors()}
@@ -1110,6 +1121,10 @@ class App:
 
     def _pick_trader(self, label):
         self.prefs['trader'] = label  # a trader's name, or snipe_bot.ALL_TRADERS
+        settings.save(self.prefs)
+
+    def _pick_sudak_item(self, label):
+        self.prefs['sudak_item'] = label  # the dropdown's labels are daily_bot.ITEMS' keys
         settings.save(self.prefs)
 
     # The crafts tab's <stem>_max fields are typed inputs that save themselves through a
