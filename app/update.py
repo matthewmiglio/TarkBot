@@ -1,13 +1,23 @@
 """Silent, per-user auto-update, applied on boot.
 
-The MSI installs into %LocalAppData%\\Tarkbot (see scripts/setup_msi.py), so a newer MSI upgrades
-in place with no elevation and no UAC. boot_gate() runs before the main window: it asks GitHub for
-the latest release, and if it is newer than ours it hands off to one detached updater window that
-downloads the MSI (a determinate progress bar), waits for this process to exit (so the running exe
-is never the one being overwritten), installs with msiexec /quiet (the bar switches to a cycling
-marquee for that indeterminate stage), then closes and relaunches the app. One window start to
-finish. The gate returns True when an update is under way, so the caller exits instead of opening
-the main window.
+The MSI installs into %LocalAppData%\\Tarkbot (see scripts/setup_msi.py). boot_gate() runs before
+the main window: it asks GitHub for the latest release, and if it is newer than ours it hands off
+to one detached updater window that downloads the MSI (a determinate progress bar), waits for this
+process to exit (so the running exe is never the one being overwritten), installs the MSI (the bar
+switches to a cycling marquee for that indeterminate stage), then closes and relaunches the app.
+One window start to finish. The gate returns True when an update is under way, so the caller exits
+instead of opening the main window.
+
+The install runs msiexec with -Verb RunAs, so it elevates behind a single UAC prompt. This is not
+cosmetic: a version bump is a per-user MAJOR upgrade, and its RemoveExistingProducts step rewrites
+the previous build's registration under HKLM\\...\\Installer\\UserData. An unelevated `msiexec
+/quiet` cannot write there, so it failed 1603 mid-removal, the rollback failed too, and the install
+was left deregistered with its shortcuts gone and stale files behind (every build up to v1.38.2
+shipped that). Elevating is the only way to do it silently-after-consent: Windows forbids a
+non-elevated process from elevating any other way (a scheduled task set to run at Highest level
+cannot even be registered unelevated), so the one UAC prompt is unavoidable. An admin consents in
+place; a standard user's build installs under HKCU and never needs this, but the prompt is harmless
+there too. The prompt is the only UX change; everything after the user clicks Yes is as before.
 
 Frozen builds only; from source it is a no-op. Every failure falls through to a normal boot: an
 update must never be why the app won't open. Self-check, no network: python -m update
@@ -120,8 +130,8 @@ $pb.Value=100; [Windows.Forms.Application]::DoEvents()
 if(Test-Path '@MSI@'){
   $pb.Style='Marquee'; $pb.MarqueeAnimationSpeed=30
   Wait-Process -Id @PID@
-  $p=Start-Process msiexec -ArgumentList '/i','@MSI@','/quiet','/norestart','/l*v','@LOG@' -PassThru
-  while(-not $p.HasExited){ [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 80 }
+  $p=Start-Process msiexec -ArgumentList '/i','@MSI@','/quiet','/norestart','/l*v','@LOG@' -Verb RunAs -PassThru
+  if($p){ while(-not $p.HasExited){ [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 80 } }
 }
 $f.Close()
 Start-Process '@EXE@'
@@ -165,13 +175,14 @@ def boot_gate():
 
 
 # The headless twin of _UPDATER_PS: no window, no progress bar, no relaunch. It only waits for
-# the calling process to exit (so the running exe can be overwritten) and installs quietly. The
-# CLI does the download itself and prints its own progress, so all that is left for a detached
-# process is the part that cannot run inside the exe being replaced.
+# the calling process to exit (so the running exe can be overwritten) and installs. The install
+# elevates with -Verb RunAs (one UAC prompt), the same as the GUI path and for the same reason;
+# see the module docstring. The CLI does the download itself and prints its own progress, so all
+# that is left for a detached process is the part that cannot run inside the exe being replaced.
 _INSTALLER_PS = r"""
 $ErrorActionPreference='SilentlyContinue'
 Wait-Process -Id @PID@
-Start-Process msiexec -ArgumentList '/i','@MSI@','/quiet','/norestart','/l*v','@LOG@' -Wait
+Start-Process msiexec -ArgumentList '/i','@MSI@','/quiet','/norestart','/l*v','@LOG@' -Verb RunAs -Wait
 """
 
 
@@ -236,6 +247,10 @@ def demo():
     assert _newer(None) is False
     assert boot_gate() is False  # not frozen: never gates
     assert cli_update(out=lambda *a, **k: None) is False  # not frozen: nothing to update
+    # Both install scripts must elevate: an unelevated `msiexec /quiet` is the v1.38.2 bug that
+    # left major upgrades half-removed with their shortcuts gone.
+    assert '-Verb RunAs' in _INSTALLER_PS, 'CLI install must elevate'
+    assert '-Verb RunAs' in _UPDATER_PS, 'GUI install must elevate'
     print('ok. current version:', __version__)
 
 
